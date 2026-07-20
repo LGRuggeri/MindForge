@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AgentKbService } from '../agent-kb/agent-kb.service';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
 import { AvaliarRespostaDto } from './dto/avaliar-resposta.dto';
@@ -49,12 +50,19 @@ describe('TutorService', () => {
       indexarTexto: jest.fn(),
     };
 
+    const agentKbMock = {
+      isAvailable: jest.fn().mockReturnValue(false),
+      buildContextPack: jest.fn(),
+      addMemory: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TutorService,
         { provide: TutorRepository, useValue: repoMock },
         { provide: AgentesService, useValue: agentesMock },
         { provide: BibliotecaVivaService, useValue: bibliotecaMock },
+        { provide: AgentKbService, useValue: agentKbMock },
       ],
     }).compile();
 

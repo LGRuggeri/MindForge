@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AgentKbService } from '../agent-kb/agent-kb.service';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
 import { AvaliarRespostaDto } from './dto/avaliar-resposta.dto';
@@ -24,6 +25,7 @@ interface ModuloContexto {
 }
 
 interface DuvidaAnterior {
+  id: string;
   pergunta: string;
   resposta: string;
   avaliacao?: number | null;
@@ -39,6 +41,7 @@ export class TutorService {
     private readonly repo: TutorRepository,
     private readonly agentes: AgentesService,
     private readonly biblioteca: BibliotecaVivaService,
+    private readonly agentKb: AgentKbService,
   ) {}
 
   async tirarDuvida(dto: TirarDuvidaDto) {
@@ -48,6 +51,7 @@ export class TutorService {
     }
 
     const historico = await this.repo.listarHistoricoRecentePorPerfil(dto.perfilId, 5);
+    const contextoAgentKb = await this.buscarContextoAgentKb(dto.pergunta);
 
     let chunks: Array<{
       id: string;
@@ -71,7 +75,7 @@ export class TutorService {
 
     const resposta = await this.agentes.executar<RespostaTutor>({
       agente: 'teacher',
-      system: this.montarSystemPrompt(),
+      system: this.montarSystemPrompt(contextoAgentKb),
       user: this.montarUserPrompt(dto, modulo, chunks, historico),
       entrada: { perfilId: dto.perfilId, moduloId: dto.moduloId, pergunta: dto.pergunta },
       parser: (raw) => this.parseJsonSeguro<RespostaTutor>(raw),
@@ -113,6 +117,8 @@ export class TutorService {
 
     const atualizado = await this.repo.avaliarDuvida(dto.duvidaId, dto.avaliacao, dto.feedback);
 
+    await this.salvarFeedbackComoMemoria(duvida, dto.avaliacao, dto.feedback);
+
     this.logger.log(`Resposta da dúvida ${dto.duvidaId} avaliada com ${dto.avaliacao} estrelas`);
 
     return atualizado;
@@ -122,6 +128,75 @@ export class TutorService {
     return this.repo.listarHistoricoPorPerfil(perfilId);
   }
 
+  private async buscarContextoAgentKb(pergunta: string): Promise<string> {
+    if (!this.agentKb.isAvailable()) {
+      return '';
+    }
+    try {
+      const pack = await this.agentKb.buildContextPack(pergunta, 2000);
+      if (pack.tokens_used === 0) {
+        return '';
+      }
+
+      const secoes: string[] = [];
+      if (pack.pack.rules.length > 0) {
+        secoes.push(
+          `Regras relevantes:\n${pack.pack.rules
+            .map((r) => `- [${r.level ?? 'rule'}] ${r.name ?? r.title ?? r.id}: ${r.summary ?? ''}`)
+            .join('\n')}`,
+        );
+      }
+      if (pack.pack.memory.length > 0) {
+        secoes.push(
+          `Memórias relevantes:\n${pack.pack.memory
+            .map(
+              (m) =>
+                `- [${m.node_type ?? m.importance ?? 'memory'}] ${m.title ?? m.id}: ${m.summary ?? ''}`,
+            )
+            .join('\n')}`,
+        );
+      }
+
+      return secoes.length > 0 ? secoes.join('\n\n') : '';
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : String(erro);
+      this.logger.warn(`Falha ao buscar contexto no agent_kb: ${mensagem}`);
+      return '';
+    }
+  }
+
+  private async salvarFeedbackComoMemoria(
+    duvida: DuvidaAnterior & { pergunta: string; resposta: string; moduloId?: string },
+    avaliacao: number,
+    feedback?: string,
+  ) {
+    if (!this.agentKb.isAvailable() || avaliacao >= 4) {
+      return;
+    }
+
+    const nodeType = avaliacao <= 2 ? 'BUG_FIX' : 'PATTERN';
+    const titulo = `Feedback do aluno: ${duvida.pergunta.slice(0, 60)}`;
+    const resumo = `Avaliação ${avaliacao}/5 — ${feedback ?? 'sem feedback textual'}`;
+    const conteudo = `Pergunta: ${duvida.pergunta}\nResposta dada: ${duvida.resposta.slice(0, 500)}\nAvaliação: ${avaliacao}/5\nFeedback: ${feedback ?? 'N/A'}\n\nAção: ajustar explicações futuras com base nesse padrão de dificuldade.`;
+
+    try {
+      await this.agentKb.addMemory({
+        title: titulo,
+        summary: resumo,
+        content: conteudo,
+        nodeType,
+        importance: avaliacao <= 2 ? 'high' : 'medium',
+        tags: ['tutor', 'feedback', 'aluno', nodeType.toLowerCase()],
+        sourceType: 'historico_duvidas',
+        sourceRef: duvida.id,
+      });
+      this.logger.log(`Feedback da dúvida ${duvida.id} salvo no agent_kb como ${nodeType}`);
+    } catch (erro) {
+      const mensagem = erro instanceof Error ? erro.message : String(erro);
+      this.logger.warn(`Falha ao salvar feedback no agent_kb: ${mensagem}`);
+    }
+  }
+
   private montarConsultaRag(pergunta: string, modulo: ModuloContexto): string {
     const contexto = [modulo.trilha?.objetivo?.titulo, modulo.titulo, modulo.objetivoAprendizagem]
       .filter(Boolean)
@@ -129,16 +204,21 @@ export class TutorService {
     return `${contexto}: ${pergunta}`;
   }
 
-  private montarSystemPrompt(): string {
-    return `Você é o Tutor IA do MindForge, um professor pessoal que responde dúvidas de estudo.
+  private montarSystemPrompt(contextoAgentKb: string): string {
+    const contextoExtra = contextoAgentKb
+      ? `\n---\nContexto relevante da base de conhecimento do MindForge:\n${contextoAgentKb}\n---\n`
+      : '';
+
+    return `Você é o Tutor IA do MindForge, um professor pessoal que responde dúvidas de estudo.${contextoExtra}
 
 Regras:
 1. Se forem fornecidos chunks da Biblioteca Viva, use-os como base principal da resposta e cite trechos relevantes.
-2. Se não houver chunks disponíveis, responda com base no contexto do módulo (título, objetivo de aprendizagem, nível do aluno e trilha), explicando o conceito de forma didática e autocontida.
-3. Analise o histórico de dúvidas do aluno. Se ele já perguntou algo relacionado, aprofunde ou conecte os conceitos. Se uma resposta anterior foi mal avaliada, ajuste o estilo de explicação.
-4. Explique de forma clara, didática e no nível do aluno.
-5. Sugira 1 a 3 próximos passos concretos (exercício, revisão, próximo conceito).
-6. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
+2. Se houver contexto da base de conhecimento (ADRs, regras, padrões), priorize-o sobre conhecimento genérico do LLM.
+3. Se não houver chunks disponíveis, responda com base no contexto do módulo (título, objetivo de aprendizagem, nível do aluno e trilha), explicando o conceito de forma didática e autocontida.
+4. Analise o histórico de dúvidas do aluno. Se ele já perguntou algo relacionado, aprofunde ou conecte os conceitos. Se uma resposta anterior foi mal avaliada, ajuste o estilo de explicação.
+5. Explique de forma clara, didática e no nível do aluno.
+6. Sugira 1 a 3 próximos passos concretos (exercício, revisão, próximo conceito).
+7. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
 
 Formato obrigatório:
 {

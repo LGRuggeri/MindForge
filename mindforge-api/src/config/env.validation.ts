@@ -18,6 +18,11 @@ export const envSchema = z.object({
   // Se omitidos, caem em LLM_API_KEY / sem baseURL (OpenAI oficial).
   EMBEDDING_API_KEY: z.string().min(1).optional(),
   EMBEDDING_BASE_URL: z.string().url().optional(),
+  // Caminho para o script agent_kb.py e slug do projeto de contexto.
+  // Opcional: quando ausente, o agent_kb não é consultado.
+  AGENT_KB_SCRIPT_PATH: z.string().min(1).optional(),
+  AGENT_KB_PROJECT_ID: z.string().min(1).optional(),
+  AGENT_KB_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

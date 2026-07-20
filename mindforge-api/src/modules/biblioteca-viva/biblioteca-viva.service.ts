@@ -22,11 +22,7 @@ export class BibliotecaVivaService {
    * Quebra o texto em chunks, gera embeddings e indexa em `conteudo_chunks`.
    * Origem: exatamente um de `conteudoId` ou `fonteId` (CHECK do schema).
    */
-  async indexarTexto(params: {
-    texto: string;
-    conteudoId?: string;
-    fonteId?: string;
-  }) {
+  async indexarTexto(params: { texto: string; conteudoId?: string; fonteId?: string }) {
     const { texto, conteudoId, fonteId } = params;
 
     if (Boolean(conteudoId) === Boolean(fonteId)) {

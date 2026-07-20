@@ -3,7 +3,8 @@ import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import { agentesExecucoes, NovaAgenteExecucao } from '../../database/schema';
 import { LlmService } from './llm.service';
 
-export type AgenteTipo = 'planner' | 'researcher' | 'synthesizer' | 'teacher' | 'evaluator' | 'reviewer';
+export type AgenteTipo =
+  'planner' | 'researcher' | 'synthesizer' | 'teacher' | 'evaluator' | 'reviewer';
 
 export interface ExecutarAgenteOptions<T> {
   agente: AgenteTipo;

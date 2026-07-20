@@ -13,6 +13,7 @@ import { BibliotecaVivaModule } from './modules/biblioteca-viva/biblioteca-viva.
 import { DiarioModule } from './modules/diario/diario.module';
 import { KnowledgeGraphModule } from './modules/knowledge-graph/knowledge-graph.module';
 import { AgentesModule } from './modules/agentes/agentes.module';
+import { AgentKbModule } from './modules/agent-kb/agent-kb.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AgentesModule } from './modules/agentes/agentes.module';
     DiarioModule,
     KnowledgeGraphModule,
     AgentesModule,
+    AgentKbModule,
   ],
 })
 export class AppModule {}

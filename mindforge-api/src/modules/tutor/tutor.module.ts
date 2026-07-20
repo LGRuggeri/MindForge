@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AgentesModule } from '../agentes/agentes.module';
+import { AgentKbModule } from '../agent-kb/agent-kb.module';
 import { BibliotecaVivaModule } from '../biblioteca-viva/biblioteca-viva.module';
 import { TutorController } from './tutor.controller';
 import { TutorService } from './tutor.service';
@@ -11,7 +12,7 @@ import { TutorRepository } from './tutor.repository';
  * indexados, mantendo o contexto do módulo e do nível do aluno.
  */
 @Module({
-  imports: [AgentesModule, BibliotecaVivaModule],
+  imports: [AgentesModule, BibliotecaVivaModule, AgentKbModule],
   controllers: [TutorController],
   providers: [TutorService, TutorRepository],
   exports: [TutorService],

@@ -15,7 +15,10 @@ export function chunkTexto(texto: string): string[] {
     return [limpo];
   }
 
-  const paragrafos = limpo.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const paragrafos = limpo
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
   const chunks: string[] = [];
   let buffer = '';
 
