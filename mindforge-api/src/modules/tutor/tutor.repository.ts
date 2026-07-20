@@ -58,6 +58,7 @@ export class TutorRepository {
       where: eq(historicoDuvidas.perfilId, perfilId),
       orderBy: [desc(historicoDuvidas.criadoEm)],
       limit: limite,
+      with: { modulo: true },
     });
   }
 }

@@ -31,8 +31,15 @@ interface DuvidaAnterior {
   avaliacao?: number | null;
   feedback?: string | null;
   moduloTitulo?: string;
+  moduloId?: string;
+  criadoEm?: Date;
 }
 
+interface ThreadContext {
+  isFollowUp: boolean;
+  previousDuvida?: DuvidaAnterior;
+  topic?: string;
+}
 @Injectable()
 export class TutorService {
   private readonly logger = new Logger(TutorService.name);
@@ -51,7 +58,9 @@ export class TutorService {
     }
 
     const historico = await this.repo.listarHistoricoRecentePorPerfil(dto.perfilId, 5);
+    const historicoNormalizado = this.normalizarHistorico(historico);
     const contextoAgentKb = await this.buscarContextoAgentKb(dto.pergunta);
+    const thread = this.detectarThread(dto, historicoNormalizado);
 
     let chunks: Array<{
       id: string;
@@ -62,7 +71,7 @@ export class TutorService {
     }> = [];
     try {
       chunks = await this.biblioteca.buscar({
-        consulta: this.montarConsultaRag(dto.pergunta, modulo),
+        consulta: this.montarConsultaRag(dto.pergunta, modulo, thread),
         limite: dto.limiteChunks ?? 5,
       });
     } catch (erro) {
@@ -76,7 +85,7 @@ export class TutorService {
     const resposta = await this.agentes.executar<RespostaTutor>({
       agente: 'teacher',
       system: this.montarSystemPrompt(contextoAgentKb),
-      user: this.montarUserPrompt(dto, modulo, chunks, historico),
+      user: this.montarUserPrompt(dto, modulo, chunks, historicoNormalizado, thread),
       entrada: { perfilId: dto.perfilId, moduloId: dto.moduloId, pergunta: dto.pergunta },
       parser: (raw) => this.parseJsonSeguro<RespostaTutor>(raw),
       temperature: 0.6,
@@ -170,14 +179,21 @@ export class TutorService {
     avaliacao: number,
     feedback?: string,
   ) {
-    if (!this.agentKb.isAvailable() || avaliacao >= 4) {
+    if (!this.agentKb.isAvailable()) {
       return;
     }
 
-    const nodeType = avaliacao <= 2 ? 'BUG_FIX' : 'PATTERN';
-    const titulo = `Feedback do aluno: ${duvida.pergunta.slice(0, 60)}`;
-    const resumo = `Avaliação ${avaliacao}/5 — ${feedback ?? 'sem feedback textual'}`;
-    const conteudo = `Pergunta: ${duvida.pergunta}\nResposta dada: ${duvida.resposta.slice(0, 500)}\nAvaliação: ${avaliacao}/5\nFeedback: ${feedback ?? 'N/A'}\n\nAção: ajustar explicações futuras com base nesse padrão de dificuldade.`;
+    const isPositiva = avaliacao >= 4;
+    const nodeType = isPositiva ? 'EXPLANATION' : avaliacao <= 2 ? 'BUG_FIX' : 'PATTERN';
+    const titulo = isPositiva
+      ? `Explicação bem avaliada: ${duvida.pergunta.slice(0, 60)}`
+      : `Feedback do aluno: ${duvida.pergunta.slice(0, 60)}`;
+    const resumo = isPositiva
+      ? `Avaliação ${avaliacao}/5 — explicação que funcionou bem para o aluno.`
+      : `Avaliação ${avaliacao}/5 — ${feedback ?? 'sem feedback textual'}`;
+    const conteudo = isPositiva
+      ? `Pergunta: ${duvida.pergunta}\nResposta dada: ${duvida.resposta.slice(0, 500)}\nAvaliação: ${avaliacao}/5\n\nAção: reforçar esse estilo de explicação em perguntas similares.`
+      : `Pergunta: ${duvida.pergunta}\nResposta dada: ${duvida.resposta.slice(0, 500)}\nAvaliação: ${avaliacao}/5\nFeedback: ${feedback ?? 'N/A'}\n\nAção: ajustar explicações futuras com base nesse padrão de dificuldade.`;
 
     try {
       await this.agentKb.addMemory({
@@ -185,7 +201,7 @@ export class TutorService {
         summary: resumo,
         content: conteudo,
         nodeType,
-        importance: avaliacao <= 2 ? 'high' : 'medium',
+        importance: isPositiva ? 'medium' : avaliacao <= 2 ? 'high' : 'medium',
         tags: ['tutor', 'feedback', 'aluno', nodeType.toLowerCase()],
         sourceType: 'historico_duvidas',
         sourceRef: duvida.id,
@@ -197,11 +213,63 @@ export class TutorService {
     }
   }
 
-  private montarConsultaRag(pergunta: string, modulo: ModuloContexto): string {
+  private montarConsultaRag(
+    pergunta: string,
+    modulo: ModuloContexto,
+    thread?: ThreadContext,
+  ): string {
     const contexto = [modulo.trilha?.objetivo?.titulo, modulo.titulo, modulo.objetivoAprendizagem]
       .filter(Boolean)
       .join(' - ');
-    return `${contexto}: ${pergunta}`;
+    const termoThread = thread?.isFollowUp && thread.topic ? `${thread.topic} - ` : '';
+    return `${contexto}: ${termoThread}${pergunta}`;
+  }
+
+  private detectarThread(dto: TirarDuvidaDto, historico: DuvidaAnterior[]): ThreadContext {
+    if (historico.length === 0) {
+      return { isFollowUp: false };
+    }
+
+    const anterior = historico[0];
+    const perguntaLower = dto.pergunta.toLowerCase();
+    const indicadoresFollowUp = [
+      'e se',
+      'e quanto',
+      'mas e',
+      'não entendi',
+      'pode repetir',
+      'pode explicar',
+      'por que',
+      'porque',
+      'como assim',
+      'então',
+      'ainda não',
+      'mais ou menos',
+      'ficou claro',
+      'não ficou',
+      'me dê um exemplo',
+      'outro exemplo',
+      'exemplo',
+    ];
+
+    const curtaOuVaga = dto.pergunta.length < 50;
+    const contemIndicador = indicadoresFollowUp.some((ind) => perguntaLower.includes(ind));
+    const mesmoModulo = anterior.moduloId === dto.moduloId;
+    const tempoCurto = anterior.criadoEm
+      ? Date.now() - new Date(anterior.criadoEm).getTime() < 1000 * 60 * 30
+      : false;
+
+    const isFollowUp = (curtaOuVaga || contemIndicador) && (mesmoModulo || tempoCurto);
+
+    if (!isFollowUp) {
+      return { isFollowUp: false };
+    }
+
+    return {
+      isFollowUp: true,
+      previousDuvida: anterior,
+      topic: anterior.moduloTitulo ?? anterior.pergunta.slice(0, 60),
+    };
   }
 
   private montarSystemPrompt(contextoAgentKb: string): string {
@@ -216,9 +284,11 @@ Regras:
 2. Se houver contexto da base de conhecimento (ADRs, regras, padrões), priorize-o sobre conhecimento genérico do LLM.
 3. Se não houver chunks disponíveis, responda com base no contexto do módulo (título, objetivo de aprendizagem, nível do aluno e trilha), explicando o conceito de forma didática e autocontida.
 4. Analise o histórico de dúvidas do aluno. Se ele já perguntou algo relacionado, aprofunde ou conecte os conceitos. Se uma resposta anterior foi mal avaliada, ajuste o estilo de explicação.
-5. Explique de forma clara, didática e no nível do aluno.
-6. Sugira 1 a 3 próximos passos concretos (exercício, revisão, próximo conceito).
-7. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
+5. Mantenha continuidade da conversa: se a pergunta atual for um follow-up (ex: "e se...", "não entendi", "pode repetir", "me dê um exemplo"), responda como continuação direta da última dúvida, citando o que já foi dito e evitando repetir o contexto desnecessariamente.
+6. Nunca invente chunks ou citações. Use apenas os trechos fornecidos.
+7. Explique de forma clara, didática e no nível do aluno.
+8. Sugira 1 a 3 próximos passos concretos (exercício, revisão, próximo conceito).
+9. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
 
 Formato obrigatório:
 {
@@ -228,11 +298,36 @@ Formato obrigatório:
 }`;
   }
 
+  private normalizarHistorico(
+    historico: Array<{
+      id: string;
+      pergunta: string;
+      resposta: string;
+      avaliacao?: number | null;
+      feedback?: string | null;
+      moduloId?: string;
+      criadoEm?: Date | string | null;
+      modulo?: { titulo?: string | null } | null;
+    }>,
+  ): DuvidaAnterior[] {
+    return historico.map((h) => ({
+      id: h.id,
+      pergunta: h.pergunta,
+      resposta: h.resposta,
+      avaliacao: h.avaliacao,
+      feedback: h.feedback,
+      moduloId: h.moduloId,
+      moduloTitulo: h.modulo?.titulo ?? undefined,
+      criadoEm: h.criadoEm ? new Date(h.criadoEm) : undefined,
+    }));
+  }
+
   private montarUserPrompt(
     dto: TirarDuvidaDto,
     modulo: ModuloContexto,
     chunks: Array<{ texto: string; similaridade: number }>,
     historico: DuvidaAnterior[],
+    thread?: ThreadContext,
   ): string {
     const tituloTrilha = modulo.trilha?.objetivo?.titulo ?? 'Trilha';
     const descricao = modulo.trilha?.objetivo?.descricao ?? 'Sem descrição';
@@ -258,6 +353,10 @@ Formato obrigatório:
             .join('\n\n')
         : 'Nenhuma dúvida anterior registrada.';
 
+    const threadTexto = thread?.isFollowUp
+      ? `\n\n--- Contexto da conversa atual ---\nA pergunta abaixo parece ser continuação da dúvida anterior: "${thread.previousDuvida?.pergunta}".\nResposta anterior: ${thread.previousDuvida?.resposta.slice(0, 400)}${thread.previousDuvida && thread.previousDuvida.resposta.length > 400 ? '...' : ''}\nResponda de forma direta, como continuação da conversa.\n---\n`
+      : '';
+
     return `Trilha: ${tituloTrilha}
 Descrição da trilha: ${descricao}
 Módulo: ${modulo.titulo}
@@ -265,7 +364,7 @@ Objetivo de aprendizagem do módulo: ${modulo.objetivoAprendizagem ?? 'Não info
 Nível do aluno: ${nivelAluno}
 
 Histórico recente de dúvidas do aluno:
-${historicoTexto}
+${historicoTexto}${threadTexto}
 
 Pergunta atual do aluno: ${dto.pergunta}
 

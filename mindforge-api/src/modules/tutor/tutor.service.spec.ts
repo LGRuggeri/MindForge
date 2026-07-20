@@ -168,50 +168,121 @@ describe('TutorService', () => {
       expect(agentes.executar).toHaveBeenCalled();
     });
 
-    it('deve incluir chunks recuperados no histórico', async () => {
+    it('deve detectar follow-up e reforçar contexto da conversa no prompt', async () => {
       repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
-      repo.listarHistoricoRecentePorPerfil.mockResolvedValue([]);
-
-      const chunks = [
+      repo.listarHistoricoRecentePorPerfil.mockResolvedValue([
         {
-          id: 'chunk-1',
-          texto: 'Texto do chunk 1',
-          similaridade: 0.92,
-          conteudoId: 'conteudo-1',
-          fonteId: null,
+          id: 'duvida-anterior',
+          perfilId,
+          moduloId,
+          pergunta: 'O que é uma variável?',
+          resposta: 'Uma variável é como uma caixa nomeada.',
+          avaliacao: null,
+          feedback: null,
+          criadoEm: new Date(),
+          modulo: { titulo: 'Variáveis em Python' },
         },
-      ];
-      biblioteca.buscar.mockResolvedValue(chunks);
+      ] as never);
+      biblioteca.buscar.mockResolvedValue([]);
 
       const respostaAgente = {
-        resposta: 'Resposta com chunk.',
-        citacoes: ['Texto do chunk 1'],
-        proximosPassos: ['Revisar'],
+        resposta: 'Pense na variável como uma etiqueta.',
+        citacoes: [],
+        proximosPassos: [],
       };
       agentes.executar.mockResolvedValue(respostaAgente);
-
-      const registroSalvo = {
+      repo.salvarDuvida.mockResolvedValue({
         id: duvidaId,
         perfilId,
         moduloId,
-        pergunta: dto.pergunta,
+        pergunta: 'Não entendi',
         resposta: respostaAgente.resposta,
-        citacoes: respostaAgente.citacoes,
-        proximosPassos: respostaAgente.proximosPassos,
-        chunksIds: ['chunk-1'],
+        citacoes: [],
+        proximosPassos: [],
+        chunksIds: [],
         avaliacao: null,
         feedback: null,
         criadoEm: new Date(),
         atualizadoEm: new Date(),
-      };
-      repo.salvarDuvida.mockResolvedValue(registroSalvo as never);
+      } as never);
 
-      const resultado = await service.tirarDuvida(dto);
+      await service.tirarDuvida({ perfilId, moduloId, pergunta: 'Não entendi' });
 
-      expect(resultado.chunksConsultados).toHaveLength(1);
-      expect(resultado.chunksConsultados[0].id).toBe('chunk-1');
-      expect(repo.salvarDuvida).toHaveBeenCalledWith(
-        expect.objectContaining({ chunksIds: ['chunk-1'] }),
+      const chamada = agentes.executar.mock.calls[0][0];
+      expect(chamada.user).toContain('Contexto da conversa atual');
+      expect(chamada.user).toContain('O que é uma variável?');
+      expect(chamada.user).toContain('Uma variável é como uma caixa nomeada.');
+    });
+
+    it('deve expandir consulta RAG com tópico quando detectar follow-up', async () => {
+      repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+      repo.listarHistoricoRecentePorPerfil.mockResolvedValue([
+        {
+          id: 'duvida-anterior',
+          perfilId,
+          moduloId,
+          pergunta: 'O que é uma variável?',
+          resposta: 'Uma variável é como uma caixa nomeada.',
+          avaliacao: null,
+          feedback: null,
+          criadoEm: new Date(),
+          modulo: { titulo: 'Variáveis em Python' },
+        },
+      ] as never);
+      biblioteca.buscar.mockResolvedValue([]);
+
+      agentes.executar.mockResolvedValue({
+        resposta: 'Ok',
+        citacoes: [],
+        proximosPassos: [],
+      });
+      repo.salvarDuvida.mockResolvedValue({
+        id: duvidaId,
+        perfilId,
+        moduloId,
+        pergunta: 'pode repetir?',
+        resposta: 'Ok',
+        citacoes: [],
+        proximosPassos: [],
+        chunksIds: [],
+        avaliacao: null,
+        feedback: null,
+        criadoEm: new Date(),
+        atualizadoEm: new Date(),
+      } as never);
+
+      await service.tirarDuvida({ perfilId, moduloId, pergunta: 'pode repetir?' });
+
+      expect(biblioteca.buscar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          consulta: expect.stringContaining('Variáveis em Python'),
+        }),
+      );
+    });
+
+    it('deve salvar avaliações positivas como memória EXPLANATION no agent_kb', async () => {
+      const agentKb = (service as unknown as { agentKb: AgentKbService }).agentKb;
+      jest.spyOn(agentKb, 'isAvailable').mockReturnValue(true);
+      const addMemorySpy = jest.spyOn(agentKb, 'addMemory').mockResolvedValue({} as never);
+
+      repo.buscarDuvidaPorId.mockResolvedValue({
+        id: duvidaId,
+        pergunta: 'O que é uma variável?',
+        resposta: 'Uma variável é como uma caixa.',
+      } as never);
+      repo.avaliarDuvida.mockResolvedValue({
+        id: duvidaId,
+        avaliacao: 5,
+        feedback: 'Perfeito',
+      } as never);
+
+      await service.avaliarResposta({ duvidaId, avaliacao: 5, feedback: 'Perfeito' });
+
+      expect(addMemorySpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nodeType: 'EXPLANATION',
+          tags: expect.arrayContaining(['tutor', 'feedback', 'aluno', 'explanation']),
+        }),
       );
     });
   });
