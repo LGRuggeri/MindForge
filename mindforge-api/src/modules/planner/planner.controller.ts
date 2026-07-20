@@ -1,0 +1,31 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { PlannerService } from './planner.service';
+import { CriarObjetivoDto } from './dto/criar-objetivo.dto';
+import { GerarTrilhaDto } from './dto/gerar-trilha.dto';
+
+@Controller('planner')
+export class PlannerController {
+  constructor(private readonly service: PlannerService) {}
+
+  @Post('objetivos')
+  @HttpCode(HttpStatus.CREATED)
+  criarObjetivo(@Body() dto: CriarObjetivoDto) {
+    return this.service.criarObjetivo(dto);
+  }
+
+  @Get('objetivos/:id')
+  buscarObjetivo(@Param('id') id: string) {
+    return this.service.buscarObjetivoPorId(id);
+  }
+
+  @Get('perfis/:perfilId/objetivos')
+  listarObjetivosDoPerfil(@Param('perfilId') perfilId: string) {
+    return this.service.listarObjetivosDoPerfil(perfilId);
+  }
+
+  @Post('trilhas')
+  @HttpCode(HttpStatus.CREATED)
+  gerarTrilha(@Body() dto: GerarTrilhaDto) {
+    return this.service.gerarTrilha(dto.objetivoId);
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "historico_duvidas" ADD CONSTRAINT "historico_duvidas_avaliacao_check" CHECK ("historico_duvidas"."avaliacao" IS NULL OR ("historico_duvidas"."avaliacao" >= 1 AND "historico_duvidas"."avaliacao" <= 5));

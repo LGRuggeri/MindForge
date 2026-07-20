@@ -1,0 +1,31 @@
+erDiagram
+    PERFIL_APRENDIZAGEM ||--o{ OBJETIVOS_ESTUDO : possui
+    PERFIL_APRENDIZAGEM ||--o{ DIARIO_APRENDIZAGEM : registra
+    PERFIL_APRENDIZAGEM ||--o{ COMPETENCIA_PROGRESSO : acumula
+
+    OBJETIVOS_ESTUDO ||--o{ TRILHAS_ESTUDO : gera
+    TRILHAS_ESTUDO ||--o{ MODULOS_TRILHA : contem
+    TRILHAS_ESTUDO ||--o{ AVALIACOES : pode_ter
+
+    MODULOS_TRILHA ||--o{ FONTES_PESQUISA : referencia
+    MODULOS_TRILHA ||--o{ CONTEUDOS : possui
+    MODULOS_TRILHA ||--o{ EXERCICIOS : possui
+    MODULOS_TRILHA ||--o{ AVALIACOES : pode_ter
+    MODULOS_TRILHA }o--o{ COMPETENCIAS : desenvolve
+    MODULOS_TRILHA ||--o{ DIARIO_APRENDIZAGEM : e_citado_em
+
+    CONTEUDOS }o--o{ FONTES_PESQUISA : cita
+    CONTEUDOS ||--o{ CONTEUDO_CHUNKS : gera_embeddings
+
+    FONTES_PESQUISA ||--o{ CONTEUDO_CHUNKS : gera_embeddings
+
+    EXERCICIOS ||--o{ TENTATIVAS_EXERCICIO : recebe
+    AVALIACOES }o--o{ EXERCICIOS : agrupa
+    AVALIACOES ||--o{ RESULTADOS_AVALIACAO : gera
+
+    COMPETENCIAS ||--o{ COMPETENCIA_RELACOES : origem
+    COMPETENCIAS ||--o{ COMPETENCIA_PROGRESSO : rastreada_em
+
+    CONTEUDOS ||--o{ REVISAO_ESPACADA : agenda
+    EXERCICIOS ||--o{ REVISAO_ESPACADA : agenda
+    COMPETENCIAS ||--o{ REVISAO_ESPACADA : agenda

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: ankane/pgvector:latest  # Postgres 17 + pgvector
+    container_name: mindforge-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mindforge
+    ports:
+      - "5433:5432"
+    volumes:
+      - mindforge_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mindforge_pgdata:

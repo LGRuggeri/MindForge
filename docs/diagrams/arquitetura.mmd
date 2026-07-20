@@ -1,0 +1,33 @@
+flowchart TD
+    subgraph Cliente["Cliente"]
+        A["Next.js + TypeScript<br/>Tailwind + shadcn/ui + React Flow"]
+    end
+
+    subgraph API["Backend"]
+        B["NestJS API<br/>REST + GraphQL"]
+        ORM["Drizzle ORM"]
+        J["Fila de jobs<br/>pg-boss / graphile-worker"]
+    end
+
+    subgraph Dados["Dados"]
+        C[("PostgreSQL + pgvector")]
+    end
+
+    subgraph Agentes["Agentes de IA"]
+        D["Planner · Researcher · Teacher<br/>Evaluator · Reviewer"]
+        E["API de LLM (GPT-5.5)"]
+    end
+
+    subgraph Externo["Fontes externas"]
+        F["Documentação oficial, livros,<br/>artigos, vídeos"]
+    end
+
+    A -->|HTTP / GraphQL| B
+    B --> ORM
+    ORM --> C
+    B -->|dispara jobs assíncronos| J
+    J --> D
+    D -->|chamadas de completions| E
+    D -->|pesquisa online| F
+    D -->|grava fontes, conteúdo,<br/>chunks, exercícios| C
+    B -->|lê contexto via RAG<br/>e consulta o knowledge graph| C

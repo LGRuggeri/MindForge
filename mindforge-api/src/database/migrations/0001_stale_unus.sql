@@ -1,0 +1,2 @@
+ALTER TABLE "agentes_execucoes" DROP CONSTRAINT "agentes_execucoes_agente_check";--> statement-breakpoint
+ALTER TABLE "agentes_execucoes" ADD CONSTRAINT "agentes_execucoes_agente_check" CHECK ("agentes_execucoes"."agente" IN ('planner','researcher','synthesizer','teacher','evaluator','reviewer'));
