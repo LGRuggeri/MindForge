@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const { data: proximos, isLoading: proximosLoading } = useProximosPassos(
     perfilSelecionado?.id || null,
   );
-  const { data: revisoes } = useRevisoes();
+  const { data: revisoes } = useRevisoes(perfilSelecionado?.id || null);
 
   const revisoesPendentes =
     revisoes?.filter((r) => isPast(parseISO(r.proximaRevisao))) ?? [];

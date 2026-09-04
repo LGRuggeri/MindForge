@@ -7,10 +7,12 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { modulosTrilha, trilhasEstudo } from './trilhas.schema';
 import { exercicios } from './exercicios.schema';
+import { perfilAprendizagem } from './perfil.schema';
 
 export const avaliacoes = pgTable(
   'avaliacoes',
@@ -44,17 +46,26 @@ export const avaliacaoExercicios = pgTable(
   (table) => [primaryKey({ columns: [table.avaliacaoId, table.exercicioId] })],
 );
 
-export const resultadosAvaliacao = pgTable('resultados_avaliacao', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  avaliacaoId: uuid('avaliacao_id')
-    .notNull()
-    .references(() => avaliacoes.id, { onDelete: 'cascade' }),
-  pontuacaoTotal: numeric('pontuacao_total', { precision: 5, scale: 2 }).notNull(),
-  pontosFortes: text('pontos_fortes'),
-  pontosFracos: text('pontos_fracos'),
-  recomendacoes: text('recomendacoes'),
-  realizadaEm: timestamp('realizada_em', { withTimezone: true }).notNull().defaultNow(),
-});
+export const resultadosAvaliacao = pgTable(
+  'resultados_avaliacao',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    perfilId: uuid('perfil_id')
+      .notNull()
+      .references(() => perfilAprendizagem.id, { onDelete: 'cascade' }),
+    avaliacaoId: uuid('avaliacao_id')
+      .notNull()
+      .references(() => avaliacoes.id, { onDelete: 'cascade' }),
+    pontuacaoTotal: numeric('pontuacao_total', { precision: 5, scale: 2 }).notNull(),
+    pontosFortes: text('pontos_fortes'),
+    pontosFracos: text('pontos_fracos'),
+    recomendacoes: text('recomendacoes'),
+    realizadaEm: timestamp('realizada_em', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('resultados_avaliacao_perfil_avaliacao_unique').on(table.perfilId, table.avaliacaoId),
+  ],
+);
 
 export type Avaliacao = typeof avaliacoes.$inferSelect;
 export type NovaAvaliacao = typeof avaliacoes.$inferInsert;

@@ -54,7 +54,7 @@ loop completo pesquisa → síntese → estudo → exercício → feedback → r
 | Extração de competências no Synthesizer | ✅ implementado: palavras-chave do conteúdo viram competências vinculadas ao módulo |
 | Progresso automático em exercícios/avaliações | ✅ implementado: nota ≥ 7 dispara progresso `praticando`/`dominado` |
 | Visualização React Flow | ✅ implementado: endpoint `/perfis/:id/grafo` + componente React Flow no frontend |
-| Simulados multi-módulo | ⬜ |
+| Simulados multi-módulo | ✅ implementado: criação por trilha com sorteio automático de exercícios + progresso multi-módulo |
 | Projetos inteligentes | ⬜ |
 | Sandbox para exercícios de código | ⬜ |
 
@@ -74,7 +74,7 @@ Dado o que **já funciona**, a sequência de maior valor é:
 8. ~~**Search web real no Research**~~ → ✅ feito
 9. ~~**Frontend/dashboard**~~ → ✅ feito
 10. ~~**Visualização React Flow do Knowledge Graph**~~ → ✅ feito
-11. **Simulados multi-módulo**
+11. ~~**Simulados multi-módulo**~~ → ✅ feito
 
 Autenticação multi-user **não** é prioridade (filosofia: sistema pessoal).
 

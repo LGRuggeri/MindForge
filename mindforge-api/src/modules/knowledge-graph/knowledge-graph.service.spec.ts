@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { DRIZZLE } from '../../database/database.module';
 import { KnowledgeGraphService } from './knowledge-graph.service';
 import { KnowledgeGraphRepository } from './knowledge-graph.repository';
 
@@ -8,6 +9,7 @@ const mockRepo = {
   buscarCompetenciaPorNome: jest.fn().mockResolvedValue(null),
   buscarCompetenciaPorId: jest.fn(),
   criarRelacao: jest.fn(),
+  criarRelacaoSeNaoExistir: jest.fn(),
   listarCompetencias: jest.fn().mockResolvedValue([]),
   listarCompetenciasDoPerfil: jest.fn().mockResolvedValue([]),
   buscarCaminhoDePreRequisitos: jest.fn().mockResolvedValue([]),
@@ -15,6 +17,7 @@ const mockRepo = {
   atualizarProgresso: jest.fn(),
   listarCompetenciasDoModulo: jest.fn().mockResolvedValue([]),
   vincularModuloCompetencias: jest.fn().mockResolvedValue([]),
+  recomendarCompetencias: jest.fn().mockResolvedValue([]),
 };
 
 describe('KnowledgeGraphService', () => {
@@ -24,7 +27,18 @@ describe('KnowledgeGraphService', () => {
     jest.clearAllMocks();
     mockRepo.buscarCompetenciaPorNome.mockResolvedValue(null);
     const module: TestingModule = await Test.createTestingModule({
-      providers: [KnowledgeGraphService, { provide: KnowledgeGraphRepository, useValue: mockRepo }],
+      providers: [
+        KnowledgeGraphService,
+        { provide: KnowledgeGraphRepository, useValue: mockRepo },
+        {
+          provide: DRIZZLE,
+          useValue: {
+            transaction: jest.fn(async <T>(callback: (tx: Record<string, never>) => Promise<T>) =>
+              callback({}),
+            ),
+          },
+        },
+      ],
     }).compile();
     service = module.get(KnowledgeGraphService);
   });
@@ -85,7 +99,7 @@ describe('KnowledgeGraphService', () => {
 
   it('deve criar cadeia de pré-requisitos entre módulos', async () => {
     mockRepo.criarCompetencia.mockResolvedValue({ id: 'c2', nome: 'Lifetimes' });
-    mockRepo.criarRelacao.mockResolvedValue({ id: 'r1' });
+    mockRepo.criarRelacaoSeNaoExistir.mockResolvedValue({ id: 'r1' });
 
     const result = await service.criarCadeiaDePreRequisitos(
       'm2',
@@ -94,5 +108,30 @@ describe('KnowledgeGraphService', () => {
     );
 
     expect(result.relacoes).toBe(1);
+  });
+
+  it('deve recomendar competências com pré-requisitos satisfeitos', async () => {
+    mockRepo.recomendarCompetencias.mockResolvedValue([
+      { id: 'c1', nome: 'Rust básico', progresso: 'nao_iniciado' },
+    ]);
+
+    const result = await service.recomendarCompetencias('perfil1');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].nome).toBe('Rust básico');
+    expect(mockRepo.recomendarCompetencias).toHaveBeenCalledWith('perfil1');
+  });
+
+  it('deve ignorar relações de pré-requisitos que já existem', async () => {
+    mockRepo.criarCompetencia.mockResolvedValue({ id: 'c2', nome: 'Lifetimes' });
+    mockRepo.criarRelacaoSeNaoExistir.mockResolvedValue(undefined);
+
+    const result = await service.criarCadeiaDePreRequisitos(
+      'm2',
+      [{ nome: 'Lifetimes' }],
+      [{ id: 'c1', nome: 'Ownership' }],
+    );
+
+    expect(result.relacoes).toBe(0);
   });
 });

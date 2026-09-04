@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export enum TipoExercicio {
   QUESTAO_OBJETIVA = 'questao_objetiva',
@@ -27,6 +27,11 @@ export class CriarExercicioDto {
   @IsString()
   @IsOptional()
   gabarito?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  criterios?: string[];
 
   @IsEnum(DificuldadeExercicio)
   @IsOptional()

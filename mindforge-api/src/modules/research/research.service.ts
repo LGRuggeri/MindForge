@@ -212,7 +212,11 @@ Liste as melhores fontes para este módulo no formato JSON especificado.`;
         titulo: String(f.titulo).trim(),
         url: f.url ? String(f.url).trim() : null,
         autor: f.autor ? String(f.autor).trim() : null,
-        confiabilidadeScore: this.clampScore(Number(f.confiabilidadeScore) || 0.7),
+        confiabilidadeScore: this.clampScore(
+          f.confiabilidadeScore === undefined || f.confiabilidadeScore === null
+            ? 0.7
+            : Number(f.confiabilidadeScore),
+        ),
         resumo: String(f.resumo).trim(),
       }));
 

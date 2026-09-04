@@ -6,6 +6,7 @@ import { ResearchRepository } from './research.repository';
 import { WebSearchService } from './web-search.service';
 import { DuckDuckGoSearchProvider } from './providers/duckduckgo-search.provider';
 import { ApiSearchProvider } from './providers/api-search.provider';
+import { SerperSearchProvider } from './providers/serper-search.provider';
 import { ResearchJobHandler, RESEARCH_SERVICE } from './research.job.handler';
 
 /**
@@ -22,6 +23,7 @@ import { ResearchJobHandler, RESEARCH_SERVICE } from './research.job.handler';
     WebSearchService,
     DuckDuckGoSearchProvider,
     ApiSearchProvider,
+    SerperSearchProvider,
     {
       provide: RESEARCH_SERVICE,
       inject: [ResearchService],

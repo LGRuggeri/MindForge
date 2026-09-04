@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import { NovaRevisaoEspacada, revisaoEspacada } from '../../database/schema';
 
 export interface ResultadoRevisao {
+  perfilId: string;
   itemTipo: 'conteudo' | 'exercicio' | 'competencia';
   itemId: string;
   qualidade: number;
@@ -13,10 +14,14 @@ export interface ResultadoRevisao {
 export class RevisaoEspacadaService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
-  async processarRevisao(resultado: ResultadoRevisao) {
-    const existente = await this.db.query.revisaoEspacada.findFirst({
-      where: (tabela, { and }) =>
-        and(eq(tabela.itemTipo, resultado.itemTipo), eq(tabela.itemId, resultado.itemId)),
+  async processarRevisao(resultado: ResultadoRevisao, tx?: DrizzleDb) {
+    const client = tx ?? this.db;
+    const existente = await client.query.revisaoEspacada.findFirst({
+      where: and(
+        eq(revisaoEspacada.perfilId, resultado.perfilId),
+        eq(revisaoEspacada.itemTipo, resultado.itemTipo),
+        eq(revisaoEspacada.itemId, resultado.itemId),
+      ),
     });
 
     const { intervaloDias, fatorFacilidade, repeticoes } = this.calcularSm2(
@@ -30,6 +35,7 @@ export class RevisaoEspacadaService {
     const proximaRevisao = this.formatarData(this.adicionarDias(new Date(), intervaloDias));
 
     const dados: NovaRevisaoEspacada = {
+      perfilId: resultado.perfilId,
       itemTipo: resultado.itemTipo,
       itemId: resultado.itemId,
       intervaloDias,
@@ -40,7 +46,7 @@ export class RevisaoEspacadaService {
     };
 
     if (existente) {
-      const [atualizado] = await this.db
+      const [atualizado] = await client
         .update(revisaoEspacada)
         .set(dados)
         .where(eq(revisaoEspacada.id, existente.id))
@@ -48,15 +54,17 @@ export class RevisaoEspacadaService {
       return atualizado;
     }
 
-    const [criado] = await this.db.insert(revisaoEspacada).values(dados).returning();
+    const [criado] = await client.insert(revisaoEspacada).values(dados).returning();
     return criado;
   }
 
-  async listarProximasRevisoes(data?: string) {
-    const dataFiltro = data ?? this.formatarData(new Date());
+  async listarProximasRevisoes(perfilId: string, data?: string) {
     return this.db.query.revisaoEspacada.findMany({
-      where: eq(revisaoEspacada.proximaRevisao, dataFiltro),
-      orderBy: (tabela, { desc }) => [desc(tabela.fatorFacilidade)],
+      where: and(
+        eq(revisaoEspacada.perfilId, perfilId),
+        data ? eq(revisaoEspacada.proximaRevisao, data) : undefined,
+      ),
+      orderBy: (tabela, { asc }) => [asc(tabela.proximaRevisao)],
     });
   }
 

@@ -125,7 +125,7 @@ export class LlmFallbackService {
       msg.includes('timeout') ||
       msg.includes('connect') ||
       msg.includes('econnrefused') ||
-      msg.includes('ENOTFOUND') ||
+      msg.includes('enotfound') ||
       msg.includes('503') ||
       msg.includes('502') ||
       msg.includes('504') ||

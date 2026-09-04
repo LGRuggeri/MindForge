@@ -35,7 +35,7 @@ describe('SynthesizerJobHandler', () => {
     expect(queue.work).toHaveBeenCalledWith(GERAR_CONTEUDO_JOB, expect.any(Function));
   });
 
-  it('deve processar o job chamando gerar do serviço', async () => {
+  it('deve processar o job chamando gerar do serviço com async false', async () => {
     await handler.onModuleInit();
     const [[, registeredHandler]] = queue.work.mock.calls;
 
@@ -44,11 +44,11 @@ describe('SynthesizerJobHandler', () => {
       topico: 'Variáveis',
       nivelAlvo: 'iniciante',
     };
-    const job = criarJob(dados);
+    const job = criarJob({ ...dados, async: true } as unknown as GerarConteudoJob);
 
     await registeredHandler([job]);
 
-    expect(synthesizer.gerar).toHaveBeenCalledWith(dados);
+    expect(synthesizer.gerar).toHaveBeenCalledWith({ ...dados, async: false });
     expect(synthesizer.gerar).toHaveBeenCalledTimes(1);
   });
 

@@ -35,7 +35,7 @@ export class SynthesizerJobHandler implements OnModuleInit {
   }
 
   private async processar(job: Job<Record<string, unknown>>) {
-    const dados = job.data as unknown as GerarConteudoJob;
+    const dados = { ...(job.data as unknown as GerarConteudoJob), async: false };
     this.logger.log(`Processando job ${GERAR_CONTEUDO_JOB} para módulo ${dados.moduloId}`);
     try {
       await this.synthesizerService.gerar(dados);

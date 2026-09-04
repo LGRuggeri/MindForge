@@ -1,6 +1,7 @@
 'use client';
 
 import { useRevisoes } from '@/lib/hooks/useRevisao';
+import { useAppStore } from '@/lib/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +10,8 @@ import { format, isPast, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function RevisaoPage() {
-  const { data: revisoes, isLoading } = useRevisoes();
+  const perfilSelecionado = useAppStore((state) => state.perfilSelecionado);
+  const { data: revisoes, isLoading } = useRevisoes(perfilSelecionado?.id ?? null);
 
   const pendentes = revisoes?.filter((r) => isPast(parseISO(r.proximaRevisao))) ?? [];
   const futuras = revisoes?.filter((r) => !isPast(parseISO(r.proximaRevisao))) ?? [];

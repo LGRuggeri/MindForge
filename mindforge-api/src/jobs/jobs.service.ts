@@ -3,31 +3,13 @@ import { Job, PgBoss, QueueResult, WorkHandler } from 'pg-boss';
 
 export type JobHandler = (jobs: Job<Record<string, unknown>>[]) => Promise<void>;
 
-interface PgBossConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-}
-
-function parsePostgresUrl(url: string): PgBossConfig {
-  const match = url.match(/^postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-  if (!match) {
-    throw new Error(`DATABASE_URL inválida para pg-boss: ${url}`);
-  }
-  const [, user, password, host, port, database] = match;
-  return { host, port: Number(port), database, user, password };
-}
-
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(JobsService.name);
   private boss: PgBoss;
 
   constructor(connectionString: string) {
-    const config = parsePostgresUrl(connectionString);
-    this.boss = new PgBoss(config);
+    this.boss = new PgBoss({ connectionString });
   }
 
   async onModuleInit() {

@@ -6,9 +6,12 @@ const createMockDb = () => ({
   insert: jest.fn().mockReturnThis(),
   values: jest.fn().mockReturnThis(),
   returning: jest.fn().mockResolvedValue([]),
+  onConflictDoNothing: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
   from: jest.fn().mockReturnThis(),
+  innerJoin: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
+  union: jest.fn().mockReturnThis(),
   update: jest.fn().mockReturnThis(),
   set: jest.fn().mockReturnThis(),
   query: {
@@ -66,13 +69,14 @@ describe('KnowledgeGraphRepository', () => {
     expect(result).toEqual(relacao);
   });
 
-  it('deve vincular módulo a competências', async () => {
+  it('deve vincular módulo a competências de forma idempotente', async () => {
     const vinculos = [{ moduloId: 'm1', competenciaId: 'c1' }];
     mockDb.returning.mockResolvedValueOnce(vinculos);
 
     const result = await repo.vincularModuloCompetencias(vinculos);
 
     expect(result).toHaveLength(1);
+    expect(mockDb.onConflictDoNothing).toHaveBeenCalled();
   });
 
   it('deve atualizar progresso existente', async () => {
@@ -101,6 +105,21 @@ describe('KnowledgeGraphRepository', () => {
     expect(result.nivelAtual).toBe('aprendendo');
   });
 
+  it('deve recomendar competências cujos pré-requisitos estão dominados', async () => {
+    const rows = [
+      { id: 'c2', nome: 'Borrow checker', progresso: 'nao_iniciado', prerequisitosPendentes: 0 },
+    ];
+    mockDb.execute.mockResolvedValueOnce({ rows });
+
+    const result = await repo.recomendarCompetencias('perfil1');
+
+    expect(result).toEqual(rows);
+    expect(mockDb.execute).toHaveBeenCalledTimes(1);
+    const sqlWrapper = mockDb.execute.mock.calls[0][0];
+    expect(sqlWrapper).toBeDefined();
+    expect(typeof sqlWrapper.getSQL).toBe('function');
+  });
+
   it('deve buscar caminho de pré-requisitos', async () => {
     const rows = [{ id: 'c1', nome: 'Ownership', tipoRelacao: 'pre_requisito', profundidade: 1 }];
     mockDb.execute.mockResolvedValueOnce({ rows });
@@ -108,5 +127,18 @@ describe('KnowledgeGraphRepository', () => {
     const result = await repo.buscarCaminhoDePreRequisitos('c2');
 
     expect(result).toEqual(rows);
+    expect(mockDb.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve buscar dependentes', async () => {
+    const rows = [
+      { id: 'c2', nome: 'Borrow checker', tipoRelacao: 'pre_requisito', profundidade: 1 },
+    ];
+    mockDb.execute.mockResolvedValueOnce({ rows });
+
+    const result = await repo.buscarDependentes('c1');
+
+    expect(result).toEqual(rows);
+    expect(mockDb.execute).toHaveBeenCalledTimes(1);
   });
 });

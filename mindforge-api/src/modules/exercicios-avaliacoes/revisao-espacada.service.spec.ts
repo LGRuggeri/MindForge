@@ -54,6 +54,7 @@ describe('RevisaoEspacadaService', () => {
     returningInsert.mockResolvedValue([{ id: 'rev-1' }]);
 
     const resultado = await service.processarRevisao({
+      perfilId: 'perfil-1',
       itemTipo: 'exercicio',
       itemId: 'ex-1',
       qualidade: 4,
@@ -73,6 +74,7 @@ describe('RevisaoEspacadaService', () => {
     returningUpdate.mockResolvedValue([{ id: 'rev-1', intervaloDias: 1, repeticoes: 0 }]);
 
     const resultado = await service.processarRevisao({
+      perfilId: 'perfil-1',
       itemTipo: 'exercicio',
       itemId: 'ex-1',
       qualidade: 2,
@@ -92,6 +94,7 @@ describe('RevisaoEspacadaService', () => {
     returningUpdate.mockResolvedValue([{ id: 'rev-1', intervaloDias: 15, repeticoes: 3 }]);
 
     const resultado = await service.processarRevisao({
+      perfilId: 'perfil-1',
       itemTipo: 'exercicio',
       itemId: 'ex-1',
       qualidade: 5,

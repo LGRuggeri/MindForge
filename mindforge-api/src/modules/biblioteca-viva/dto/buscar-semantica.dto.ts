@@ -1,4 +1,13 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class BuscarSemanticaDto {
   @IsString()
@@ -10,6 +19,10 @@ export class BuscarSemanticaDto {
   @Min(1)
   @Max(20)
   limite?: number = 5;
+
+  @IsUUID()
+  @IsOptional()
+  moduloId?: string;
 
   @IsBoolean()
   @IsOptional()

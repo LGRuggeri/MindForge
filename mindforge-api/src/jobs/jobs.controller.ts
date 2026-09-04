@@ -1,5 +1,6 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Delete, Get, Inject, Param, ParseUUIDPipe } from '@nestjs/common';
 import { JobsService } from './jobs.service';
+import { JOB_QUEUE } from './job-queue.token';
 
 const QUEUES = [
   'synthesizer:gerar-conteudo',
@@ -11,7 +12,7 @@ const QUEUES = [
 
 @Controller('jobs')
 export class JobsController {
-  constructor(private readonly jobs: JobsService) {}
+  constructor(@Inject(JOB_QUEUE) private readonly jobs: JobsService) {}
 
   @Get('filas')
   async listarFilas() {
@@ -38,7 +39,6 @@ export class JobsController {
       id: job.id,
       nome: job.name,
       status: job.state ?? 'desconhecido',
-      dados: job.data,
       criadoEm: job.createdOn,
       iniciadoEm: job.startedOn,
       finalizadoEm: job.completedOn,

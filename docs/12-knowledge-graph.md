@@ -1,6 +1,6 @@
 # 12 — Knowledge Graph Pessoal
 
-**Status:** ✅ implementado e testado. Visualização React Flow do grafo adicionada ao frontend.  
+**Status:** ✅ implementado e testado. Visualização React Flow do grafo implementada no frontend.
 **Tabelas:** `competencias`, `competencia_relacoes`, `competencia_progresso`, `modulo_competencias`
 
 ---

@@ -39,7 +39,7 @@ describe('ExerciciosJobHandler', () => {
     expect(queue.work).toHaveBeenCalledWith(CORRIGIR_TENTATIVA_JOB, expect.any(Function));
   });
 
-  it('deve processar job de geração de exercício', async () => {
+  it('deve processar job de geração de exercício com async false', async () => {
     await handler.onModuleInit();
     const calls = queue.work.mock.calls;
     const gerarCall = calls.find(([nome]) => nome === GERAR_EXERCICIO_JOB);
@@ -54,13 +54,13 @@ describe('ExerciciosJobHandler', () => {
     };
 
     await (gerarHandler as (jobs: Job<Record<string, unknown>>[]) => Promise<void>)([
-      criarJob(GERAR_EXERCICIO_JOB, dados),
+      criarJob(GERAR_EXERCICIO_JOB, { ...dados, async: true } as unknown as GerarExercicioJob),
     ]);
 
-    expect(exercicios.gerarExercicio).toHaveBeenCalledWith(dados);
+    expect(exercicios.gerarExercicio).toHaveBeenCalledWith({ ...dados, async: false });
   });
 
-  it('deve processar job de correção de tentativa', async () => {
+  it('deve processar job de correção de tentativa com async false', async () => {
     await handler.onModuleInit();
     const calls = queue.work.mock.calls;
     const corrigirCall = calls.find(([nome]) => nome === CORRIGIR_TENTATIVA_JOB);
@@ -75,10 +75,13 @@ describe('ExerciciosJobHandler', () => {
     };
 
     await (corrigirHandler as (jobs: Job<Record<string, unknown>>[]) => Promise<void>)([
-      criarJob(CORRIGIR_TENTATIVA_JOB, dados),
+      criarJob(CORRIGIR_TENTATIVA_JOB, {
+        ...dados,
+        async: true,
+      } as unknown as CorrigirTentativaJob),
     ]);
 
-    expect(exercicios.submeterTentativa).toHaveBeenCalledWith(dados);
+    expect(exercicios.submeterTentativa).toHaveBeenCalledWith({ ...dados, async: false });
   });
 
   it('deve propagar erro na correção', async () => {

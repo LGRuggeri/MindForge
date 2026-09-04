@@ -133,6 +133,45 @@ describe('SynthesizerService', () => {
     );
   });
 
+  it('deve enviar o corpo markdown completo ao reviewer, sem truncar', async () => {
+    const corpoLongo = '# '.concat('a'.repeat(5000));
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Conteúdo longo',
+      corpoMarkdown: corpoLongo,
+      resumo: 'Resumo',
+      palavrasChave: ['vars'],
+    });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: ['completo'],
+      pontosFracos: [],
+      sugestoes: [],
+    });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-longo',
+      moduloId,
+      titulo: 'Conteúdo longo',
+      corpoMarkdown: corpoLongo,
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
+
+    await service.gerar({ moduloId, topico: 'Variáveis' });
+
+    expect(reviewer.revisar).toHaveBeenCalledWith(
+      expect.objectContaining({ corpoMarkdown: corpoLongo }),
+      expect.any(String),
+    );
+  });
+
   it('deve reescrever conteudo quando reviewer rejeitar na primeira tentativa', async () => {
     repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
     repo.listarFontesPorModulo.mockResolvedValue([] as never);

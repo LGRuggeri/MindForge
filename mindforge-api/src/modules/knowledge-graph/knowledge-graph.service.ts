@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import { KnowledgeGraphRepository } from './knowledge-graph.repository';
 import { CriarCompetenciaDto } from './dto/criar-competencia.dto';
 import { CriarRelacaoDto } from './dto/criar-relacao.dto';
@@ -10,39 +11,30 @@ export interface CompetenciaExtraida {
   categoria?: string;
 }
 
-export interface GrafoVisualNode {
-  id: string;
-  nome: string;
-  descricao?: string | null;
-  categoria?: string | null;
-  nivelAtual: string;
-}
-
-export interface GrafoVisualEdge {
-  id: string;
-  source: string;
-  target: string;
-  tipo: string;
-}
-
-export interface GrafoVisual {
-  nodes: GrafoVisualNode[];
-  edges: GrafoVisualEdge[];
-}
-
 @Injectable()
 export class KnowledgeGraphService {
   private readonly logger = new Logger(KnowledgeGraphService.name);
 
-  constructor(private readonly repo: KnowledgeGraphRepository) {}
+  constructor(
+    private readonly repo: KnowledgeGraphRepository,
+    @Inject(DRIZZLE) private readonly db: DrizzleDb,
+  ) {}
 
   async criarCompetencia(dto: CriarCompetenciaDto) {
-    const existente = await this.repo.buscarCompetenciaPorNome(dto.nome);
+    return this.criarCompetenciaInterno(dto);
+  }
+
+  private async criarCompetenciaTx(dto: CriarCompetenciaDto, tx: DrizzleDb) {
+    return this.criarCompetenciaInterno(dto, tx);
+  }
+
+  private async criarCompetenciaInterno(dto: CriarCompetenciaDto, tx?: DrizzleDb) {
+    const existente = await this.repo.buscarCompetenciaPorNome(dto.nome, tx);
     if (existente) {
       this.logger.debug(`Competência já existe: ${existente.id} (${existente.nome})`);
       return existente;
     }
-    const competencia = await this.repo.criarCompetencia(dto);
+    const competencia = await this.repo.criarCompetencia(dto, tx);
     this.logger.log(`Competência criada: ${competencia.id} (${competencia.nome})`);
     return competencia;
   }
@@ -55,12 +47,30 @@ export class KnowledgeGraphService {
     return relacao;
   }
 
+  async criarRelacaoSeNaoExistir(dto: CriarRelacaoDto) {
+    return this.criarRelacaoSeNaoExistirInterno(dto);
+  }
+
+  private async criarRelacaoSeNaoExistirTx(dto: CriarRelacaoDto, tx: DrizzleDb) {
+    return this.criarRelacaoSeNaoExistirInterno(dto, tx);
+  }
+
+  private async criarRelacaoSeNaoExistirInterno(dto: CriarRelacaoDto, tx?: DrizzleDb) {
+    const relacao = await this.repo.criarRelacaoSeNaoExistir(dto, tx);
+    if (relacao) {
+      this.logger.log(
+        `Relação ${relacao.id}: ${relacao.competenciaOrigemId} --[${relacao.tipoRelacao}]--> ${relacao.competenciaDestinoId}`,
+      );
+    }
+    return relacao;
+  }
+
   async listarCompetencias() {
     return this.repo.listarCompetencias();
   }
 
-  async buscarCompetenciaPorId(id: string) {
-    const competencia = await this.repo.buscarCompetenciaPorId(id);
+  async buscarCompetenciaPorId(id: string, perfilId?: string) {
+    const competencia = await this.repo.buscarCompetenciaPorId(id, perfilId);
     if (!competencia) {
       throw new NotFoundException(`Competência ${id} não encontrada`);
     }
@@ -79,38 +89,12 @@ export class KnowledgeGraphService {
     }));
   }
 
-  async listarGrafoVisualDoPerfil(perfilId: string): Promise<GrafoVisual> {
-    const competencias = await this.repo.listarCompetenciasDoPerfilComRelacoes(perfilId);
-
-    const nodes: GrafoVisualNode[] = competencias.map((c) => ({
-      id: c.id,
-      nome: c.nome,
-      descricao: c.descricao,
-      categoria: c.categoria,
-      nivelAtual: c.progresso?.[0]?.nivelAtual ?? 'nao_iniciado',
-    }));
-
-    const edgeIds = new Set<string>();
-    const edges: GrafoVisualEdge[] = [];
-
-    for (const competencia of competencias) {
-      for (const relacao of competencia.relacoesOrigem) {
-        const source = competencia.id;
-        const target = relacao.destino.id;
-        const edgeId = `${source}->${target}`;
-        if (!edgeIds.has(edgeId)) {
-          edgeIds.add(edgeId);
-          edges.push({
-            id: edgeId,
-            source,
-            target,
-            tipo: relacao.tipoRelacao,
-          });
-        }
-      }
-    }
-
-    return { nodes, edges };
+  async recomendarCompetencias(
+    perfilId: string,
+  ): Promise<
+    Array<{ id: string; nome: string; progresso: string | null; prerequisitosPendentes: number }>
+  > {
+    return this.repo.recomendarCompetencias(perfilId);
   }
 
   async buscarCaminhoDePreRequisitos(competenciaId: string) {
@@ -154,27 +138,33 @@ export class KnowledgeGraphService {
   async vincularCompetenciasAoModulo(
     moduloId: string,
     competenciasExtraidas: CompetenciaExtraida[],
-  ) {
+  ): Promise<{ vinculados: number; competenciaIds: string[] }> {
     if (competenciasExtraidas.length === 0) {
-      return { vinculados: 0 };
+      return { vinculados: 0, competenciaIds: [] };
     }
 
-    const competenciasCriadas = await Promise.all(
-      competenciasExtraidas.map((c) =>
-        this.criarCompetencia({
-          nome: c.nome,
-          descricao: c.descricao,
-          categoria: c.categoria ?? 'synthesizer',
-        }),
-      ),
-    );
+    return this.db.transaction(async (tx) => {
+      const competenciasCriadas = await Promise.all(
+        competenciasExtraidas.map((c) =>
+          this.criarCompetenciaTx(
+            {
+              nome: c.nome,
+              descricao: c.descricao,
+              categoria: c.categoria ?? 'synthesizer',
+            },
+            tx,
+          ),
+        ),
+      );
 
-    const vinculos = await this.repo.vincularModuloCompetencias(
-      competenciasCriadas.map((c) => ({ moduloId, competenciaId: c.id })),
-    );
+      const vinculos = await this.repo.vincularModuloCompetencias(
+        competenciasCriadas.map((c) => ({ moduloId, competenciaId: c.id })),
+        tx,
+      );
 
-    this.logger.log(`${vinculos.length} competências vinculadas ao módulo ${moduloId}`);
-    return { vinculados: vinculos.length, competenciaIds: competenciasCriadas.map((c) => c.id) };
+      this.logger.log(`${vinculos.length} competências vinculadas ao módulo ${moduloId}`);
+      return { vinculados: vinculos.length, competenciaIds: competenciasCriadas.map((c) => c.id) };
+    });
   }
 
   async criarCadeiaDePreRequisitos(
@@ -186,27 +176,30 @@ export class KnowledgeGraphService {
       return { relacoes: 0 };
     }
 
-    const relacoes: Array<{
-      competenciaOrigemId: string;
-      competenciaDestinoId: string;
-      tipoRelacao: string;
-    }> = [];
-    for (const anterior of competenciasAnteriores) {
-      for (const atual of competenciasModulo) {
-        const compAtual = await this.criarCompetencia({
-          nome: atual.nome,
-          descricao: atual.descricao,
-          categoria: atual.categoria ?? 'planner',
-        });
-        relacoes.push({
-          competenciaOrigemId: anterior.id,
-          competenciaDestinoId: compAtual.id,
-          tipoRelacao: 'pre_requisito',
-        });
+    return this.db.transaction(async (tx) => {
+      const relacoes: CriarRelacaoDto[] = [];
+      for (const anterior of competenciasAnteriores) {
+        for (const atual of competenciasModulo) {
+          const compAtual = await this.criarCompetenciaTx(
+            {
+              nome: atual.nome,
+              descricao: atual.descricao,
+              categoria: atual.categoria ?? 'planner',
+            },
+            tx,
+          );
+          relacoes.push({
+            competenciaOrigemId: anterior.id,
+            competenciaDestinoId: compAtual.id,
+            tipoRelacao: 'pre_requisito',
+          });
+        }
       }
-    }
 
-    const criadas = await Promise.all(relacoes.map((r) => this.repo.criarRelacao(r)));
-    return { relacoes: criadas.length };
+      const criadas = await Promise.all(
+        relacoes.map((r) => this.criarRelacaoSeNaoExistirTx(r, tx)),
+      );
+      return { relacoes: criadas.filter(Boolean).length };
+    });
   }
 }

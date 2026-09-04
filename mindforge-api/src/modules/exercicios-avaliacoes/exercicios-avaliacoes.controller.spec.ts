@@ -13,6 +13,7 @@ describe('ExerciciosAvaliacoesController', () => {
 
   const moduloId = '123e4567-e89b-12d3-a456-426614174000';
   const exercicioId = '223e4567-e89b-12d3-a456-426614174000';
+  const perfilId = '323e4567-e89b-12d3-a456-426614174000';
 
   beforeEach(async () => {
     const serviceMock = {
@@ -65,7 +66,7 @@ describe('ExerciciosAvaliacoesController', () => {
 
   describe('submeterTentativa', () => {
     it('deve chamar service.submeterTentativa com exercicioId do parametro', async () => {
-      const dto = { exercicioId, respostaUsuario: 'Paris' };
+      const dto = { exercicioId, respostaUsuario: 'Paris', perfilId };
       const esperado = { id: 'tentativa-mock', ...dto, correta: true };
       service.submeterTentativa.mockResolvedValue(esperado as never);
 
@@ -118,7 +119,11 @@ describe('ExerciciosAvaliacoesController', () => {
 
   describe('submeterAvaliacao', () => {
     it('deve chamar avaliacoesService.submeter com dto', async () => {
-      const dto = { avaliacaoId: 'av-mock', respostas: [] };
+      const dto = {
+        avaliacaoId: 'av-mock',
+        perfilId: '123e4567-e89b-12d3-a456-426614174000',
+        respostas: [],
+      };
       const esperado = { id: 'res-mock', pontuacaoTotal: 10 };
       avaliacoesService.submeter.mockResolvedValue(esperado as never);
 
@@ -130,14 +135,21 @@ describe('ExerciciosAvaliacoesController', () => {
   });
 
   describe('listarRevisoes', () => {
-    it('deve chamar revisaoService.listarProximasRevisoes com data', async () => {
+    it('deve chamar revisaoService.listarProximasRevisoes com perfilId e data', async () => {
       const esperado = [{ id: 'rev-1' }];
+      const perfilId = '123e4567-e89b-12d3-a456-426614174000';
       revisaoService.listarProximasRevisoes.mockResolvedValue(esperado as never);
 
-      const resultado = await controller.listarRevisoes('2026-07-20');
+      const resultado = await controller.listarRevisoes(perfilId, '2026-07-20');
 
       expect(resultado).toEqual(esperado);
-      expect(revisaoService.listarProximasRevisoes).toHaveBeenCalledWith('2026-07-20');
+      expect(revisaoService.listarProximasRevisoes).toHaveBeenCalledWith(perfilId, '2026-07-20');
+    });
+
+    it('deve rejeitar requisição sem perfilId', async () => {
+      await expect(controller.listarRevisoes(undefined as unknown as string)).rejects.toThrow(
+        'perfilId é obrigatório',
+      );
     });
   });
 });

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { KnowledgeGraphService } from './knowledge-graph.service';
 import { CriarCompetenciaDto } from './dto/criar-competencia.dto';
 import { CriarRelacaoDto } from './dto/criar-relacao.dto';
@@ -20,17 +20,20 @@ export class KnowledgeGraphController {
   }
 
   @Get('competencias/:id')
-  buscarCompetencia(@Param('id') id: string) {
-    return this.service.buscarCompetenciaPorId(id);
+  buscarCompetencia(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('perfilId', new ParseUUIDPipe({ optional: true })) perfilId?: string,
+  ) {
+    return this.service.buscarCompetenciaPorId(id, perfilId);
   }
 
   @Get('competencias/:id/pre-requisitos')
-  buscarPreRequisitos(@Param('id') id: string) {
+  buscarPreRequisitos(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.buscarCaminhoDePreRequisitos(id);
   }
 
   @Get('competencias/:id/dependentes')
-  buscarDependentes(@Param('id') id: string) {
+  buscarDependentes(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.buscarDependentes(id);
   }
 
@@ -40,20 +43,17 @@ export class KnowledgeGraphController {
   }
 
   @Get('perfis/:perfilId')
-  listarGrafoDoPerfil(@Param('perfilId') perfilId: string) {
+  listarGrafoDoPerfil(@Param('perfilId', ParseUUIDPipe) perfilId: string) {
     return this.service.listarGrafoDoPerfil(perfilId);
   }
 
-  @Get('perfis/:perfilId/grafo')
-  listarGrafoVisualDoPerfil(@Param('perfilId') perfilId: string) {
-    return this.service.listarGrafoVisualDoPerfil(perfilId);
-  }
-
   @Get('perfis/:perfilId/proximos')
-  async proximosPassos(@Param('perfilId') perfilId: string) {
-    const grafo = await this.service.listarGrafoDoPerfil(perfilId);
-    const naoDominados = grafo.filter((c) => c.progresso?.nivelAtual !== 'dominado');
-    return naoDominados.slice(0, 10);
+  async proximosPassos(
+    @Param('perfilId', ParseUUIDPipe) perfilId: string,
+  ): Promise<
+    Array<{ id: string; nome: string; progresso: string | null; prerequisitosPendentes: number }>
+  > {
+    return this.service.recomendarCompetencias(perfilId);
   }
 
   @Post('progresso')

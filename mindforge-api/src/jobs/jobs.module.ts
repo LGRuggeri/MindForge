@@ -1,7 +1,10 @@
 import { Global, Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { BibliotecaVivaModule } from '../modules/biblioteca-viva/biblioteca-viva.module';
 import { BibliotecaVivaService } from '../modules/biblioteca-viva/biblioteca-viva.service';
+import { ExerciciosAvaliacoesModule } from '../modules/exercicios-avaliacoes/exercicios-avaliacoes.module';
 import { ExerciciosAvaliacoesService } from '../modules/exercicios-avaliacoes/exercicios-avaliacoes.service';
+import { SynthesizerModule } from '../modules/synthesizer/synthesizer.module';
 import { SynthesizerService } from '../modules/synthesizer/synthesizer.service';
 import {
   BIBLIOTECA_VIVA_SERVICE,
@@ -22,6 +25,7 @@ import { JOB_QUEUE } from './job-queue.token';
  */
 @Global()
 @Module({
+  imports: [SynthesizerModule, ExerciciosAvaliacoesModule, BibliotecaVivaModule],
   providers: [
     {
       provide: JOB_QUEUE,

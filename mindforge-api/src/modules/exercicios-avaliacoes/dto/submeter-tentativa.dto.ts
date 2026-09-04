@@ -2,15 +2,19 @@ import { IsBoolean, IsOptional, IsString, IsUUID, MinLength } from 'class-valida
 
 export class SubmeterTentativaDto {
   @IsUUID()
-  exercicioId!: string;
+  @IsOptional()
+  exercicioId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  avaliacaoId?: string;
 
   @IsString()
   @MinLength(1)
   respostaUsuario!: string;
 
   @IsUUID()
-  @IsOptional()
-  perfilId?: string;
+  perfilId!: string;
 
   @IsBoolean()
   @IsOptional()

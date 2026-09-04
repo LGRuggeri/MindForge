@@ -16,11 +16,13 @@ export function useCompetencias() {
   });
 }
 
-export function useCompetencia(id: string | null) {
+export function useCompetencia(id: string | null, perfilId?: string | null) {
   return useQuery({
-    queryKey: [KNOWLEDGE_GRAPH_KEY, 'competencias', id],
+    queryKey: [KNOWLEDGE_GRAPH_KEY, 'competencias', id, perfilId],
     queryFn: async () => {
-      const { data } = await api.get<CompetenciaGrafo>(`/knowledge-graph/competencias/${id}`);
+      const { data } = await api.get<CompetenciaGrafo>(`/knowledge-graph/competencias/${id}`, {
+        params: perfilId ? { perfilId } : {},
+      });
       return data;
     },
     enabled: !!id,

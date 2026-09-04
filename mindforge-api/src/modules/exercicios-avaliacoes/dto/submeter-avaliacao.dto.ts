@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsUUID, ValidateNested } from 'class-validator';
+import { IsArray, IsUUID, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class RespostaAvaliacaoDto {
@@ -14,10 +14,9 @@ export class SubmeterAvaliacaoDto {
   avaliacaoId!: string;
 
   @IsUUID()
-  @IsOptional()
-  perfilId?: string;
+  perfilId!: string;
 
-  @IsObject()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RespostaAvaliacaoDto)
   respostas!: RespostaAvaliacaoDto[];

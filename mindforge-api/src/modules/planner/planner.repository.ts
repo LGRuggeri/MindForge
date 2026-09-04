@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import {
   modulosTrilha,
@@ -22,18 +22,52 @@ export class PlannerRepository {
   async buscarObjetivoPorId(id: string) {
     return this.db.query.objetivosEstudo.findFirst({
       where: eq(objetivosEstudo.id, id),
-      with: { perfil: true, trilhas: { with: { modulos: true } } },
+      with: {
+        perfil: true,
+        trilhas: {
+          orderBy: [desc(trilhasEstudo.criadoEm)],
+          with: { modulos: true },
+        },
+      },
     });
   }
 
-  async criarTrilha(dados: NovaTrilhaEstudo) {
-    const [trilha] = await this.db.insert(trilhasEstudo).values(dados).returning();
+  private getClient(tx?: DrizzleDb) {
+    return tx ?? this.db;
+  }
+
+  async criarTrilha(dados: NovaTrilhaEstudo, tx?: DrizzleDb) {
+    const client = this.getClient(tx);
+    const [trilha] = await client.insert(trilhasEstudo).values(dados).returning();
     return trilha;
   }
 
-  async criarModulos(dados: NovoModuloTrilha[]) {
+  async substituirTrilhasAnteriores(
+    objetivoId: string,
+    trilhaAtualId: string,
+    tx?: DrizzleDb,
+  ): Promise<void> {
+    const client = this.getClient(tx);
+    await client
+      .update(trilhasEstudo)
+      .set({ status: 'substituida' })
+      .where(
+        and(
+          eq(trilhasEstudo.objetivoId, objetivoId),
+          ne(trilhasEstudo.id, trilhaAtualId),
+          eq(trilhasEstudo.status, 'ativa'),
+        ),
+      );
+  }
+
+  async criarModulos(dados: NovoModuloTrilha[], tx?: DrizzleDb) {
     if (dados.length === 0) return [];
-    return this.db.insert(modulosTrilha).values(dados).returning();
+    const client = this.getClient(tx);
+    return client.insert(modulosTrilha).values(dados).returning();
+  }
+
+  async executarEmTransacao<T>(fn: (tx: DrizzleDb) => Promise<T>): Promise<T> {
+    return this.db.transaction(fn);
   }
 
   async listarObjetivosDoPerfil(perfilId: string) {

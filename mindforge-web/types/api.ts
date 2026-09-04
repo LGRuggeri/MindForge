@@ -31,10 +31,18 @@ export interface Trilha {
 export interface Modulo {
   id: string;
   trilhaId: string;
+  trilha?: {
+    id: string;
+    objetivoId: string;
+    objetivo?: {
+      id: string;
+      titulo: string;
+    } | null;
+  } | null;
   ordem: number;
   titulo: string;
   objetivoAprendizagem?: string | null;
-  tempoEstimadoMinutos?: number | null;
+  tempoEstimadoMin?: number | null;
   prerequisitos?: string[] | null;
   criadoEm: string;
 }
@@ -198,7 +206,8 @@ export interface GerarExercicioInput {
 export interface SubmeterTentativaInput {
   exercicioId: string;
   respostaUsuario: string;
-  perfilId?: string;
+  perfilId: string;
+  avaliacaoId?: string | null;
   async?: boolean;
 }
 
@@ -215,12 +224,26 @@ export interface AvaliarDuvidaInput {
   feedback?: string;
 }
 
+export interface Avaliacao {
+  id: string;
+  moduloId?: string | null;
+  trilhaId?: string | null;
+  titulo: string;
+  tipo: string;
+  criadoEm: string;
+  exercicios?: {
+    ordem: number;
+    exercicio: Exercicio;
+  }[];
+}
+
 export interface CriarAvaliacaoInput {
   moduloId?: string;
   trilhaId?: string;
   titulo: string;
   tipo: string;
   exerciciosIds?: string[];
+  quantidade?: number;
 }
 
 export interface RespostaAvaliacaoInput {
@@ -230,7 +253,7 @@ export interface RespostaAvaliacaoInput {
 
 export interface SubmeterAvaliacaoInput {
   avaliacaoId: string;
-  perfilId?: string;
+  perfilId: string;
   respostas: RespostaAvaliacaoInput[];
 }
 

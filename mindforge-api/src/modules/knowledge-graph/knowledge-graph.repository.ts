@@ -1,11 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import {
   competencias,
   competenciaRelacoes,
   competenciaProgresso,
   moduloCompetencias,
+  modulosTrilha,
+  objetivosEstudo,
+  trilhasEstudo,
   Competencia,
   NovaCompetencia,
   NovoModuloCompetencia,
@@ -14,12 +17,6 @@ import {
 
 export interface CompetenciaComProgresso extends Competencia {
   progresso?: CompetenciaProgresso[] | null;
-}
-
-export interface CompetenciaComProgressoERelacoes extends Competencia {
-  progresso?: CompetenciaProgresso[] | null;
-  relacoesOrigem: Array<{ destino: Competencia; tipoRelacao: string }>;
-  relacoesDestino: Array<{ origem: Competencia; tipoRelacao: string }>;
 }
 
 export interface CaminhoNo {
@@ -34,24 +31,27 @@ export interface CaminhoNo {
 export class KnowledgeGraphRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
-  async criarCompetencia(dados: NovaCompetencia) {
-    const [competencia] = await this.db.insert(competencias).values(dados).returning();
+  async criarCompetencia(dados: NovaCompetencia, tx?: DrizzleDb) {
+    const client = tx ?? this.db;
+    const [competencia] = await client.insert(competencias).values(dados).returning();
     return competencia;
   }
 
-  async buscarCompetenciaPorId(id: string) {
+  async buscarCompetenciaPorId(id: string, perfilId?: string) {
     return this.db.query.competencias.findFirst({
       where: eq(competencias.id, id),
       with: {
         relacoesOrigem: { with: { destino: true } },
         relacoesDestino: { with: { origem: true } },
-        progresso: true,
+        // Progresso é dado pessoal: só é exposto quando o perfil é informado.
+        ...(perfilId ? { progresso: { where: eq(competenciaProgresso.perfilId, perfilId) } } : {}),
       },
     });
   }
 
-  async buscarCompetenciaPorNome(nome: string) {
-    return this.db.query.competencias.findFirst({
+  async buscarCompetenciaPorNome(nome: string, tx?: DrizzleDb) {
+    const client = tx ?? this.db;
+    return client.query.competencias.findFirst({
       where: eq(competencias.nome, nome),
     });
   }
@@ -75,9 +75,27 @@ export class KnowledgeGraphRepository {
     return relacao;
   }
 
-  async vincularModuloCompetencias(dados: NovoModuloCompetencia[]) {
+  async criarRelacaoSeNaoExistir(
+    dados: {
+      competenciaOrigemId: string;
+      competenciaDestinoId: string;
+      tipoRelacao: string;
+    },
+    tx?: DrizzleDb,
+  ) {
+    const client = tx ?? this.db;
+    const [relacao] = await client
+      .insert(competenciaRelacoes)
+      .values(dados)
+      .onConflictDoNothing()
+      .returning();
+    return relacao;
+  }
+
+  async vincularModuloCompetencias(dados: NovoModuloCompetencia[], tx?: DrizzleDb) {
     if (dados.length === 0) return [];
-    return this.db.insert(moduloCompetencias).values(dados).returning();
+    const client = tx ?? this.db;
+    return client.insert(moduloCompetencias).values(dados).onConflictDoNothing().returning();
   }
 
   async listarCompetenciasDoModulo(moduloId: string) {
@@ -88,7 +106,22 @@ export class KnowledgeGraphRepository {
   }
 
   async listarCompetenciasDoPerfil(perfilId: string) {
+    const competenciasIds = this.db
+      .select({ id: moduloCompetencias.competenciaId })
+      .from(moduloCompetencias)
+      .innerJoin(modulosTrilha, eq(modulosTrilha.id, moduloCompetencias.moduloId))
+      .innerJoin(trilhasEstudo, eq(trilhasEstudo.id, modulosTrilha.trilhaId))
+      .innerJoin(objetivosEstudo, eq(objetivosEstudo.id, trilhasEstudo.objetivoId))
+      .where(eq(objetivosEstudo.perfilId, perfilId))
+      .union(
+        this.db
+          .select({ id: competenciaProgresso.competenciaId })
+          .from(competenciaProgresso)
+          .where(eq(competenciaProgresso.perfilId, perfilId)),
+      );
+
     return this.db.query.competencias.findMany({
+      where: inArray(competencias.id, competenciasIds),
       orderBy: [competencias.nome],
       with: {
         progresso: {
@@ -96,33 +129,23 @@ export class KnowledgeGraphRepository {
           orderBy: [desc(competenciaProgresso.atualizadoEm)],
           limit: 1,
         },
-        modulos: { with: { modulo: true } },
+        modulos: {
+          where: and(
+            eq(moduloCompetencias.competenciaId, competencias.id),
+            inArray(
+              moduloCompetencias.moduloId,
+              this.db
+                .select({ id: modulosTrilha.id })
+                .from(modulosTrilha)
+                .innerJoin(trilhasEstudo, eq(trilhasEstudo.id, modulosTrilha.trilhaId))
+                .innerJoin(objetivosEstudo, eq(objetivosEstudo.id, trilhasEstudo.objetivoId))
+                .where(eq(objetivosEstudo.perfilId, perfilId)),
+            ),
+          ),
+          with: { modulo: true },
+        },
       },
     });
-  }
-
-  async listarCompetenciasDoPerfilComRelacoes(
-    perfilId: string,
-  ): Promise<CompetenciaComProgressoERelacoes[]> {
-    return this.db.query.competencias.findMany({
-      orderBy: [competencias.nome],
-      with: {
-        progresso: {
-          where: eq(competenciaProgresso.perfilId, perfilId),
-          orderBy: [desc(competenciaProgresso.atualizadoEm)],
-          limit: 1,
-        },
-        relacoesOrigem: {
-          with: { destino: true },
-          where: eq(competenciaRelacoes.tipoRelacao, 'pre_requisito'),
-        },
-        relacoesDestino: {
-          with: { origem: true },
-          where: eq(competenciaRelacoes.tipoRelacao, 'pre_requisito'),
-        },
-        modulos: { with: { modulo: true } },
-      },
-    }) as Promise<CompetenciaComProgressoERelacoes[]>;
   }
 
   async atualizarProgresso(
@@ -173,47 +196,159 @@ export class KnowledgeGraphRepository {
     });
   }
 
-  async buscarCaminhoDePreRequisitos(competenciaId: string): Promise<CaminhoNo[]> {
-    const result = await this.db.execute<CaminhoNo>(sql`
-      WITH RECURSIVE cadeia AS (
+  async recomendarCompetencias(
+    perfilId: string,
+  ): Promise<
+    Array<{ id: string; nome: string; progresso: string | null; prerequisitosPendentes: number }>
+  > {
+    const competenciasDoPerfil = this.db
+      .select({ id: moduloCompetencias.competenciaId })
+      .from(moduloCompetencias)
+      .innerJoin(modulosTrilha, eq(modulosTrilha.id, moduloCompetencias.moduloId))
+      .innerJoin(trilhasEstudo, eq(trilhasEstudo.id, modulosTrilha.trilhaId))
+      .innerJoin(objetivosEstudo, eq(objetivosEstudo.id, trilhasEstudo.objetivoId))
+      .where(eq(objetivosEstudo.perfilId, perfilId))
+      .union(
+        this.db
+          .select({ id: competenciaProgresso.competenciaId })
+          .from(competenciaProgresso)
+          .where(eq(competenciaProgresso.perfilId, perfilId)),
+      );
+
+    const rows = await this.db.execute<{
+      id: string;
+      nome: string;
+      progresso: string | null;
+      prerequisitosPendentes: number;
+    }>(sql`
+      WITH competencias_perfil AS (
+        ${competenciasDoPerfil}
+      ),
+      progresso AS (
+        SELECT
+          cp.competencia_id AS id,
+          cp.nivel_atual AS nivel
+        FROM competencia_progresso cp
+        WHERE cp.perfil_id = ${perfilId}
+      ),
+      recomendadas AS (
         SELECT
           c.id,
           c.nome,
-          r.tipo_relacao,
-          0 AS profundidade
+          COALESCE(p.nivel, 'nao_iniciado') AS progresso
         FROM competencias c
-        JOIN competencia_relacoes r ON r.competencia_destino_id = c.id
-        WHERE c.id = ${competenciaId}
-          AND r.tipo_relacao = 'pre_requisito'
-        UNION ALL
+        JOIN competencias_perfil cp ON cp.id = c.id
+        LEFT JOIN progresso p ON p.id = c.id
+        WHERE COALESCE(p.nivel, 'nao_iniciado') <> 'dominado'
+      ),
+      prerequisitos AS (
         SELECT
-          c.id,
-          c.nome,
-          r.tipo_relacao,
-          cadeia.profundidade + 1
+          r.competencia_destino_id AS destino_id,
+          COUNT(*) FILTER (
+            WHERE COALESCE(p.nivel, 'nao_iniciado') <> 'dominado'
+          ) AS pendentes
         FROM competencia_relacoes r
-        JOIN competencias c ON c.id = r.competencia_destino_id
-        JOIN cadeia ON cadeia.id = r.competencia_origem_id
+        JOIN competencias_perfil cp ON cp.id = r.competencia_destino_id
+        LEFT JOIN progresso p ON p.id = r.competencia_origem_id
         WHERE r.tipo_relacao = 'pre_requisito'
-          AND cadeia.profundidade < 10
+        GROUP BY r.competencia_destino_id
       )
-      SELECT * FROM cadeia ORDER BY profundidade DESC, nome;
+      SELECT
+        r.id,
+        r.nome,
+        r.progresso,
+        COALESCE(pr.pendentes, 0) AS prerequisitosPendentes
+      FROM recomendadas r
+      LEFT JOIN prerequisitos pr ON pr.destino_id = r.id
+      WHERE COALESCE(pr.pendentes, 0) = 0
+      ORDER BY
+        CASE r.progresso
+          WHEN 'nao_iniciado' THEN 0
+          WHEN 'aprendendo' THEN 1
+          WHEN 'praticando' THEN 2
+          ELSE 3
+        END,
+        r.nome;
     `);
-    return result.rows;
+
+    return Array.isArray(rows) ? rows : rows.rows;
   }
 
-  async buscarDependentes(competenciaId: string): Promise<CaminhoNo[]> {
+  async buscarCaminhoDePreRequisitos(
+    competenciaId: string,
+    perfilId?: string,
+  ): Promise<CaminhoNo[]> {
+    return this.buscarCaminhoRecursivo(competenciaId, 'pre_requisito', perfilId, true);
+  }
+
+  async buscarDependentes(competenciaId: string, perfilId?: string): Promise<CaminhoNo[]> {
+    return this.buscarCaminhoRecursivo(competenciaId, 'pre_requisito', perfilId, false);
+  }
+
+  private async buscarCaminhoRecursivo(
+    competenciaId: string,
+    tipoRelacao: string,
+    perfilId: string | undefined,
+    preRequisitos: boolean,
+  ): Promise<CaminhoNo[]> {
+    const sentidoOrigem = preRequisitos ? 'competencia_origem_id' : 'competencia_destino_id';
+    const sentidoDestino = preRequisitos ? 'competencia_destino_id' : 'competencia_origem_id';
+    const orderBy = preRequisitos ? 'profundidade DESC, nome' : 'profundidade, nome';
+
+    if (!perfilId) {
+      const result = await this.db.execute<CaminhoNo>(sql`
+        WITH RECURSIVE cadeia AS (
+          SELECT
+            c.id,
+            c.nome,
+            r.tipo_relacao,
+            1 AS profundidade
+          FROM competencias c
+          JOIN competencia_relacoes r ON r.${sql.identifier(sentidoOrigem)} = c.id
+          WHERE r.${sql.identifier(sentidoDestino)} = ${competenciaId}
+            AND r.tipo_relacao = ${tipoRelacao}
+          UNION ALL
+          SELECT
+            c.id,
+            c.nome,
+            r.tipo_relacao,
+            cadeia.profundidade + 1
+          FROM competencia_relacoes r
+          JOIN competencias c ON c.id = r.${sql.identifier(sentidoOrigem)}
+          JOIN cadeia ON cadeia.id = r.${sql.identifier(sentidoDestino)}
+          WHERE r.tipo_relacao = ${tipoRelacao}
+            AND cadeia.profundidade < 10
+        )
+        SELECT * FROM cadeia ORDER BY ${sql.raw(orderBy)};
+      `);
+      return result.rows;
+    }
+
     const result = await this.db.execute<CaminhoNo>(sql`
-      WITH RECURSIVE cadeia AS (
+      WITH RECURSIVE competencias_perfil AS (
+        SELECT mc.competencia_id AS id
+        FROM modulo_competencias mc
+        JOIN modulos_trilha mt ON mt.id = mc.modulo_id
+        JOIN trilhas_estudo te ON te.id = mt.trilha_id
+        JOIN objetivos_estudo oe ON oe.id = te.objetivo_id
+        WHERE oe.perfil_id = ${perfilId}
+        UNION
+        SELECT cp.competencia_id AS id
+        FROM competencia_progresso cp
+        WHERE cp.perfil_id = ${perfilId}
+      ),
+      cadeia AS (
         SELECT
           c.id,
           c.nome,
           r.tipo_relacao,
-          0 AS profundidade
+          1 AS profundidade
         FROM competencias c
-        JOIN competencia_relacoes r ON r.competencia_origem_id = c.id
-        WHERE c.id = ${competenciaId}
-          AND r.tipo_relacao = 'pre_requisito'
+        JOIN competencia_relacoes r ON r.${sql.identifier(sentidoOrigem)} = c.id
+        JOIN competencias_perfil cp ON cp.id = c.id
+        WHERE r.${sql.identifier(sentidoDestino)} = ${competenciaId}
+          AND r.tipo_relacao = ${tipoRelacao}
+          AND ${competenciaId} IN (SELECT id FROM competencias_perfil)
         UNION ALL
         SELECT
           c.id,
@@ -221,12 +356,13 @@ export class KnowledgeGraphRepository {
           r.tipo_relacao,
           cadeia.profundidade + 1
         FROM competencia_relacoes r
-        JOIN competencias c ON c.id = r.competencia_origem_id
-        JOIN cadeia ON cadeia.id = r.competencia_destino_id
-        WHERE r.tipo_relacao = 'pre_requisito'
+        JOIN competencias c ON c.id = r.${sql.identifier(sentidoOrigem)}
+        JOIN competencias_perfil cp ON cp.id = c.id
+        JOIN cadeia ON cadeia.id = r.${sql.identifier(sentidoDestino)}
+        WHERE r.tipo_relacao = ${tipoRelacao}
           AND cadeia.profundidade < 10
       )
-      SELECT * FROM cadeia ORDER BY profundidade, nome;
+      SELECT * FROM cadeia ORDER BY ${sql.raw(orderBy)};
     `);
     return result.rows;
   }

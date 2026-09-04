@@ -48,7 +48,7 @@ export class ExerciciosJobHandler implements OnModuleInit {
   }
 
   private async processarGerar(job: Job<Record<string, unknown>>) {
-    const dados = job.data as unknown as GerarExercicioJob;
+    const dados = { ...(job.data as unknown as GerarExercicioJob), async: false };
     this.logger.log(`Processando job ${GERAR_EXERCICIO_JOB} para módulo ${dados.moduloId}`);
     try {
       return await this.exerciciosService.gerarExercicio(dados);
@@ -62,7 +62,7 @@ export class ExerciciosJobHandler implements OnModuleInit {
   }
 
   private async processarCorrigir(job: Job<Record<string, unknown>>) {
-    const dados = job.data as unknown as CorrigirTentativaJob;
+    const dados = { ...(job.data as unknown as CorrigirTentativaJob), async: false };
     this.logger.log(
       `Processando job ${CORRIGIR_TENTATIVA_JOB} para exercício ${dados.exercicioId}`,
     );

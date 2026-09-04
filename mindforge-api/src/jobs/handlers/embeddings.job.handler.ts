@@ -34,7 +34,7 @@ export class EmbeddingsJobHandler implements OnModuleInit {
   }
 
   private async processar(job: Job<Record<string, unknown>>) {
-    const dados = job.data as unknown as IndexarEmbeddingJob;
+    const dados = { ...(job.data as unknown as IndexarEmbeddingJob), async: false };
     const origem = dados.conteudoId ?? dados.fonteId ?? 'desconhecida';
     this.logger.log(`Processando job ${INDEXAR_EMBEDDING_JOB} para origem ${origem}`);
     try {

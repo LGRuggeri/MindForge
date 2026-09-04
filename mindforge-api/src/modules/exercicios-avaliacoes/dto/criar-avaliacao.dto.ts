@@ -1,4 +1,13 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export enum TipoAvaliacao {
   DIAGNOSTICA = 'diagnostica',
@@ -23,7 +32,13 @@ export class CriarAvaliacaoDto {
   @IsEnum(TipoAvaliacao)
   tipo!: TipoAvaliacao;
 
+  @IsArray()
   @IsUUID('4', { each: true })
   @IsOptional()
   exerciciosIds?: string[];
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  quantidade?: number;
 }

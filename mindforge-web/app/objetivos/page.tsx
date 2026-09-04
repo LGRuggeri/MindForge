@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Plus, Target, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseDateOnlyLocal } from '@/lib/date-helpers';
 
 const niveis = [
   { value: 'iniciante', label: 'Iniciante' },
@@ -172,7 +173,7 @@ export default function ObjetivosPage() {
                         locale: ptBR,
                       })}
                       {objetivo.prazoEstimado &&
-                        ` · Prazo: ${format(new Date(objetivo.prazoEstimado), 'dd/MM/yyyy')}`}
+                        ` · Prazo: ${format(parseDateOnlyLocal(objetivo.prazoEstimado), 'dd/MM/yyyy')}`}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" asChild>

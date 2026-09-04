@@ -1,7 +1,9 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { z } from 'zod';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
+import { PlannerService } from '../planner/planner.service';
 import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
 import { ExercicioGerado, GerarExercicioDto, SubmeterTentativaDto } from './dto';
@@ -13,6 +15,12 @@ export interface TentativaCorrigida {
   feedback: string;
 }
 
+const tentativaCorrigidaSchema = z.object({
+  correta: z.boolean(),
+  pontuacao: z.number().min(0).max(10),
+  feedback: z.string(),
+});
+
 @Injectable()
 export class ExerciciosAvaliacoesService {
   private readonly logger = new Logger(ExerciciosAvaliacoesService.name);
@@ -22,6 +30,7 @@ export class ExerciciosAvaliacoesService {
     private readonly agentes: AgentesService,
     private readonly biblioteca: BibliotecaVivaService,
     private readonly knowledgeGraph: KnowledgeGraphService,
+    private readonly planner: PlannerService,
     @Inject(JOB_QUEUE) private readonly queue: JobsService,
   ) {}
 
@@ -29,7 +38,7 @@ export class ExerciciosAvaliacoesService {
     | { jobId: string; status: 'enfileirado'; moduloId: string }
     | (Awaited<ReturnType<ExerciciosAvaliacoesRepository['criarExercicio']>> & {
         dica?: string;
-        criterios?: string[];
+        criterios?: string[] | null;
       })
   > {
     if (dto.async) {
@@ -53,15 +62,25 @@ export class ExerciciosAvaliacoesService {
   private async gerarExercicioSincrono(dto: GerarExercicioDto): Promise<
     Awaited<ReturnType<ExerciciosAvaliacoesRepository['criarExercicio']>> & {
       dica?: string;
-      criterios?: string[];
+      criterios?: string[] | null;
     }
   > {
-    const consulta = [dto.tipo, dto.dificuldade, dto.instrucoesExtras].filter(Boolean).join(' ');
+    const modulo = await this.planner.buscarModuloPorId(dto.moduloId);
+
+    const termos = [
+      modulo.titulo,
+      modulo.objetivoAprendizagem ?? '',
+      dto.tipo,
+      dto.dificuldade,
+      dto.instrucoesExtras,
+    ].filter(Boolean);
+    const consulta = termos.join(' ');
 
     let chunks: Array<{ id: string; texto: string; similaridade: number }> = [];
     try {
       chunks = await this.biblioteca.buscar({
         consulta,
+        moduloId: dto.moduloId,
         limite: 5,
       });
     } catch (erro) {
@@ -72,8 +91,14 @@ export class ExerciciosAvaliacoesService {
     const gerado = await this.agentes.executar<ExercicioGerado>({
       agente: 'evaluator',
       system: this.montarSystemPromptGeracao(dto.tipo),
-      user: this.montarUserPromptGeracao(dto, chunks),
-      entrada: { moduloId: dto.moduloId, tipo: dto.tipo, dificuldade: dto.dificuldade },
+      user: this.montarUserPromptGeracao(dto, modulo, chunks),
+      entrada: {
+        moduloId: dto.moduloId,
+        tituloModulo: modulo.titulo,
+        objetivoModulo: modulo.objetivoAprendizagem,
+        tipo: dto.tipo,
+        dificuldade: dto.dificuldade,
+      },
       parser: (raw) => this.parseJsonSeguro<ExercicioGerado>(raw),
       temperature: 0.7,
     });
@@ -83,11 +108,12 @@ export class ExerciciosAvaliacoesService {
       tipo: dto.tipo,
       enunciado: gerado.enunciado,
       gabarito: gerado.gabarito,
+      criterios: gerado.criterios,
       dificuldade: dto.dificuldade ?? 'medio',
     });
 
     this.logger.log(`Exercício gerado: ${exercicio.id} para o módulo ${dto.moduloId}`);
-    return { ...exercicio, dica: gerado.dica, criterios: gerado.criterios };
+    return { ...exercicio, dica: gerado.dica, criterios: gerado.criterios ?? null };
   }
 
   async submeterTentativa(dto: SubmeterTentativaDto): Promise<
@@ -96,6 +122,12 @@ export class ExerciciosAvaliacoesService {
         feedback: string;
       })
   > {
+    const exercicioId = dto.exercicioId;
+
+    if (!exercicioId) {
+      throw new BadRequestException('exercicioId é obrigatório');
+    }
+
     if (dto.async) {
       const jobId = await this.queue.send(
         'exercicios:corrigir-tentativa',
@@ -106,30 +138,53 @@ export class ExerciciosAvaliacoesService {
         throw new Error('Falha ao enfileirar job de correção de tentativa');
       }
       this.logger.log(
-        `Job de correção de tentativa enfileirado: ${jobId} para exercício ${dto.exercicioId}`,
+        `Job de correção de tentativa enfileirado: ${jobId} para exercício ${exercicioId}`,
       );
-      return { jobId, status: 'enfileirado', exercicioId: dto.exercicioId };
+      return { jobId, status: 'enfileirado', exercicioId };
     }
 
-    return this.submeterTentativaSincrona(dto);
+    return this.submeterTentativaSincrona(dto, exercicioId);
   }
 
   private async submeterTentativaSincrona(
     dto: SubmeterTentativaDto,
+    exercicioId: string,
   ): Promise<
     Awaited<ReturnType<ExerciciosAvaliacoesRepository['salvarTentativa']>> & { feedback: string }
   > {
-    const exercicio = await this.repo.buscarExercicioPorId(dto.exercicioId);
+    const exercicio = await this.repo.buscarExercicioPorId(exercicioId);
     if (!exercicio) {
-      throw new NotFoundException(`Exercício ${dto.exercicioId} não encontrado`);
+      throw new NotFoundException(`Exercício ${exercicioId} não encontrado`);
     }
 
-    const numeroTentativa = await this.repo.contarTentativasPorExercicio(dto.exercicioId);
+    let modulo: { titulo: string; objetivoAprendizagem: string | null };
+    try {
+      modulo = await this.planner.buscarModuloPorId(exercicio.moduloId);
+    } catch (erro) {
+      if (!(erro instanceof NotFoundException)) {
+        throw erro;
+      }
+      const mensagem = erro instanceof Error ? erro.message : String(erro);
+      this.logger.error(
+        `Módulo ${exercicio.moduloId} não encontrado na correção do exercício ${exercicioId}: ${mensagem}`,
+      );
+      modulo = { titulo: 'Módulo desconhecido', objetivoAprendizagem: null };
+    }
 
-    const correcao = await this.corrigirResposta(exercicio.tipo, exercicio, dto.respostaUsuario);
+    const numeroTentativa = await this.repo.contarTentativasPorExercicio(exercicioId);
+
+    const correcao = await this.corrigirResposta(
+      exercicio.tipo,
+      exercicio,
+      dto.respostaUsuario,
+      modulo,
+      !dto.avaliacaoId,
+    );
 
     const tentativa = await this.repo.salvarTentativa({
-      exercicioId: dto.exercicioId,
+      perfilId: dto.perfilId!,
+      exercicioId,
+      avaliacaoId: dto.avaliacaoId ?? null,
       respostaUsuario: dto.respostaUsuario,
       correta: correcao.correta,
       pontuacao: String(correcao.pontuacao),
@@ -137,21 +192,29 @@ export class ExerciciosAvaliacoesService {
       tentativaNumero: numeroTentativa + 1,
     });
 
-    if (dto.perfilId && exercicio.moduloId) {
+    // Em simulados o progresso por módulo é agregado pela avaliação final;
+    // atualizar por resposta individual marcaria competências antes da nota final.
+    if (dto.perfilId && exercicio.moduloId && !dto.avaliacaoId) {
       await this.atualizarProgressoPorExercicio(
         exercicio.moduloId,
         dto.perfilId,
         correcao.pontuacao,
-        dto.exercicioId,
+        exercicioId,
       );
     }
 
-    this.logger.log(`Tentativa salva: ${tentativa.id} para o exercício ${dto.exercicioId}`);
-    return { ...tentativa, feedback: correcao.feedback };
+    this.logger.log(`Tentativa salva: ${tentativa.id} para o exercício ${exercicioId}`);
+
+    // Em simulados o feedback detalhado (que pode conter o gabarito) só é
+    // revelado após a finalização; o feedback completo fica persistido em feedbackIa.
+    const feedbackResposta = dto.avaliacaoId
+      ? 'Resposta registrada. O feedback detalhado será disponibilizado após a finalização.'
+      : correcao.feedback;
+    return { ...tentativa, feedback: feedbackResposta };
   }
 
   async listarPorModulo(moduloId: string) {
-    return this.repo.listarExerciciosPorModulo(moduloId);
+    return this.repo.listarExerciciosPublicosPorModulo(moduloId);
   }
 
   async estatisticasPorExercicio(exercicioId: string) {
@@ -160,8 +223,10 @@ export class ExerciciosAvaliacoesService {
 
   private async corrigirResposta(
     tipo: string,
-    exercicio: { enunciado: string; gabarito: string | null },
+    exercicio: { enunciado: string; gabarito: string | null; criterios: string[] | null },
     respostaUsuario: string,
+    modulo: { titulo: string; objetivoAprendizagem: string | null },
+    revelarGabarito = true,
   ): Promise<TentativaCorrigida> {
     if (tipo === 'questao_objetiva' && exercicio.gabarito) {
       const normalizado = (s: string) =>
@@ -174,16 +239,20 @@ export class ExerciciosAvaliacoesService {
       return {
         correta,
         pontuacao: correta ? 10 : 0,
-        feedback: correta ? 'Resposta correta!' : `Resposta incorreta. ${exercicio.gabarito}`,
+        feedback: correta
+          ? 'Resposta correta!'
+          : revelarGabarito
+            ? `Resposta incorreta. ${exercicio.gabarito}`
+            : 'Resposta incorreta. O gabarito será revelado após a finalização.',
       };
     }
 
     return this.agentes.executar<TentativaCorrigida>({
       agente: 'evaluator',
       system: this.montarSystemPromptCorrecao(tipo),
-      user: this.montarUserPromptCorrecao(exercicio, respostaUsuario),
+      user: this.montarUserPromptCorrecao(exercicio, respostaUsuario, modulo),
       entrada: { tipo, enunciado: exercicio.enunciado, resposta: respostaUsuario },
-      parser: (raw) => this.parseJsonSeguro<TentativaCorrigida>(raw),
+      parser: (raw) => this.parseTentativaCorrigida(raw),
       temperature: 0.5,
     });
   }
@@ -233,6 +302,7 @@ Formato obrigatório:
 
   private montarUserPromptGeracao(
     dto: GerarExercicioDto,
+    modulo: { titulo: string; objetivoAprendizagem: string | null },
     chunks: Array<{ texto: string; similaridade: number }>,
   ): string {
     const chunksTexto =
@@ -245,14 +315,15 @@ Formato obrigatório:
             .join('\n\n')
         : 'Nenhum material relevante encontrado na Biblioteca Viva.';
 
-    return `Módulo: ${dto.moduloId}
+    return `Módulo: ${modulo.titulo}
+Objetivo de aprendizagem: ${modulo.objetivoAprendizagem ?? 'não informado'}
 Tipo de exercício: ${dto.tipo}
 Dificuldade: ${dto.dificuldade ?? 'medio'}
 ${dto.instrucoesExtras ? `Instruções extras: ${dto.instrucoesExtras}\n` : ''}
-Materiais recuperados da Biblioteca Viva:
+Materiais recuperados da Biblioteca Viva (escopo deste módulo):
 ${chunksTexto}
 
-Gere o exercício no formato JSON especificado.`;
+Gere o exercício no formato JSON especificado, alinhado ao objetivo de aprendizagem do módulo.`;
   }
 
   private montarSystemPromptCorrecao(tipo: string): string {
@@ -273,11 +344,20 @@ Formato obrigatório:
   }
 
   private montarUserPromptCorrecao(
-    exercicio: { enunciado: string; gabarito: string | null },
+    exercicio: { enunciado: string; gabarito: string | null; criterios: string[] | null },
     respostaUsuario: string,
+    modulo: { titulo: string; objetivoAprendizagem: string | null },
   ): string {
-    return `Enunciado: ${exercicio.enunciado}
-Gabarito/critérios: ${exercicio.gabarito ?? 'Não informado'}
+    const criteriosTexto =
+      exercicio.criterios && exercicio.criterios.length > 0
+        ? exercicio.criterios.map((c) => `- ${c}`).join('\n')
+        : (exercicio.gabarito ?? 'Não informado');
+
+    return `Módulo: ${modulo.titulo}
+Objetivo de aprendizagem: ${modulo.objetivoAprendizagem ?? 'não informado'}
+Enunciado: ${exercicio.enunciado}
+Gabarito/critérios:
+${criteriosTexto}
 Resposta do aluno: ${respostaUsuario}
 
 Corrija no formato JSON especificado.`;
@@ -288,8 +368,21 @@ Corrija no formato JSON especificado.`;
     try {
       return JSON.parse(limpo) as T;
     } catch {
-      this.logger.error('Falha ao parsear JSON do Evaluator', raw);
+      this.logger.error('Falha ao parsear JSON do Evaluator');
       throw new Error('O agente Evaluator retornou uma resposta inválida');
     }
+  }
+
+  private parseTentativaCorrigida(raw: string): TentativaCorrigida {
+    const parsed = this.parseJsonSeguro<unknown>(raw);
+    const resultado = tentativaCorrigidaSchema.safeParse(parsed);
+    if (!resultado.success) {
+      const detalhes = resultado.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      this.logger.error(`Resposta do Evaluator fora do formato esperado (${detalhes})`);
+      throw new BadRequestException(`Resposta do Evaluator inválida: ${detalhes}`);
+    }
+    return resultado.data;
   }
 }

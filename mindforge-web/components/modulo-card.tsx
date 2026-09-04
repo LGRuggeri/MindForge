@@ -27,8 +27,8 @@ export function ModuloCard({ modulo, href }: ModuloCardProps) {
             <p className="text-sm text-muted-foreground line-clamp-2">{modulo.objetivoAprendizagem}</p>
           )}
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            {modulo.tempoEstimadoMinutos && (
-              <Badge variant="secondary">{modulo.tempoEstimadoMinutos} min</Badge>
+            {modulo.tempoEstimadoMin && (
+              <Badge variant="secondary">{modulo.tempoEstimadoMin} min</Badge>
             )}
           </div>
         </div>

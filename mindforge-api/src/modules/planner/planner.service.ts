@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { z } from 'zod';
 import { AgentesService } from '../agentes/agentes.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { CriarObjetivoDto } from './dto/criar-objetivo.dto';
@@ -16,6 +17,19 @@ export interface PlanoSugerido {
   versao: number;
   modulos: ModuloSugerido[];
 }
+
+const moduloSugeridoSchema = z.object({
+  ordem: z.number().int().positive(),
+  titulo: z.string().min(1),
+  objetivoAprendizagem: z.string().min(1),
+  tempoEstimadoMin: z.number().int().positive(),
+});
+
+const planoSugeridoSchema = z.object({
+  tituloTrilha: z.string().min(1),
+  versao: z.number().int().optional(),
+  modulos: z.array(moduloSugeridoSchema).min(3).max(8),
+});
 
 @Injectable()
 export class PlannerService {
@@ -65,27 +79,37 @@ export class PlannerService {
       system: this.montarSystemPrompt(),
       user: this.montarUserPrompt(objetivo),
       entrada: { objetivoId, titulo: objetivo.titulo },
-      parser: (raw) => this.parseJsonSeguro<PlanoSugerido>(raw),
+      parser: (raw) => this.parsePlanoSugerido(raw),
       temperature: 0.7,
     });
 
-    const trilha = await this.repo.criarTrilha({
-      objetivoId,
-      versao: plano.versao || 1,
-      status: 'ativa',
-      geradoPorAgente: 'planner',
-      metadata: { tituloTrilha: plano.tituloTrilha },
-    });
+    const { trilha, modulos } = await this.repo.executarEmTransacao(async (tx) => {
+      const trilha = await this.repo.criarTrilha(
+        {
+          objetivoId,
+          versao: plano.versao || 1,
+          status: 'ativa',
+          geradoPorAgente: 'planner',
+          metadata: { tituloTrilha: plano.tituloTrilha },
+        },
+        tx,
+      );
 
-    const modulos = await this.repo.criarModulos(
-      plano.modulos.map((m) => ({
-        trilhaId: trilha.id,
-        ordem: m.ordem,
-        titulo: m.titulo,
-        objetivoAprendizagem: m.objetivoAprendizagem,
-        tempoEstimadoMin: m.tempoEstimadoMin,
-      })),
-    );
+      await this.repo.substituirTrilhasAnteriores(objetivoId, trilha.id, tx);
+
+      const modulos = await this.repo.criarModulos(
+        plano.modulos.map((m) => ({
+          trilhaId: trilha.id,
+          ordem: m.ordem,
+          titulo: m.titulo,
+          objetivoAprendizagem: m.objetivoAprendizagem,
+          tempoEstimadoMin: m.tempoEstimadoMin,
+        })),
+        tx,
+      );
+
+      return { trilha, modulos };
+    });
 
     await this.popularKnowledgeGraph(modulos);
 
@@ -132,7 +156,7 @@ export class PlannerService {
     for (let i = 1; i < competenciasPorModulo.length; i++) {
       const anterior = competenciasPorModulo[i - 1];
       const atual = competenciasPorModulo[i];
-      await this.knowledgeGraph.criarRelacao({
+      await this.knowledgeGraph.criarRelacaoSeNaoExistir({
         competenciaOrigemId: anterior.competenciaId,
         competenciaDestinoId: atual.competenciaId,
         tipoRelacao: 'pre_requisito',
@@ -184,8 +208,21 @@ Gere a trilha de aprendizado no formato JSON especificado.`;
     try {
       return JSON.parse(limpo) as T;
     } catch {
-      this.logger.error('Falha ao parsear JSON do Planner', raw);
+      this.logger.error('Falha ao parsear JSON do Planner');
       throw new Error('O agente Planner retornou uma resposta inválida');
     }
+  }
+
+  private parsePlanoSugerido(raw: string): PlanoSugerido {
+    const parsed = this.parseJsonSeguro<unknown>(raw);
+    const resultado = planoSugeridoSchema.safeParse(parsed);
+    if (!resultado.success) {
+      const detalhes = resultado.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      this.logger.error(`Resposta do Planner fora do formato esperado (${detalhes})`);
+      throw new Error(`O agente Planner retornou um plano inválido: ${detalhes}`);
+    }
+    return resultado.data as PlanoSugerido;
   }
 }

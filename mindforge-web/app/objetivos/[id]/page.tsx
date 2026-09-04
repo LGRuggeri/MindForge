@@ -1,23 +1,42 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useObjetivo } from '@/lib/hooks/useObjetivos';
 import { useGerarTrilha } from '@/lib/hooks/useTrilhas';
+import { useCriarAvaliacao } from '@/lib/hooks/useAvaliacoes';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, BookOpen, Play } from 'lucide-react';
+import { ArrowLeft, BookOpen, Play, ClipboardList } from 'lucide-react';
+import { parseDateOnlyLocal } from '@/lib/date-helpers';
 
 export default function ObjetivoPage() {
   const params = useParams();
+  const router = useRouter();
   const id = typeof params.id === 'string' ? params.id : null;
   const { data: objetivo, isLoading } = useObjetivo(id);
   const gerar = useGerarTrilha();
+  const criarAvaliacao = useCriarAvaliacao();
   const { perfilSelecionado } = useAppStore();
+
+  const [open, setOpen] = useState(false);
+  const [quantidade, setQuantidade] = useState('10');
 
   const handleGerarTrilha = async () => {
     if (!id || !perfilSelecionado) return;
@@ -26,6 +45,31 @@ export default function ObjetivoPage() {
       toast.success(`Trilha "${trilha.id.slice(0, 8)}" gerada com ${trilha.modulos.length} módulos`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar trilha');
+    }
+  };
+
+  const handleCriarSimulado = async () => {
+    const trilha = objetivo?.trilhas?.[0];
+    if (!trilha || !perfilSelecionado) return;
+
+    const qtd = Number(quantidade);
+    if (Number.isNaN(qtd) || qtd < 1) {
+      toast.error('Quantidade inválida');
+      return;
+    }
+
+    try {
+      const avaliacao = await criarAvaliacao.mutateAsync({
+        trilhaId: trilha.id,
+        titulo: `Simulado - ${objetivo.titulo}`,
+        tipo: 'simulado',
+        quantidade: qtd,
+      });
+      toast.success('Simulado criado!');
+      setOpen(false);
+      router.push(`/simulados/${avaliacao.id}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar simulado');
     }
   };
 
@@ -75,7 +119,7 @@ export default function ObjetivoPage() {
         )}
         {objetivo.prazoEstimado && (
           <Badge variant="secondary">
-            Prazo: {new Date(objetivo.prazoEstimado).toLocaleDateString('pt-BR')}
+            Prazo: {parseDateOnlyLocal(objetivo.prazoEstimado).toLocaleDateString('pt-BR')}
           </Badge>
         )}
       </div>
@@ -100,16 +144,54 @@ export default function ObjetivoPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-xl font-semibold">Módulos da trilha</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGerarTrilha}
-              disabled={gerar.isPending}
-            >
-              {gerar.isPending ? 'Gerando...' : 'Regenerar trilha'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger>
+                  <Button variant="outline" size="sm">
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Criar simulado
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Criar simulado</DialogTitle>
+                    <DialogDescription>
+                      Sorteie exercícios de vários módulos da trilha para testar seu conhecimento.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="quantidade">Quantidade de questões</Label>
+                      <Input
+                        id="quantidade"
+                        type="number"
+                        min={1}
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleCriarSimulado} disabled={criarAvaliacao.isPending}>
+                      {criarAvaliacao.isPending ? 'Criando...' : 'Criar simulado'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGerarTrilha}
+                disabled={gerar.isPending}
+              >
+                {gerar.isPending ? 'Gerando...' : 'Regenerar trilha'}
+              </Button>
+            </div>
           </div>
           {trilha.modulos?.map((modulo) => (
             <Card key={modulo.id}>
@@ -128,8 +210,8 @@ export default function ObjetivoPage() {
                       </CardDescription>
                     )}
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {modulo.tempoEstimadoMinutos && (
-                        <span>{modulo.tempoEstimadoMinutos} min</span>
+                      {modulo.tempoEstimadoMin && (
+                        <span>{modulo.tempoEstimadoMin} min</span>
                       )}
                     </div>
                   </div>

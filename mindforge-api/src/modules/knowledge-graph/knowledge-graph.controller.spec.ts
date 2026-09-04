@@ -10,7 +10,6 @@ const mockService = {
   buscarDependentes: jest.fn().mockResolvedValue([]),
   criarRelacao: jest.fn(),
   listarGrafoDoPerfil: jest.fn().mockResolvedValue([]),
-  listarGrafoVisualDoPerfil: jest.fn().mockResolvedValue({ nodes: [], edges: [] }),
   atualizarProgresso: jest.fn(),
   marcarProgressoPorModulo: jest.fn(),
 };
@@ -41,16 +40,5 @@ describe('KnowledgeGraphController', () => {
     mockService.marcarProgressoPorModulo.mockResolvedValue({ atualizados: 1 });
     const result = await controller.marcarProgressoPorModulo({ moduloId: 'm1', perfilId: 'p1' });
     expect(result.atualizados).toBe(1);
-  });
-
-  it('deve listar grafo visual do perfil', async () => {
-    const grafo = {
-      nodes: [{ id: 'c1', nome: 'Rust', descricao: null, categoria: 'planner', nivelAtual: 'dominado' }],
-      edges: [],
-    };
-    mockService.listarGrafoVisualDoPerfil.mockResolvedValue(grafo);
-    const result = await controller.listarGrafoVisualDoPerfil('p1');
-    expect(mockService.listarGrafoVisualDoPerfil).toHaveBeenCalledWith('p1');
-    expect(result).toEqual(grafo);
   });
 });

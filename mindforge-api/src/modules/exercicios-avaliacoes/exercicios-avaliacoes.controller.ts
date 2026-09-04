@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -35,9 +36,17 @@ export class ExerciciosAvaliacoesController {
     return this.avaliacoesService.submeter(dto);
   }
 
+  @Get('avaliacoes/:id')
+  async buscarAvaliacao(@Param('id', ParseUUIDPipe) id: string) {
+    return this.avaliacoesService.buscarPorId(id);
+  }
+
   @Get('revisao')
-  async listarRevisoes(@Query('data') data?: string) {
-    return this.revisaoService.listarProximasRevisoes(data);
+  async listarRevisoes(@Query('perfilId') perfilId: string, @Query('data') data?: string) {
+    if (!perfilId) {
+      throw new BadRequestException('perfilId é obrigatório');
+    }
+    return this.revisaoService.listarProximasRevisoes(perfilId, data);
   }
 
   @Post('exercicios/gerar')

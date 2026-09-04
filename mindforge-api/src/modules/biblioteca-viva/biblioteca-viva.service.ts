@@ -19,7 +19,7 @@ export class BibliotecaVivaService {
 
   async buscar(dto: BuscarSemanticaDto) {
     const embeddingConsulta = await this.embeddings.gerar(dto.consulta);
-    return this.repo.buscarSimilares(embeddingConsulta, dto.limite ?? 5);
+    return this.repo.buscarSimilares(embeddingConsulta, dto.limite ?? 5, dto.moduloId);
   }
 
   /**

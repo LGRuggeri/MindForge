@@ -58,7 +58,7 @@ Palavras-chave: ${conteudo.palavrasChave.join(', ')}
 
 Corpo Markdown:
 ---
-${conteudo.corpoMarkdown.slice(0, 4000)}
+${conteudo.corpoMarkdown}
 ---
 
 Avalie o conteúdo no formato JSON especificado.`;

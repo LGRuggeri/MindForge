@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { cosineDistance, sql } from 'drizzle-orm';
+import { cosineDistance, eq, or, sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
-import { conteudoChunks, NovoConteudoChunk } from '../../database/schema';
+import {
+  conteudoChunks,
+  conteudos,
+  fontesPesquisa,
+  NovoConteudoChunk,
+} from '../../database/schema';
 
 @Injectable()
 export class BibliotecaVivaRepository {
@@ -23,13 +28,13 @@ export class BibliotecaVivaRepository {
    * (1 = idêntico, 0 = ortogonal), mais intuitivo para consumir na API
    * do que a distância crua.
    */
-  async buscarSimilares(embeddingConsulta: number[], limite: number) {
+  async buscarSimilares(embeddingConsulta: number[], limite: number, moduloId?: string) {
     const similaridade = sql<number>`1 - (${cosineDistance(
       conteudoChunks.embedding,
       embeddingConsulta,
     )})`;
 
-    return this.db
+    const query = this.db
       .select({
         id: conteudoChunks.id,
         texto: conteudoChunks.texto,
@@ -38,7 +43,16 @@ export class BibliotecaVivaRepository {
         similaridade,
       })
       .from(conteudoChunks)
-      .orderBy(cosineDistance(conteudoChunks.embedding, embeddingConsulta))
+      .orderBy(cosineDistance(conteudoChunks.embedding, embeddingConsulta));
+
+    if (!moduloId) {
+      return query.limit(limite);
+    }
+
+    return query
+      .leftJoin(conteudos, eq(conteudoChunks.conteudoId, conteudos.id))
+      .leftJoin(fontesPesquisa, eq(conteudoChunks.fonteId, fontesPesquisa.id))
+      .where(or(eq(conteudos.moduloId, moduloId), eq(fontesPesquisa.moduloId, moduloId)))
       .limit(limite);
   }
 }

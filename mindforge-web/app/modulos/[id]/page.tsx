@@ -21,9 +21,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ArrowLeft, BookOpen, Dumbbell, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+
+const TIPOS_EXERCICIO = [
+  { value: 'questao_objetiva', label: 'Questão objetiva' },
+  { value: 'dissertativa', label: 'Dissertativa' },
+  { value: 'codigo', label: 'Código' },
+  { value: 'projeto', label: 'Projeto' },
+] as const;
+
+type TipoExercicio = (typeof TIPOS_EXERCICIO)[number]['value'];
 
 export default function ModuloPage() {
   const params = useParams();
@@ -40,7 +56,7 @@ export default function ModuloPage() {
   const submeterTentativa = useSubmeterTentativa();
 
   const [topico, setTopico] = useState('');
-  const [tipoExercicio, setTipoExercicio] = useState('quiz');
+  const [tipoExercicio, setTipoExercicio] = useState<TipoExercicio>('questao_objetiva');
   const [resposta, setResposta] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
 
@@ -124,7 +140,13 @@ export default function ModuloPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={`/objetivos/${modulo.trilhaId}`}>
+            <Link
+              href={
+                modulo.trilha?.objetivoId
+                  ? `/objetivos/${modulo.trilha.objetivoId}`
+                  : '/objetivos'
+              }
+            >
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
@@ -152,8 +174,8 @@ export default function ModuloPage() {
 
       <div className="flex flex-wrap gap-2">
         <Badge variant="outline">Ordem {modulo.ordem}</Badge>
-        {modulo.tempoEstimadoMinutos && (
-          <Badge variant="secondary">{modulo.tempoEstimadoMinutos} min</Badge>
+        {modulo.tempoEstimadoMin && (
+          <Badge variant="secondary">{modulo.tempoEstimadoMin} min</Badge>
         )}
       </div>
 
@@ -259,12 +281,21 @@ export default function ModuloPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="tipo">Tipo</Label>
-                  <Input
-                    id="tipo"
+                  <Select
                     value={tipoExercicio}
-                    onChange={(e) => setTipoExercicio(e.target.value)}
-                    placeholder="quiz, dissertacao, codigo"
-                  />
+                    onValueChange={(value) => setTipoExercicio(value as TipoExercicio)}
+                  >
+                    <SelectTrigger id="tipo" className="w-full">
+                      <SelectValue placeholder="Selecione o tipo de exercício" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS_EXERCICIO.map((tipo) => (
+                        <SelectItem key={tipo.value} value={tipo.value}>
+                          {tipo.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button onClick={handleGerarExercicio} disabled={gerarExercicio.isPending}>
                   {gerarExercicio.isPending ? 'Gerando...' : 'Gerar exercício'}
