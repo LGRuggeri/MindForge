@@ -39,7 +39,7 @@ describe('ExerciciosJobHandler', () => {
     expect(queue.work).toHaveBeenCalledWith(CORRIGIR_TENTATIVA_JOB, expect.any(Function));
   });
 
-  it('deve processar job de geração de exercício com async false', async () => {
+  it('deve processar job de geração de exercício', async () => {
     await handler.onModuleInit();
     const calls = queue.work.mock.calls;
     const gerarCall = calls.find(([nome]) => nome === GERAR_EXERCICIO_JOB);
@@ -51,16 +51,17 @@ describe('ExerciciosJobHandler', () => {
       moduloId: '123e4567-e89b-12d3-a456-426614174000',
       tipo: 'questao_objetiva',
       dificuldade: 'medio',
+      async: true,
     };
 
     await (gerarHandler as (jobs: Job<Record<string, unknown>>[]) => Promise<void>)([
-      criarJob(GERAR_EXERCICIO_JOB, { ...dados, async: true } as unknown as GerarExercicioJob),
+      criarJob(GERAR_EXERCICIO_JOB, dados),
     ]);
 
     expect(exercicios.gerarExercicio).toHaveBeenCalledWith({ ...dados, async: false });
   });
 
-  it('deve processar job de correção de tentativa com async false', async () => {
+  it('deve processar job de correção de tentativa', async () => {
     await handler.onModuleInit();
     const calls = queue.work.mock.calls;
     const corrigirCall = calls.find(([nome]) => nome === CORRIGIR_TENTATIVA_JOB);
@@ -72,13 +73,11 @@ describe('ExerciciosJobHandler', () => {
       exercicioId: '123e4567-e89b-12d3-a456-426614174000',
       respostaUsuario: 'resposta',
       perfilId: '123e4567-e89b-12d3-a456-426614174001',
+      async: true,
     };
 
     await (corrigirHandler as (jobs: Job<Record<string, unknown>>[]) => Promise<void>)([
-      criarJob(CORRIGIR_TENTATIVA_JOB, {
-        ...dados,
-        async: true,
-      } as unknown as CorrigirTentativaJob),
+      criarJob(CORRIGIR_TENTATIVA_JOB, dados),
     ]);
 
     expect(exercicios.submeterTentativa).toHaveBeenCalledWith({ ...dados, async: false });

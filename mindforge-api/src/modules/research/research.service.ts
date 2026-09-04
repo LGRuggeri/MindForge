@@ -70,7 +70,7 @@ export class ResearchService {
       }
 
       const jobId = await this.queue.send(
-        'research:pesquisar',
+        'research.pesquisar',
         dto as unknown as Record<string, unknown>,
         { retryLimit: 2 },
       );

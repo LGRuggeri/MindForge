@@ -7,9 +7,10 @@ export interface IndexarEmbeddingJob {
   texto: string;
   conteudoId?: string;
   fonteId?: string;
+  async?: boolean;
 }
 
-export const INDEXAR_EMBEDDING_JOB = 'biblioteca-viva:indexar';
+export const INDEXAR_EMBEDDING_JOB = 'biblioteca-viva.indexar';
 export const BIBLIOTECA_VIVA_SERVICE = Symbol('BIBLIOTECA_VIVA_SERVICE');
 
 @Injectable()
@@ -34,11 +35,11 @@ export class EmbeddingsJobHandler implements OnModuleInit {
   }
 
   private async processar(job: Job<Record<string, unknown>>) {
-    const dados = { ...(job.data as unknown as IndexarEmbeddingJob), async: false };
+    const dados = job.data as unknown as IndexarEmbeddingJob;
     const origem = dados.conteudoId ?? dados.fonteId ?? 'desconhecida';
     this.logger.log(`Processando job ${INDEXAR_EMBEDDING_JOB} para origem ${origem}`);
     try {
-      return await this.bibliotecaService.indexarTexto(dados);
+      return await this.bibliotecaService.indexarTexto({ ...dados, async: false });
     } catch (erro) {
       this.logger.error(
         `Falha no job ${INDEXAR_EMBEDDING_JOB} para origem ${origem}`,

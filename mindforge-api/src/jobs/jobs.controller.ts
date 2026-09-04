@@ -1,13 +1,13 @@
 import { Controller, Delete, Get, Inject, Param, ParseUUIDPipe } from '@nestjs/common';
-import { JobsService } from './jobs.service';
 import { JOB_QUEUE } from './job-queue.token';
+import { JobsService } from './jobs.service';
 
 const QUEUES = [
-  'synthesizer:gerar-conteudo',
-  'exercicios:gerar',
-  'exercicios:corrigir-tentativa',
-  'biblioteca-viva:indexar',
-  'research:pesquisar',
+  'synthesizer.gerar-conteudo',
+  'exercicios.gerar',
+  'exercicios.corrigir-tentativa',
+  'biblioteca-viva.indexar',
+  'research.pesquisar',
 ];
 
 @Controller('jobs')

@@ -43,7 +43,7 @@ export class ExerciciosAvaliacoesService {
   > {
     if (dto.async) {
       const jobId = await this.queue.send(
-        'exercicios:gerar',
+        'exercicios.gerar',
         dto as unknown as Record<string, unknown>,
         { retryLimit: 2 },
       );
@@ -130,7 +130,7 @@ export class ExerciciosAvaliacoesService {
 
     if (dto.async) {
       const jobId = await this.queue.send(
-        'exercicios:corrigir-tentativa',
+        'exercicios.corrigir-tentativa',
         dto as unknown as Record<string, unknown>,
         { retryLimit: 2 },
       );

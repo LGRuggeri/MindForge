@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { TrilhaComModulos, GerarTrilhaInput } from '@/types/api';
 
+const TRILHAS_KEY = 'trilhas';
+
 export function useGerarTrilha() {
   const queryClient = useQueryClient();
 
@@ -13,6 +15,7 @@ export function useGerarTrilha() {
       return data;
     },
     onSuccess: (_, input) => {
+      queryClient.invalidateQueries({ queryKey: [TRILHAS_KEY] });
       queryClient.invalidateQueries({ queryKey: ['objetivos', input.objetivoId] });
     },
   });

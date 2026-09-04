@@ -44,6 +44,7 @@ import { JOB_QUEUE } from './job-queue.token';
           topico: string;
           nivelAlvo?: string;
           instrucoesExtras?: string;
+          async?: boolean;
         }) => service.gerar(dto),
       }),
     },
@@ -56,11 +57,13 @@ import { JOB_QUEUE } from './job-queue.token';
           tipo: string;
           dificuldade?: string;
           instrucoesExtras?: string;
+          async?: boolean;
         }) => service.gerarExercicio(dto as never),
         submeterTentativa: (dto: {
           exercicioId: string;
           respostaUsuario: string;
           perfilId?: string;
+          async?: boolean;
         }) => service.submeterTentativa(dto as never),
       }),
     },
@@ -68,8 +71,12 @@ import { JOB_QUEUE } from './job-queue.token';
       provide: BIBLIOTECA_VIVA_SERVICE,
       inject: [BibliotecaVivaService],
       useFactory: (service: BibliotecaVivaService) => ({
-        indexarTexto: (params: { texto: string; conteudoId?: string; fonteId?: string }) =>
-          service.indexarTexto(params),
+        indexarTexto: (params: {
+          texto: string;
+          conteudoId?: string;
+          fonteId?: string;
+          async?: boolean;
+        }) => service.indexarTexto(params),
       }),
     },
     SynthesizerJobHandler,

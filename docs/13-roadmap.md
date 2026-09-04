@@ -55,7 +55,7 @@ loop completo pesquisa → síntese → estudo → exercício → feedback → r
 | Progresso automático em exercícios/avaliações | ✅ implementado: nota ≥ 7 dispara progresso `praticando`/`dominado` |
 | Visualização React Flow | ✅ implementado: endpoint `/perfis/:id/grafo` + componente React Flow no frontend |
 | Simulados multi-módulo | ✅ implementado: criação por trilha com sorteio automático de exercícios + progresso multi-módulo |
-| Projetos inteligentes | ⬜ |
+| Projetos inteligentes | ✅ implementado: módulo `projetos` com geração por IA, entregas e feedback iterativo |
 | Sandbox para exercícios de código | ⬜ |
 
 ---
@@ -75,6 +75,7 @@ Dado o que **já funciona**, a sequência de maior valor é:
 9. ~~**Frontend/dashboard**~~ → ✅ feito
 10. ~~**Visualização React Flow do Knowledge Graph**~~ → ✅ feito
 11. ~~**Simulados multi-módulo**~~ → ✅ feito
+12. ~~**Projetos inteligentes**~~ → ✅ feito
 
 Autenticação multi-user **não** é prioridade (filosofia: sistema pessoal).
 

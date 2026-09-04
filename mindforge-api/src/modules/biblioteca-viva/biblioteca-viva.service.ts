@@ -29,7 +29,7 @@ export class BibliotecaVivaService {
   async indexarTexto(params: IndexarTextoDto) {
     if (params.async) {
       const jobId = await this.queue.send(
-        'biblioteca-viva:indexar',
+        'biblioteca-viva.indexar',
         params as unknown as Record<string, unknown>,
         { retryLimit: 2 },
       );

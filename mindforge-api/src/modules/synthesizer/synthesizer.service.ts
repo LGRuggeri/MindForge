@@ -59,7 +59,7 @@ export class SynthesizerService {
   > {
     if (dto.async) {
       const jobId = await this.queue.send(
-        'synthesizer:gerar-conteudo',
+        'synthesizer.gerar-conteudo',
         dto as unknown as Record<string, unknown>,
         {
           retryLimit: 2,

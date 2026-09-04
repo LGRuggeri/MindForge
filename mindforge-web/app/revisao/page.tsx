@@ -6,15 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Repeat } from 'lucide-react';
-import { format, isPast, parseISO } from 'date-fns';
+import { format, isBefore, parseISO, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function RevisaoPage() {
   const perfilSelecionado = useAppStore((state) => state.perfilSelecionado);
   const { data: revisoes, isLoading } = useRevisoes(perfilSelecionado?.id ?? null);
 
-  const pendentes = revisoes?.filter((r) => isPast(parseISO(r.proximaRevisao))) ?? [];
-  const futuras = revisoes?.filter((r) => !isPast(parseISO(r.proximaRevisao))) ?? [];
+  // Comparação por dia: revisão "de hoje" só vira pendente a partir de amanhã,
+  // senão qualquer horário após a meia-noite a classificaria como atrasada.
+  const hoje = startOfDay(new Date());
+  const pendentes =
+    revisoes?.filter((r) => isBefore(startOfDay(parseISO(r.proximaRevisao)), hoje)) ?? [];
+  const futuras =
+    revisoes?.filter((r) => !isBefore(startOfDay(parseISO(r.proximaRevisao)), hoje)) ?? [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

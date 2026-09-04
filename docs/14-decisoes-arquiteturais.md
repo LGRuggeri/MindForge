@@ -17,7 +17,7 @@ Registro consolidado. Novas decisões entram **no momento em que forem tomadas**
 
 **Contexto:** pesquisa/síntese/correção podem ser longas.  
 **Decisão:** `pg-boss` (LISTEN/NOTIFY).  
-**Status implementação:** fila sobe e conecta; handlers de domínio registrados para Synthesizer (`synthesizer:gerar-conteudo`), Exercícios (`exercicios:gerar`, `exercicios:corrigir-tentativa`), Biblioteca Viva (`biblioteca-viva:indexar`) e Research (`research:pesquisar`). Execução assíncrona é opt-in via `async: true` nos DTOs.  
+**Status implementação:** fila sobe e conecta; handlers de domínio registrados para Synthesizer (`synthesizer.gerar-conteudo`), Exercícios (`exercicios.gerar`, `exercicios.corrigir-tentativa`), Biblioteca Viva (`biblioteca-viva.indexar`) e Research (`research.pesquisar`). Execução assíncrona é opt-in via `async: true` nos DTOs.  
 **Alternativas:** BullMQ, RabbitMQ/SQS.
 
 ---

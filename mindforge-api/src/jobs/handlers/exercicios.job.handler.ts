@@ -8,16 +8,18 @@ export interface GerarExercicioJob {
   tipo: string;
   dificuldade?: string;
   instrucoesExtras?: string;
+  async?: boolean;
 }
 
 export interface CorrigirTentativaJob {
   exercicioId: string;
   respostaUsuario: string;
   perfilId?: string;
+  async?: boolean;
 }
 
-export const GERAR_EXERCICIO_JOB = 'exercicios:gerar';
-export const CORRIGIR_TENTATIVA_JOB = 'exercicios:corrigir-tentativa';
+export const GERAR_EXERCICIO_JOB = 'exercicios.gerar';
+export const CORRIGIR_TENTATIVA_JOB = 'exercicios.corrigir-tentativa';
 export const EXERCICIOS_AVALIACOES_SERVICE = Symbol('EXERCICIOS_AVALIACOES_SERVICE');
 
 @Injectable()
@@ -48,10 +50,10 @@ export class ExerciciosJobHandler implements OnModuleInit {
   }
 
   private async processarGerar(job: Job<Record<string, unknown>>) {
-    const dados = { ...(job.data as unknown as GerarExercicioJob), async: false };
+    const dados = job.data as unknown as GerarExercicioJob;
     this.logger.log(`Processando job ${GERAR_EXERCICIO_JOB} para módulo ${dados.moduloId}`);
     try {
-      return await this.exerciciosService.gerarExercicio(dados);
+      return await this.exerciciosService.gerarExercicio({ ...dados, async: false });
     } catch (erro) {
       this.logger.error(
         `Falha no job ${GERAR_EXERCICIO_JOB} para módulo ${dados.moduloId}`,
@@ -62,12 +64,12 @@ export class ExerciciosJobHandler implements OnModuleInit {
   }
 
   private async processarCorrigir(job: Job<Record<string, unknown>>) {
-    const dados = { ...(job.data as unknown as CorrigirTentativaJob), async: false };
+    const dados = job.data as unknown as CorrigirTentativaJob;
     this.logger.log(
       `Processando job ${CORRIGIR_TENTATIVA_JOB} para exercício ${dados.exercicioId}`,
     );
     try {
-      return await this.exerciciosService.submeterTentativa(dados);
+      return await this.exerciciosService.submeterTentativa({ ...dados, async: false });
     } catch (erro) {
       this.logger.error(
         `Falha no job ${CORRIGIR_TENTATIVA_JOB} para exercício ${dados.exercicioId}`,

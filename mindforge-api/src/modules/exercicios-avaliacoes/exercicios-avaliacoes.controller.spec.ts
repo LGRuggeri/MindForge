@@ -26,6 +26,7 @@ describe('ExerciciosAvaliacoesController', () => {
     const avaliacoesMock = {
       criar: jest.fn(),
       submeter: jest.fn(),
+      buscarPorId: jest.fn(),
     };
 
     const revisaoMock = {

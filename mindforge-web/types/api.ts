@@ -280,3 +280,48 @@ export interface ProblemDetails {
   detail?: string;
   instance?: string;
 }
+
+export interface ProjetoEntrega {
+  id: string;
+  projetoId: string;
+  conteudo: string;
+  feedback?: string | null;
+  pontuacao?: string | null;
+  numeroEntrega: number;
+  criadoEm: string;
+}
+
+export interface Projeto {
+  id: string;
+  moduloId?: string | null;
+  objetivoId?: string | null;
+  perfilId: string;
+  titulo: string;
+  descricao: string;
+  criterios: string[];
+  dicas: string[];
+  status: string;
+  criadoEm: string;
+  atualizadoEm: string;
+  entregas?: ProjetoEntrega[];
+}
+
+export interface CriarProjetoInput {
+  perfilId: string;
+  moduloId?: string;
+  objetivoId?: string;
+  titulo: string;
+  descricao: string;
+  criterios?: string[];
+  dicas?: string[];
+}
+
+export interface GerarProjetoInput {
+  perfilId: string;
+  moduloId?: string;
+  objetivoId?: string;
+}
+
+export interface SubmeterEntregaInput {
+  conteudo: string;
+}

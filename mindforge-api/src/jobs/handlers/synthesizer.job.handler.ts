@@ -8,9 +8,10 @@ export interface GerarConteudoJob {
   topico: string;
   nivelAlvo?: string;
   instrucoesExtras?: string;
+  async?: boolean;
 }
 
-export const GERAR_CONTEUDO_JOB = 'synthesizer:gerar-conteudo';
+export const GERAR_CONTEUDO_JOB = 'synthesizer.gerar-conteudo';
 export const SYNTHESIZER_SERVICE = Symbol('SYNTHESIZER_SERVICE');
 
 @Injectable()
@@ -35,10 +36,10 @@ export class SynthesizerJobHandler implements OnModuleInit {
   }
 
   private async processar(job: Job<Record<string, unknown>>) {
-    const dados = { ...(job.data as unknown as GerarConteudoJob), async: false };
+    const dados = job.data as unknown as GerarConteudoJob;
     this.logger.log(`Processando job ${GERAR_CONTEUDO_JOB} para módulo ${dados.moduloId}`);
     try {
-      await this.synthesizerService.gerar(dados);
+      await this.synthesizerService.gerar({ ...dados, async: false });
     } catch (erro) {
       this.logger.error(
         `Falha no job ${GERAR_CONTEUDO_JOB} para módulo ${dados.moduloId}`,

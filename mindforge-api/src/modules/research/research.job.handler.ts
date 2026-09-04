@@ -4,7 +4,7 @@ import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
 import { PesquisarDto } from './dto/pesquisar.dto';
 
-export const RESEARCH_JOB = 'research:pesquisar';
+export const RESEARCH_JOB = 'research.pesquisar';
 export const RESEARCH_SERVICE = Symbol('RESEARCH_SERVICE');
 
 @Injectable()

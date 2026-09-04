@@ -291,6 +291,9 @@ export class KnowledgeGraphRepository {
     perfilId: string | undefined,
     preRequisitos: boolean,
   ): Promise<CaminhoNo[]> {
+    // Para pré-requisitos a âncora filtra pelo destino e seleciona a origem
+    // (seguindo a aresta A -> B de volta em direção a A); para dependentes,
+    // o sentido é o oposto.
     const sentidoOrigem = preRequisitos ? 'competencia_origem_id' : 'competencia_destino_id';
     const sentidoDestino = preRequisitos ? 'competencia_destino_id' : 'competencia_origem_id';
     const orderBy = preRequisitos ? 'profundidade DESC, nome' : 'profundidade, nome';

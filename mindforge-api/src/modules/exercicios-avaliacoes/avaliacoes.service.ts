@@ -111,6 +111,7 @@ export class AvaliacoesService {
       return this.normalizarResultadoExistente(resultadoExistente);
     }
 
+    const respostasPorExercicio = new Map(dto.respostas.map((r) => [r.exercicioId, r]));
     const exerciciosIdsValidos = new Set(
       avaliacao.exercicios.map((relacao) => relacao.exercicioId),
     );
@@ -124,23 +125,27 @@ export class AvaliacoesService {
       );
     }
 
+    // Busca tentativas apenas dos exercícios com resposta; exercício sem
+    // resposta conta como nota zero na média.
     const tentativasPorExercicio = await Promise.all(
-      avaliacao.exercicios.map((relacao) =>
-        this.repo.listarTentativasPorExercicioEAvaliacao(
+      avaliacao.exercicios.map(async (relacao) => {
+        const resposta = respostasPorExercicio.get(relacao.exercicioId);
+        if (!resposta) return undefined;
+        const tentativas = await this.repo.listarTentativasPorExercicioEAvaliacao(
           relacao.exercicioId,
           dto.avaliacaoId,
-          dto.perfilId!,
-        ),
-      ),
+          dto.perfilId,
+        );
+        return tentativas.find((t) => t.id === resposta.tentativaId);
+      }),
     );
 
-    const mapaTentativas = new Map<string, (typeof tentativasPorExercicio)[0][0]>();
+    const mapaTentativas = new Map<
+      string,
+      NonNullable<(typeof tentativasPorExercicio)[number]>
+    >();
     avaliacao.exercicios.forEach((relacao, indice) => {
-      const resposta = dto.respostas.find((r) => r.exercicioId === relacao.exercicioId);
-      if (!resposta) {
-        return;
-      }
-      const tentativa = tentativasPorExercicio[indice].find((t) => t.id === resposta.tentativaId);
+      const tentativa = tentativasPorExercicio[indice];
       if (tentativa) {
         mapaTentativas.set(relacao.exercicioId, tentativa);
       }
@@ -179,7 +184,7 @@ export class AvaliacoesService {
     const { resultado, duplicata } = await this.db.transaction(async (tx) => {
       const salvo = await this.repo.salvarResultadoAvaliacao(
         {
-          perfilId: dto.perfilId!,
+          perfilId: dto.perfilId,
           avaliacaoId: dto.avaliacaoId,
           pontuacaoTotal: String(pontuacaoTotal),
           pontosFortes: this.serializarLista(pontosFortes),
@@ -204,7 +209,7 @@ export class AvaliacoesService {
           const qualidade = this.calcularQualidade(tentativa ? Number(tentativa.pontuacao) : 0);
           return this.revisao.processarRevisao(
             {
-              perfilId: dto.perfilId!,
+              perfilId: dto.perfilId,
               itemTipo: 'exercicio',
               itemId: relacao.exercicioId,
               qualidade,
@@ -229,7 +234,7 @@ export class AvaliacoesService {
 
     this.logger.log(`Avaliação submetida: ${dto.avaliacaoId} — nota ${pontuacaoTotal}`);
 
-    if (dto.perfilId && pontuacaoTotal >= 7) {
+    if (pontuacaoTotal >= 7) {
       await this.atualizarProgressoPorAvaliacao(avaliacao, dto.perfilId, pontuacaoTotal);
     }
 

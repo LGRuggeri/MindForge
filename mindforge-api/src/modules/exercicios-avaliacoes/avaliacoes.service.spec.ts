@@ -91,7 +91,6 @@ describe('AvaliacoesService', () => {
     });
 
     it('deve sortear exercícios automaticamente ao criar simulado por trilha', async () => {
-      const trilhaId = '523e4567-e89b-12d3-a456-426614174000';
       const exercicio2Id = '623e4567-e89b-12d3-a456-426614174000';
 
       repo.criarAvaliacaoComExercicios.mockResolvedValue({
@@ -376,6 +375,42 @@ describe('AvaliacoesService', () => {
       );
     });
 
+    it('deve contar exercicio sem resposta como nota zero na média', async () => {
+      const outroExercicioId = '523e4567-e89b-12d3-a456-426614174000';
+
+      repo.buscarAvaliacaoPorId.mockResolvedValue({
+        id: avaliacaoId,
+        moduloId,
+        modulo: moduloComDono,
+        exercicios: [
+          { exercicioId, exercicio: { enunciado: 'Pergunta 1' } },
+          { exercicioId: outroExercicioId, exercicio: { enunciado: 'Pergunta 2' } },
+        ],
+      } as never);
+      repo.listarTentativasPorExercicioEAvaliacao.mockResolvedValue([
+        { id: 'tent-1', exercicioId, correta: true, pontuacao: '10' },
+      ] as never);
+      repo.salvarResultadoAvaliacao.mockResolvedValue({
+        id: 'resultado-1',
+        avaliacaoId,
+        pontuacaoTotal: '5',
+      } as never);
+
+      const resultado = await service.submeter({
+        avaliacaoId,
+        perfilId,
+        respostas: [{ exercicioId, tentativaId: 'tent-1' }],
+      });
+
+      expect(resultado.pontuacaoTotal).toBe('5');
+      expect(repo.listarTentativasPorExercicioEAvaliacao).toHaveBeenCalledTimes(1);
+      expect(repo.listarTentativasPorExercicioEAvaliacao).toHaveBeenCalledWith(
+        exercicioId,
+        avaliacaoId,
+        perfilId,
+      );
+    });
+
     it('deve pontuar todos os exercícios da avaliação, não apenas os respondidos', async () => {
       const exercicioId2 = '223e4567-e89b-12d3-a456-426614174001';
       const exercicioId3 = '223e4567-e89b-12d3-a456-426614174002';
@@ -420,17 +455,48 @@ describe('AvaliacoesService', () => {
       });
 
       expect(resultado.pontuacaoTotal).toBe('3.33');
+      expect(repo.listarTentativasPorExercicioEAvaliacao).toHaveBeenCalledTimes(1);
       expect(repo.listarTentativasPorExercicioEAvaliacao).toHaveBeenCalledWith(
-        exercicioId2,
-        avaliacaoId,
-        perfilId,
-      );
-      expect(repo.listarTentativasPorExercicioEAvaliacao).toHaveBeenCalledWith(
-        exercicioId3,
+        exercicioId,
         avaliacaoId,
         perfilId,
       );
       expect(knowledgeGraph.marcarProgressoPorModulo).not.toHaveBeenCalled();
+    });
+
+    it('deve ignorar respostas de exercicios fora da avaliacao', async () => {
+      const exercicioEstranhoId = '523e4567-e89b-12d3-a456-426614174000';
+
+      repo.buscarAvaliacaoPorId.mockResolvedValue({
+        id: avaliacaoId,
+        moduloId,
+        modulo: moduloComDono,
+        exercicios: [{ exercicioId, exercicio: { enunciado: 'Pergunta 1' } }],
+      } as never);
+      repo.listarTentativasPorExercicioEAvaliacao.mockResolvedValue([
+        { id: 'tent-1', exercicioId, correta: true, pontuacao: '10' },
+      ] as never);
+      repo.salvarResultadoAvaliacao.mockResolvedValue({
+        id: 'resultado-1',
+        avaliacaoId,
+        pontuacaoTotal: '10',
+      } as never);
+
+      const resultado = await service.submeter({
+        avaliacaoId,
+        perfilId,
+        respostas: [
+          { exercicioId, tentativaId: 'tent-1' },
+          { exercicioId: exercicioEstranhoId, tentativaId: 'tent-9' },
+        ],
+      });
+
+      expect(resultado.pontuacaoTotal).toBe('10');
+      expect(
+        repo.listarTentativasPorExercicioEAvaliacao.mock.calls.every(
+          ([exId]) => exId === exercicioId,
+        ),
+      ).toBe(true);
     });
 
     it('deve ignorar respostas com exercício fora da avaliação', async () => {

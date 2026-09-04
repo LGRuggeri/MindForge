@@ -12,8 +12,18 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     this.boss = new PgBoss({ connectionString });
   }
 
+  private iniciado?: Promise<void>;
+
+  private garantirIniciado(): Promise<void> {
+    // `start()` migra/cria o schema pgboss; os handlers registram filas em
+    // onModuleInit concorrentemente, então toda operação precisa esperar (e
+    // deduplicar) a inicialização para não correr contra a criação do schema.
+    this.iniciado ??= this.boss.start().then(() => undefined);
+    return this.iniciado;
+  }
+
   async onModuleInit() {
-    await this.boss.start();
+    await this.garantirIniciado();
     this.logger.log('Fila de jobs (pg-boss) iniciada');
   }
 
@@ -27,14 +37,31 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     dados: Record<string, unknown>,
     options?: { startAfter?: number | Date; retryLimit?: number },
   ): Promise<string | null> {
+    await this.garantirIniciado();
+    await this.criarFilaSeNecessario(nome);
     return this.boss.send(nome, dados, options);
   }
 
   async work(nome: string, handler: JobHandler): Promise<void> {
+    await this.garantirIniciado();
+    await this.criarFilaSeNecessario(nome);
     const wrapped: WorkHandler<Record<string, unknown>, void> = async (jobs) => {
       await handler(jobs);
     };
     await this.boss.work(nome, wrapped);
+  }
+
+  /**
+   * pg-boss 12 não cria filas automaticamente em `work`/`send`; a fila precisa
+   * existir antes. `createQueue` é idempotente, então chamá-lo por nome uma
+   * vez por processo é suficiente.
+   */
+  private filasCriadas = new Set<string>();
+
+  private async criarFilaSeNecessario(nome: string): Promise<void> {
+    if (this.filasCriadas.has(nome)) return;
+    await this.boss.createQueue(nome);
+    this.filasCriadas.add(nome);
   }
 
   async getQueues(names?: string[]): Promise<QueueResult[]> {

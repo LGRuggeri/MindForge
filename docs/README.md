@@ -29,6 +29,7 @@ Atualizado em 2026-08-23 após implementação de workers assíncronos no `pg-bo
 | [12-knowledge-graph.md](12-knowledge-graph.md) | Knowledge Graph | ✅ implementado |
 | [13-roadmap.md](13-roadmap.md) | Roadmap por fases | vigente |
 | [14-decisoes-arquiteturais.md](14-decisoes-arquiteturais.md) | ADRs | vigente |
+| [15-projetos.md](15-projetos.md) | Projetos Inteligentes | ✅ implementado |
 
 ## Matriz de implementação (backend)
 
@@ -42,6 +43,7 @@ Atualizado em 2026-08-23 após implementação de workers assíncronos no `pg-bo
 | `agentes` | orquestração | ✅ | logging em `agentes_execucoes` |
 | `jobs` | — | ✅ `pg-boss` sobe e conecta | interno |
 | `exercicios-avaliacoes` | `evaluator` | ✅ geração + correção + avaliações compostas + simulados multi-módulo + revisão espaçada SM-2 | `POST /exercicios-avaliacoes/exercicios/gerar`, `POST /exercicios-avaliacoes/exercicios/:id/tentativas`, `GET /exercicios-avaliacoes/exercicios?moduloId=`, `GET /exercicios-avaliacoes/exercicios/:id/estatisticas`, `POST /exercicios-avaliacoes/avaliacoes`, `POST /exercicios-avaliacoes/avaliacoes/submeter`, `GET /exercicios-avaliacoes/avaliacoes/:id`, `GET /exercicios-avaliacoes/revisao?data=` |
+| `projetos` | `evaluator` | ✅ projetos práticos gerados por IA com entregas e feedback iterativo | `POST /projetos`, `POST /projetos/gerar`, `GET /projetos?moduloId=`, `GET /projetos/:id`, `POST /projetos/:id/entregas`, `POST /projetos/:id/concluir` |
 | `tutor` | `teacher` | ✅ implementado: `teacher` + `agent-kb` + contexto contínuo | `POST /tutor/duvidas`, `POST /tutor/duvidas/:id/avaliar`, `GET /tutor/perfis/:perfilId/historico` |
 | `knowledge-graph` | — | ✅ implementado: competências, relações, progresso, extração no Planner/Synthesizer | `GET /knowledge-graph/perfis/:perfilId`, `GET /knowledge-graph/competencias/:id/cadeia`, `POST /knowledge-graph/competencias/:id/progresso` |
 
@@ -79,7 +81,7 @@ Stack: Next.js 16 + React 19 + Tailwind CSS v4 + shadcn/ui + TanStack Query + Zu
 
 ## Próximo passo recomendado
 
-Ver [13-roadmap.md](13-roadmap.md): backend completo e frontend do loop mínimo implementados. Visualização React Flow e simulados multi-módulo já implementados. Próximos: projetos inteligentes, sandbox de código e autenticação (se necessário).
+Ver [13-roadmap.md](13-roadmap.md): backend completo e frontend do loop mínimo implementados. Visualização React Flow do grafo, simulados multi-módulo e projetos inteligentes já implementados. Próximos: sandbox de código e autenticação (se necessário).
 
 ## Infra local
 

@@ -14,6 +14,7 @@ import { DiarioModule } from './modules/diario/diario.module';
 import { KnowledgeGraphModule } from './modules/knowledge-graph/knowledge-graph.module';
 import { AgentesModule } from './modules/agentes/agentes.module';
 import { AgentKbModule } from './modules/agent-kb/agent-kb.module';
+import { ProjetosModule } from './modules/projetos/projetos.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AgentKbModule } from './modules/agent-kb/agent-kb.module';
     KnowledgeGraphModule,
     AgentesModule,
     AgentKbModule,
+    ProjetosModule,
   ],
 })
 export class AppModule {}

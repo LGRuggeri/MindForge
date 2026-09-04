@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useModulo, useMarcarProgressoModulo } from '@/lib/hooks/useModulos';
 import { useConteudos, useGerarConteudo } from '@/lib/hooks/useConteudos';
 import { useExercicios, useGerarExercicio, useSubmeterTentativa } from '@/lib/hooks/useExercicios';
+import { useProjetos, useGerarProjeto } from '@/lib/hooks/useProjetos';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,7 +30,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, BookOpen, Dumbbell, FileText, CheckCircle, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Dumbbell,
+  FileText,
+  CheckCircle,
+  Loader2,
+  FolderKanban,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const TIPOS_EXERCICIO = [
@@ -49,9 +58,11 @@ export default function ModuloPage() {
   const { data: modulo, isLoading: moduloLoading } = useModulo(id);
   const { data: conteudos } = useConteudos(id);
   const { data: exercicios } = useExercicios(id);
+  const { data: projetos } = useProjetos(id, null);
 
   const gerarConteudo = useGerarConteudo();
   const gerarExercicio = useGerarExercicio();
+  const gerarProjeto = useGerarProjeto();
   const marcarProgresso = useMarcarProgressoModulo();
   const submeterTentativa = useSubmeterTentativa();
 
@@ -91,6 +102,19 @@ export default function ModuloPage() {
       toast.success('Módulo marcado como concluído');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao atualizar progresso');
+    }
+  };
+
+  const handleGerarProjeto = async () => {
+    if (!id || !perfilSelecionado) {
+      toast.error('Selecione um perfil');
+      return;
+    }
+    try {
+      await gerarProjeto.mutateAsync({ moduloId: id, perfilId: perfilSelecionado.id });
+      toast.success('Projeto inteligente gerado!');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao gerar projeto');
     }
   };
 
@@ -188,6 +212,10 @@ export default function ModuloPage() {
           <TabsTrigger value="exercicios" className="gap-2">
             <Dumbbell className="h-4 w-4" />
             Exercícios
+          </TabsTrigger>
+          <TabsTrigger value="projetos" className="gap-2">
+            <FolderKanban className="h-4 w-4" />
+            Projetos
           </TabsTrigger>
         </TabsList>
 
@@ -299,6 +327,50 @@ export default function ModuloPage() {
                 </div>
                 <Button onClick={handleGerarExercicio} disabled={gerarExercicio.isPending}>
                   {gerarExercicio.isPending ? 'Gerando...' : 'Gerar exercício'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="projetos" className="space-y-4">
+          {projetos && projetos.length > 0 ? (
+            projetos.map((projeto) => (
+              <Card key={projeto.id}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{projeto.titulo}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {projeto.descricao}
+                      </p>
+                      <Badge variant="outline" className="mt-2 capitalize">
+                        {projeto.status}
+                      </Badge>
+                    </div>
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link href={`/projetos/${projeto.id}`}>
+                        <ArrowLeft className="h-4 w-4 rotate-180" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="border-dashed">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FolderKanban className="h-5 w-5" />
+                  Gerar projeto inteligente
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  O agente evaluator criará um projeto prático contextualizado neste módulo.
+                </p>
+                <Button onClick={handleGerarProjeto} disabled={gerarProjeto.isPending}>
+                  {gerarProjeto.isPending ? 'Gerando...' : 'Gerar projeto'}
                 </Button>
               </CardContent>
             </Card>

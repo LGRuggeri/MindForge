@@ -35,18 +35,17 @@ describe('EmbeddingsJobHandler', () => {
     expect(queue.work).toHaveBeenCalledWith(INDEXAR_EMBEDDING_JOB, expect.any(Function));
   });
 
-  it('deve indexar texto a partir do job com async false', async () => {
+  it('deve indexar texto a partir do job de forma síncrona', async () => {
     await handler.onModuleInit();
     const [[, registeredHandler]] = queue.work.mock.calls;
 
     const dados: IndexarEmbeddingJob = {
       texto: 'Texto para indexar',
       conteudoId: '123e4567-e89b-12d3-a456-426614174000',
+      async: true,
     };
 
-    await registeredHandler([
-      criarJob({ ...dados, async: true } as unknown as IndexarEmbeddingJob),
-    ]);
+    await registeredHandler([criarJob(dados)]);
 
     expect(biblioteca.indexarTexto).toHaveBeenCalledWith({ ...dados, async: false });
   });

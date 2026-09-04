@@ -120,6 +120,30 @@ describe('KnowledgeGraphRepository', () => {
     expect(typeof sqlWrapper.getSQL).toBe('function');
   });
 
+  it('deve buscar caminho de pré-requisitos partindo das arestas que chegam na competência', async () => {
+    const rows = [{ id: 'c1', nome: 'Ownership', tipoRelacao: 'pre_requisito', profundidade: 1 }];
+    mockDb.execute.mockResolvedValueOnce({ rows });
+
+    const result = await repo.buscarCaminhoDePreRequisitos('c2');
+
+    expect(result).toEqual(rows);
+    expect(mockDb.execute).toHaveBeenCalledTimes(1);
+    const [query] = mockDb.execute.mock.calls[0] as unknown as [{ queryChunks: unknown[] }];
+    const sqlTexto = query.queryChunks
+      .map((c) => {
+        if (typeof c === 'string') return c;
+        const value = (c as { value?: unknown }).value;
+        if (Array.isArray(value)) return value.join('');
+        if (typeof value === 'string') return value;
+        return '';
+      })
+      .join('');
+    // A âncora deve filtrar pelo destino e selecionar a origem (pré-requisito),
+    // seguindo a aresta A -> B de volta em direção a A.
+    expect(sqlTexto).toContain('r.competencia_destino_id');
+    expect(sqlTexto).toMatch(/JOIN competencias c ON c\.id = r\.competencia_origem_id/);
+  });
+
   it('deve buscar caminho de pré-requisitos', async () => {
     const rows = [{ id: 'c1', nome: 'Ownership', tipoRelacao: 'pre_requisito', profundidade: 1 }];
     mockDb.execute.mockResolvedValueOnce({ rows });

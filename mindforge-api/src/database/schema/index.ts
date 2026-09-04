@@ -13,6 +13,7 @@ import {
   competenciaProgresso,
   moduloCompetencias,
 } from './competencias.schema';
+import { projetos, projetoEntregas } from './projetos.schema';
 
 export * from './perfil.schema';
 export * from './objetivos.schema';
@@ -24,6 +25,7 @@ export * from './avaliacoes.schema';
 export * from './revisao.schema';
 export * from './diario.schema';
 export * from './competencias.schema';
+export * from './projetos.schema';
 export * from './agentes.schema';
 
 export const perfilRelations = relations(perfilAprendizagem, ({ many }) => ({
@@ -183,5 +185,28 @@ export const historicoDuvidasRelations = relations(historicoDuvidas, ({ one }) =
   modulo: one(modulosTrilha, {
     fields: [historicoDuvidas.moduloId],
     references: [modulosTrilha.id],
+  }),
+}));
+
+export const projetosRelations = relations(projetos, ({ one, many }) => ({
+  modulo: one(modulosTrilha, {
+    fields: [projetos.moduloId],
+    references: [modulosTrilha.id],
+  }),
+  objetivo: one(objetivosEstudo, {
+    fields: [projetos.objetivoId],
+    references: [objetivosEstudo.id],
+  }),
+  perfil: one(perfilAprendizagem, {
+    fields: [projetos.perfilId],
+    references: [perfilAprendizagem.id],
+  }),
+  entregas: many(projetoEntregas),
+}));
+
+export const projetoEntregasRelations = relations(projetoEntregas, ({ one }) => ({
+  projeto: one(projetos, {
+    fields: [projetoEntregas.projetoId],
+    references: [projetos.id],
   }),
 }));
