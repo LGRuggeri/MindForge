@@ -103,10 +103,57 @@ export const avaliacoesRelations = relations(avaliacoes, ({ one, many }) => ({
   resultados: many(resultadosAvaliacao),
 }));
 
+export const avaliacaoExerciciosRelations = relations(avaliacaoExercicios, ({ one }) => ({
+  avaliacao: one(avaliacoes, {
+    fields: [avaliacaoExercicios.avaliacaoId],
+    references: [avaliacoes.id],
+  }),
+  exercicio: one(exercicios, {
+    fields: [avaliacaoExercicios.exercicioId],
+    references: [exercicios.id],
+  }),
+}));
+
 export const competenciasRelations = relations(competencias, ({ many }) => ({
   relacoesOrigem: many(competenciaRelacoes, { relationName: 'origem' }),
+  relacoesDestino: many(competenciaRelacoes, { relationName: 'destino' }),
   progresso: many(competenciaProgresso),
   modulos: many(moduloCompetencias),
+}));
+
+export const competenciaRelacoesRelations = relations(competenciaRelacoes, ({ one }) => ({
+  origem: one(competencias, {
+    fields: [competenciaRelacoes.competenciaOrigemId],
+    references: [competencias.id],
+    relationName: 'origem',
+  }),
+  destino: one(competencias, {
+    fields: [competenciaRelacoes.competenciaDestinoId],
+    references: [competencias.id],
+    relationName: 'destino',
+  }),
+}));
+
+export const moduloCompetenciasRelations = relations(moduloCompetencias, ({ one }) => ({
+  modulo: one(modulosTrilha, {
+    fields: [moduloCompetencias.moduloId],
+    references: [modulosTrilha.id],
+  }),
+  competencia: one(competencias, {
+    fields: [moduloCompetencias.competenciaId],
+    references: [competencias.id],
+  }),
+}));
+
+export const competenciaProgressoRelations = relations(competenciaProgresso, ({ one }) => ({
+  competencia: one(competencias, {
+    fields: [competenciaProgresso.competenciaId],
+    references: [competencias.id],
+  }),
+  perfil: one(perfilAprendizagem, {
+    fields: [competenciaProgresso.perfilId],
+    references: [perfilAprendizagem.id],
+  }),
 }));
 
 export const diarioRelations = relations(diarioAprendizagem, ({ one, many }) => ({

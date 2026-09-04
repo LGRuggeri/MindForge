@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AgentesModule } from '../agentes/agentes.module';
 import { BibliotecaVivaModule } from '../biblioteca-viva/biblioteca-viva.module';
+import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module';
+import { ReviewerService } from './reviewer.service';
 import { SynthesizerController } from './synthesizer.controller';
 import { SynthesizerService } from './synthesizer.service';
 import { SynthesizerRepository } from './synthesizer.repository';
@@ -8,12 +10,13 @@ import { SynthesizerRepository } from './synthesizer.repository';
 /**
  * Módulo Synthesizer: transforma objetivos de aprendizagem e fontes de
  * pesquisa em conteúdo didático original (Markdown), grava em `conteudos`,
- * vincula fontes e indexa chunks na Biblioteca Viva.
+ * vincula fontes, indexa chunks na Biblioteca Viva e alimenta o grafo de
+ * competências do módulo.
  */
 @Module({
-  imports: [AgentesModule, BibliotecaVivaModule],
+  imports: [AgentesModule, BibliotecaVivaModule, KnowledgeGraphModule],
   controllers: [SynthesizerController],
-  providers: [SynthesizerService, SynthesizerRepository],
+  providers: [SynthesizerService, ReviewerService, SynthesizerRepository],
   exports: [SynthesizerService],
 })
 export class SynthesizerModule {}

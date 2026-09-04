@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai';
+import { LlmFallbackService } from './llm-fallback.service';
 
 export interface LlmResponse<T> {
   raw: string;
@@ -12,17 +11,8 @@ export interface LlmResponse<T> {
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  private readonly client: OpenAI;
 
-  constructor(private readonly config: ConfigService) {
-    const baseURL = this.config.get<string>('OPENAI_BASE_URL');
-    const apiKey = this.config.getOrThrow<string>('LLM_API_KEY');
-
-    this.client = new OpenAI({
-      apiKey,
-      ...(baseURL ? { baseURL } : {}),
-    });
-  }
+  constructor(private readonly fallback: LlmFallbackService) {}
 
   async completar<T>({
     system,
@@ -35,31 +25,26 @@ export class LlmService {
     parser: (raw: string) => T;
     temperature?: number;
   }): Promise<LlmResponse<T>> {
-    const model = this.config.get<string>('LLM_MODEL', 'gpt-4o-mini');
     const inicio = Date.now();
 
-    const resposta = await this.client.chat.completions.create({
-      model,
+    const resposta = await this.fallback.completar({
+      system,
+      user,
       temperature,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
     });
 
     const duracaoMs = Date.now() - inicio;
-    const raw = resposta.choices[0]?.message?.content ?? '';
-    const parsed = parser(raw);
+    const parsed = parser(resposta.raw);
 
     this.logger.debug(
-      `LLM completar: modelo=${model}, duracao=${duracaoMs}ms, tokens=${resposta.usage?.total_tokens}`,
+      `LLM completar: modelo=${resposta.modeloUsado}, duracao=${duracaoMs}ms, tokens=${resposta.tokensUtilizados}`,
     );
 
     return {
-      raw,
+      raw: resposta.raw,
       parsed,
-      modeloUsado: model,
-      tokensUtilizados: resposta.usage?.total_tokens,
+      modeloUsado: resposta.modeloUsado,
+      tokensUtilizados: resposta.tokensUtilizados,
     };
   }
 }

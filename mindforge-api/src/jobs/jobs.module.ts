@@ -1,8 +1,19 @@
 import { Global, Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { BibliotecaVivaService } from '../modules/biblioteca-viva/biblioteca-viva.service';
+import { ExerciciosAvaliacoesService } from '../modules/exercicios-avaliacoes/exercicios-avaliacoes.service';
+import { SynthesizerService } from '../modules/synthesizer/synthesizer.service';
+import {
+  BIBLIOTECA_VIVA_SERVICE,
+  EmbeddingsJobHandler,
+  EXERCICIOS_AVALIACOES_SERVICE,
+  ExerciciosJobHandler,
+  SYNTHESIZER_SERVICE,
+  SynthesizerJobHandler,
+} from './handlers';
+import { JobsController } from './jobs.controller';
 import { JobsService } from './jobs.service';
-
-export const JOB_QUEUE = Symbol('JOB_QUEUE');
+import { JOB_QUEUE } from './job-queue.token';
 
 /**
  * pg-boss roda sobre o próprio PostgreSQL (LISTEN/NOTIFY) — sem Redis,
@@ -20,11 +31,57 @@ export const JOB_QUEUE = Symbol('JOB_QUEUE');
         return new JobsService(connectionString);
       },
     },
+    {
+      provide: SYNTHESIZER_SERVICE,
+      inject: [SynthesizerService],
+      useFactory: (service: SynthesizerService) => ({
+        gerar: (dto: {
+          moduloId: string;
+          topico: string;
+          nivelAlvo?: string;
+          instrucoesExtras?: string;
+        }) => service.gerar(dto),
+      }),
+    },
+    {
+      provide: EXERCICIOS_AVALIACOES_SERVICE,
+      inject: [ExerciciosAvaliacoesService],
+      useFactory: (service: ExerciciosAvaliacoesService) => ({
+        gerarExercicio: (dto: {
+          moduloId: string;
+          tipo: string;
+          dificuldade?: string;
+          instrucoesExtras?: string;
+        }) => service.gerarExercicio(dto as never),
+        submeterTentativa: (dto: {
+          exercicioId: string;
+          respostaUsuario: string;
+          perfilId?: string;
+        }) => service.submeterTentativa(dto as never),
+      }),
+    },
+    {
+      provide: BIBLIOTECA_VIVA_SERVICE,
+      inject: [BibliotecaVivaService],
+      useFactory: (service: BibliotecaVivaService) => ({
+        indexarTexto: (params: { texto: string; conteudoId?: string; fonteId?: string }) =>
+          service.indexarTexto(params),
+      }),
+    },
+    SynthesizerJobHandler,
+    ExerciciosJobHandler,
+    EmbeddingsJobHandler,
   ],
+  controllers: [JobsController],
   exports: [JOB_QUEUE],
 })
 export class JobsModule implements OnModuleInit, OnModuleDestroy {
-  constructor(@Inject(JOB_QUEUE) private readonly queue: JobsService) {}
+  constructor(
+    @Inject(JOB_QUEUE) private readonly queue: JobsService,
+    private readonly synthesizerHandler: SynthesizerJobHandler,
+    private readonly exerciciosHandler: ExerciciosJobHandler,
+    private readonly embeddingsHandler: EmbeddingsJobHandler,
+  ) {}
 
   onModuleInit() {
     return this.queue.onModuleInit();

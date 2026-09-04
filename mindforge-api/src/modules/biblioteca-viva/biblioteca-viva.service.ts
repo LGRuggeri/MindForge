@@ -1,8 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BibliotecaVivaRepository } from './biblioteca-viva.repository';
 import { EmbeddingService } from './embedding.service';
 import { BuscarSemanticaDto } from './dto/buscar-semantica.dto';
+import { IndexarTextoDto } from './dto/indexar-texto.dto';
 import { chunkTexto } from './chunking';
+import { JOB_QUEUE } from '../../jobs/job-queue.token';
+import { JobsService } from '../../jobs/jobs.service';
 
 @Injectable()
 export class BibliotecaVivaService {
@@ -11,6 +14,7 @@ export class BibliotecaVivaService {
   constructor(
     private readonly repo: BibliotecaVivaRepository,
     private readonly embeddings: EmbeddingService,
+    @Inject(JOB_QUEUE) private readonly queue: JobsService,
   ) {}
 
   async buscar(dto: BuscarSemanticaDto) {
@@ -22,7 +26,25 @@ export class BibliotecaVivaService {
    * Quebra o texto em chunks, gera embeddings e indexa em `conteudo_chunks`.
    * Origem: exatamente um de `conteudoId` ou `fonteId` (CHECK do schema).
    */
-  async indexarTexto(params: { texto: string; conteudoId?: string; fonteId?: string }) {
+  async indexarTexto(params: IndexarTextoDto) {
+    if (params.async) {
+      const jobId = await this.queue.send(
+        'biblioteca-viva:indexar',
+        params as unknown as Record<string, unknown>,
+        { retryLimit: 2 },
+      );
+      this.logger.log(`Job de indexação enfileirado: ${jobId}`);
+      return { jobId, status: 'enfileirado' };
+    }
+
+    return this.indexarTextoSincrono(params);
+  }
+
+  private async indexarTextoSincrono(params: {
+    texto: string;
+    conteudoId?: string;
+    fonteId?: string;
+  }) {
     const { texto, conteudoId, fonteId } = params;
 
     if (Boolean(conteudoId) === Boolean(fonteId)) {

@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class PesquisarDto {
   @IsUUID()
@@ -13,4 +13,12 @@ export class PesquisarDto {
   @Max(12)
   @IsOptional()
   limite?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  webSearch?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  async?: boolean;
 }

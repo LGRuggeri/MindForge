@@ -1,6 +1,6 @@
 # 12 — Knowledge Graph Pessoal
 
-**Status:** ⬜ esqueleto de módulo. Modelo de dados validado (consulta recursiva testada no schema).  
+**Status:** ✅ implementado e testado. Visualização React Flow do grafo adicionada ao frontend.  
 **Tabelas:** `competencias`, `competencia_relacoes`, `competencia_progresso`, `modulo_competencias`
 
 ---
@@ -15,6 +15,8 @@ Lista de adjacência simples:
 - **Ligação trilha ↔ grafo:** `modulo_competencias`
 
 Sem Apache AGE / extensão de grafo — `WITH RECURSIVE` basta na escala pessoal (ADR-007 + modelagem §3.8).
+
+**Status:** ✅ implementado e testado.
 
 ---
 
@@ -35,31 +37,42 @@ SELECT * FROM cadeia;
 
 ---
 
-## 3. Atualização de progresso (design, ⬜)
+## 3. Atualização de progresso
 
-1. Módulo concluído → competências ligadas: `nao_iniciado` → `aprendendo`  
-2. Exercício correto → `praticando`  
+1. Módulo concluído/estudado → competências ligadas: `nao_iniciado` → `aprendendo`
+2. Exercício correto (nota ≥ 7) → `praticando`; nota ≥ 9 → `dominado`
 3. Avaliação forte → `dominado`
 
-Depende de exercícios/avaliações (`11-avaliacoes.md`) antes de automatizar.
+Progresso é atualizado via `KnowledgeGraphService.marcarProgressoPorModulo` e acionado automaticamente em `ExerciciosAvaliacoesService.submeterTentativa` e `AvaliacoesService`.
 
 ---
 
-## 4. Visualização
+## 4. API
 
-- Frontend previsto: React Flow  
-- Endpoint de nós/arestas ainda não existe (REST ou GraphQL — a decidir na implementação)
-
----
-
-## 5. Lacunas
-
-- Quem cria competências ao gerar trilha? Provavelmente o Planner — não decidido  
-- Nenhuma semente real de competências no banco de uso  
-- Sem API pública ainda
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/knowledge-graph/perfis/:perfilId` | Grafo completo com progresso do perfil |
+| `GET` | `/knowledge-graph/perfis/:perfilId/grafo` | Nós e arestas formatados para visualização |
+| `GET` | `/knowledge-graph/competencias/:id` | Competência por ID |
+| `GET` | `/knowledge-graph/competencias/:id/cadeia` | Cadeia de pré-requisitos |
+| `GET` | `/knowledge-graph/competencias/:id/dependentes` | Competências que dependem desta |
+| `POST` | `/knowledge-graph/competencias/:id/progresso` | Atualiza progresso do perfil |
 
 ---
 
-## 6. Quando implementar
+## 5. Extração automática
 
-Fase 3 do roadmap — depois de existir prática (exercícios) com dados reais de progresso.
+- **Planner:** cada módulo da trilha vira uma competência e cria cadeia de pré-requisitos sequencial.
+- **Synthesizer:** palavras-chave do conteúdo viram competências vinculadas ao módulo.
+
+---
+
+## 6. Visualização
+
+Implementada em `mindforge-web/app/knowledge-graph/page.tsx` com React Flow (`@xyflow/react`):
+
+- Nós representam competências, coloridos pelo nível de progresso (`nao_iniciado`, `aprendendo`, `praticando`, `dominado`).
+- Arestas representam relações `pre_requisito`.
+- Layout automático por profundidade topológica: competências sem pré-requisitos à esquerda, dependentes à direita.
+- A página oferece duas abas: **Grafo** (visualização interativa) e **Lista** (visualização anterior em cards).
+- Endpoint consumido: `GET /knowledge-graph/perfis/:perfilId/grafo`.

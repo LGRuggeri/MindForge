@@ -23,6 +23,17 @@ export const envSchema = z.object({
   AGENT_KB_SCRIPT_PATH: z.string().min(1).optional(),
   AGENT_KB_PROJECT_ID: z.string().min(1).optional(),
   AGENT_KB_ENABLED: z.enum(['true', 'false']).default('false'),
+  // Provedor de busca web: 'duckduckgo' (scraping gratuito) ou 'api' (Serper, Tavily, Brave, etc).
+  SEARCH_PROVIDER: z.enum(['duckduckgo', 'api']).default('duckduckgo'),
+  SEARCH_API_KEY: z.string().min(1).optional(),
+  SEARCH_API_URL: z.string().url().optional(),
+  // Fallback de provedores LLM compatíveis com OpenAI. Listas separadas por vírgula,
+  // na mesma ordem: primeiro endpoint, depois apiKey, depois model.
+  LLM_FALLBACK_BASE_URLS: z.string().optional(),
+  LLM_FALLBACK_API_KEYS: z.string().optional(),
+  LLM_FALLBACK_MODELS: z.string().optional(),
+  // URL do frontend para configuração de CORS. Opcional; default é http://localhost:3001.
+  FRONTEND_URL: z.string().url().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

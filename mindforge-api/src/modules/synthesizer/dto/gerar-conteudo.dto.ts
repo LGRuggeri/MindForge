@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class GerarConteudoDto {
   @IsUUID()
@@ -14,4 +14,8 @@ export class GerarConteudoDto {
   @IsString()
   @IsOptional()
   instrucoesExtras?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  async?: boolean;
 }

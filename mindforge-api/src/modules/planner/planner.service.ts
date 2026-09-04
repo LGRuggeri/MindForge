@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AgentesService } from '../agentes/agentes.service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { CriarObjetivoDto } from './dto/criar-objetivo.dto';
 import { PlannerRepository } from './planner.repository';
 
@@ -23,6 +24,7 @@ export class PlannerService {
   constructor(
     private readonly repo: PlannerRepository,
     private readonly agentes: AgentesService,
+    private readonly knowledgeGraph: KnowledgeGraphService,
   ) {}
 
   async criarObjetivo(dto: CriarObjetivoDto) {
@@ -37,6 +39,14 @@ export class PlannerService {
 
   async listarObjetivosDoPerfil(perfilId: string) {
     return this.repo.listarObjetivosDoPerfil(perfilId);
+  }
+
+  async buscarModuloPorId(id: string) {
+    const modulo = await this.repo.buscarModuloPorId(id);
+    if (!modulo) {
+      throw new NotFoundException(`Módulo ${id} não encontrado`);
+    }
+    return modulo;
   }
 
   async buscarObjetivoPorId(id: string) {
@@ -77,12 +87,57 @@ export class PlannerService {
       })),
     );
 
+    await this.popularKnowledgeGraph(modulos);
+
     this.logger.log(`Trilha gerada: ${trilha.id} com ${modulos.length} módulos`);
 
     return {
       ...trilha,
       modulos,
     };
+  }
+
+  private async popularKnowledgeGraph(
+    modulos: Array<{
+      id: string;
+      ordem: number;
+      titulo: string;
+      objetivoAprendizagem: string | null;
+    }>,
+  ) {
+    const competenciasPorModulo: Array<{ moduloId: string; competenciaId: string; nome: string }> =
+      [];
+
+    for (const modulo of modulos) {
+      const nomeCompetencia = modulo.objetivoAprendizagem || modulo.titulo;
+      const competencia = await this.knowledgeGraph.criarCompetencia({
+        nome: nomeCompetencia,
+        descricao: `Competência derivada do módulo "${modulo.titulo}"`,
+        categoria: 'planner',
+      });
+      await this.knowledgeGraph.vincularCompetenciasAoModulo(modulo.id, [
+        {
+          nome: competencia.nome,
+          descricao: competencia.descricao ?? undefined,
+          categoria: 'planner',
+        },
+      ]);
+      competenciasPorModulo.push({
+        moduloId: modulo.id,
+        competenciaId: competencia.id,
+        nome: competencia.nome,
+      });
+    }
+
+    for (let i = 1; i < competenciasPorModulo.length; i++) {
+      const anterior = competenciasPorModulo[i - 1];
+      const atual = competenciasPorModulo[i];
+      await this.knowledgeGraph.criarRelacao({
+        competenciaOrigemId: anterior.competenciaId,
+        competenciaDestinoId: atual.competenciaId,
+        tipoRelacao: 'pre_requisito',
+      });
+    }
   }
 
   private montarSystemPrompt(): string {

@@ -17,7 +17,7 @@ Registro consolidado. Novas decisões entram **no momento em que forem tomadas**
 
 **Contexto:** pesquisa/síntese/correção podem ser longas.  
 **Decisão:** `pg-boss` (LISTEN/NOTIFY).  
-**Status implementação:** cliente sobe e conecta; workers de domínio ainda não registrados.  
+**Status implementação:** fila sobe e conecta; handlers de domínio registrados para Synthesizer (`synthesizer:gerar-conteudo`), Exercícios (`exercicios:gerar`, `exercicios:corrigir-tentativa`), Biblioteca Viva (`biblioteca-viva:indexar`) e Research (`research:pesquisar`). Execução assíncrona é opt-in via `async: true` nos DTOs.  
 **Alternativas:** BullMQ, RabbitMQ/SQS.
 
 ---
@@ -119,6 +119,27 @@ Registro consolidado. Novas decisões entram **no momento em que forem tomadas**
 **Decisão:** v1 gera lista curada via LLM com priorização de docs oficiais; URLs podem ser null.  
 **Alternativas consideradas:** Bing/Serp/Tavily search ao vivo.  
 **Consequências:** zero chave extra de search; qualidade depende do modelo; upgrade futuro opcional.
+
+### ADR-017 — Web search real via DuckDuckGo HTML (sem API key)
+
+**Contexto:** após consolidar o Research Engine, o próximo passo é trazer fontes reais da web sem depender exclusivamente do conhecimento interno do LLM.  
+**Decisão:** adicionar `WebSearchService` que faz scraping do HTML do DuckDuckGo (`html.duckduckgo.com/html/`). Quando `webSearch: true` é enviado no `POST /research/fontes`, até 10 resultados são buscados e injetados no contexto do agente `researcher`. O LLM mantém o controle final da curadoria. Se o DuckDuckGo falhar, retorna lista vazia e a pesquisa continua com o conhecimento próprio do LLM.  
+**Alternativas consideradas:** Bing Search API, Google Programmable Search, SerpAPI, Tavily — todos exigem API key. DuckDuckGo foi escolhido por ser gratuito e não exigir cadastro.  
+**Consequências:** pode quebrar se o HTML do DuckDuckGo mudar; parser é envolvido em try/catch; precisa de fallback futuro para outros motores.
+
+### ADR-018 — Abstração de provider de web search
+
+**Contexto:** o scraping do DuckDuckGo é frágil e não cobre cenários de busca avançada.  
+**Decisão:** criar interface `SearchProvider` com duas implementações: `DuckDuckGoSearchProvider` (gratuito, default) e `ApiSearchProvider` (genérico para Serper, Tavily, Brave etc). A escolha é feita por `SEARCH_PROVIDER` no `.env`; `ApiSearchProvider` usa `SEARCH_API_URL` e `SEARCH_API_KEY`.  
+**Alternativas consideradas:** implementar adapters específicos para cada API de search.  
+**Consequências:** troca de motor de busca não altera `ResearchService`; formato de resposta da API é detectado por heurística (`organic`, `results`, `web.results`).
+
+### ADR-019 — Fallback de provedor LLM
+
+**Contexto:** o provedor de chat principal (OpenCode Go) atinge limite semanal de uso, bloqueando todos os agentes que dependem de LLM.  
+**Decisão:** `LlmFallbackService` permite configurar uma lista de provedores compatíveis com OpenAI via `LLM_FALLBACK_BASE_URLS`, `LLM_FALLBACK_API_KEYS` e `LLM_FALLBACK_MODELS`. Em caso de falha recuperável (rate limit, timeout, 5xx, 429), o serviço tenta o próximo provedor da lista. Erros não recuperáveis (prompt inválido, parser) interrompem o fallback.  
+**Alternativas consideradas:** usar biblioteca de routing de LLM (LangChain, LiteLLM proxy) — adicionaria dependência pesada para um caso simples.  
+**Consequências:** testes e operações de produção ficam resilientes a indisponibilidade temporária do provedor principal; configuração continua simples via variáveis de ambiente.
 
 ---
 

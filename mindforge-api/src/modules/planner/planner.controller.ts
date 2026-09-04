@@ -28,4 +28,9 @@ export class PlannerController {
   gerarTrilha(@Body() dto: GerarTrilhaDto) {
     return this.service.gerarTrilha(dto.objetivoId);
   }
+
+  @Get('modulos/:id')
+  buscarModulo(@Param('id') id: string) {
+    return this.service.buscarModuloPorId(id);
+  }
 }

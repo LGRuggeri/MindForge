@@ -42,4 +42,11 @@ export class PlannerRepository {
       with: { trilhas: true },
     });
   }
+
+  async buscarModuloPorId(id: string) {
+    return this.db.query.modulosTrilha.findFirst({
+      where: eq(modulosTrilha.id, id),
+      with: { trilha: { with: { objetivo: true } } },
+    });
+  }
 }

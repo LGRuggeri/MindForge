@@ -54,7 +54,7 @@ Para um `modulo_trilha`, lê `fontes_pesquisa` (se existirem) e produz `conteudo
 fontes_pesquisa
       ↓ Synthesizer (✅)
 conteudos.status = rascunho   (✅)
-      ↓ Reviewer (⬜)
+      ↓ Reviewer (✅)
 conteudos.status = revisado | rascunho
       ↓
 publicado (⬜)
@@ -62,7 +62,7 @@ publicado (⬜)
 chunking + embeddings (✅) → Biblioteca Viva (✅)
 ```
 
-Hoje o conteúdo nasce como `rascunho`, é indexado automaticamente na Biblioteca Viva (chunking + embedding) e já pode ser lido/listado. Não há reviewer ainda.
+Hoje o conteúdo nasce como `rascunho`, passa pelo `reviewer` (nota 1–5, até 2 reescritas), é indexado automaticamente na Biblioteca Viva (chunking + embedding) e salvo como `revisado` (nota ≥ 3) ou `rascunho` (nota < 3). A transição explícita para `publicado` ainda não existe.
 
 ---
 
@@ -80,12 +80,13 @@ Hoje o conteúdo nasce como `rascunho`, é indexado automaticamente na Bibliotec
 
 - ~~Não grava `conteudo_fontes`~~ → ✅ agora grava ao gerar conteúdo
 - ~~Não chama chunking/embedding após gerar~~ → ✅ indexação automática via Biblioteca Viva
+- ~~Não tem reviewer no pipeline~~ → ✅ implementado
 - Não versiona regenerações (sempre `versao=1` no insert atual)
-- `reviewer` ainda não existe como passo de QA
 - Falha de indexação não bloqueia a criação do conteúdo (logada, mas silenciosa para o cliente) — ver `SynthesizerService.gerar`
+- Estado `publicado` não existe ainda
 
 ## 6. Próximos passos
 
-1. Agente `reviewer` antes de `publicado`
+1. Estado `publicado` explícito
 2. Regenerar com incremento de `versao`
 3. Retornar erro de indexação de forma mais visível na resposta da API (hoje só loga)

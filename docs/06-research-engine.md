@@ -71,6 +71,7 @@ research/
 ├── research.controller.ts
 ├── research.service.ts      # prompt + normalização + AgentesService
 ├── research.repository.ts  # Drizzle apenas aqui
+├── web-search.service.ts   # scraping DuckDuckGo HTML (sem API key)
 └── dto/pesquisar.dto.ts
 ```
 
@@ -82,21 +83,53 @@ research/
 
 ## 4. Limitações deliberadas
 
-- Curadoria baseada no conhecimento do LLM (não scraping/search API ao vivo).
-- Request síncrona (ok para uso pessoal; migrar para `pg-boss` se latência ou search web real entrarem).
+- Request síncrona (ok para uso pessoal; migrar para `pg-boss` se latência ficar alta).
 
----
+## 5. Web search real (opcional)
 
-## 5. Integração validada
+O Research Engine pode enriquecer a curadoria com resultados reais da web usando DuckDuckGo HTML (sem API key).
+
+- Ative com `{ "webSearch": true }` no `POST /research/fontes`.
+- O serviço `WebSearchService` busca até 10 resultados e os envia ao agente `researcher` como contexto.
+- O LLM mantém o controle final: escolhe, valida e classifica as fontes.
+- Se o DuckDuckGo falhar ou bloquear (403/429), a pesquisa continua com o conhecimento próprio do LLM — nunca quebra a request.
+
+### Entrada com web search
+
+```json
+{
+  "moduloId": "uuid",
+  "topico": "Ownership em Rust",
+  "limite": 5,
+  "webSearch": true
+}
+```
+
+### Saída
+
+```json
+{
+  "moduloId": "...",
+  "topico": "Ownership em Rust",
+  "estrategia": "...",
+  "fontes": [...],
+  "resultadosWeb": 8
+}
+```
+
+**Fontes suportadas:** qualquer domínio indexado pelo DuckDuckGo. O parser extrai título, URL, domínio e resumo do HTML de resultados.
+
+## 6. Integração validada
 
 ```text
 POST /research/fontes  → 4 fontes salvas
+POST /research/fontes (webSearch: true) → fontes salvas com contexto web real
 GET  /research/modulos/:id/fontes
 POST /synthesizer/conteudos  → usa as fontes do módulo
 ```
 
-## 6. Próximos passos
+## 7. Próximos passos
 
-- Search web real (opcional)
 - Indexar trechos de fontes em `conteudo_chunks` (fonte_id)
 - Job assíncrono se o pipeline ficar pesado
+- Fallback para múltiplos motores de busca (Bing, Google Programmable Search) se DuckDuckGo se tornar instável
