@@ -130,17 +130,17 @@ export class KnowledgeGraphRepository {
           limit: 1,
         },
         modulos: {
-          where: and(
-            eq(moduloCompetencias.competenciaId, competencias.id),
-            inArray(
-              moduloCompetencias.moduloId,
-              this.db
-                .select({ id: modulosTrilha.id })
-                .from(modulosTrilha)
-                .innerJoin(trilhasEstudo, eq(trilhasEstudo.id, modulosTrilha.trilhaId))
-                .innerJoin(objetivosEstudo, eq(objetivosEstudo.id, trilhasEstudo.objetivoId))
-                .where(eq(objetivosEstudo.perfilId, perfilId)),
-            ),
+          // A condição competencia_id = competencias.id já é imposta pela relação;
+          // repetí-la aqui fazia o Drizzle ligar competencias.id ao alias da
+          // subquery lateral e gerar "column competencias_modulos.id does not exist".
+          where: inArray(
+            moduloCompetencias.moduloId,
+            this.db
+              .select({ id: modulosTrilha.id })
+              .from(modulosTrilha)
+              .innerJoin(trilhasEstudo, eq(trilhasEstudo.id, modulosTrilha.trilhaId))
+              .innerJoin(objetivosEstudo, eq(objetivosEstudo.id, trilhasEstudo.objetivoId))
+              .where(eq(objetivosEstudo.perfilId, perfilId)),
           ),
           with: { modulo: true },
         },
@@ -196,38 +196,34 @@ export class KnowledgeGraphRepository {
     });
   }
 
-  async recomendarCompetencias(
-    perfilId: string,
-  ): Promise<
-    Array<{ id: string; nome: string; progresso: string | null; prerequisitosPendentes: number }>
+  async recomendarCompetencias(perfilId: string): Promise<
+    Array<{
+      id: string;
+      nome: string;
+      descricao: string | null;
+      categoria: string | null;
+      nivelAtual: string | null;
+      atualizadoEm: string | null;
+      prerequisitosPendentes: number;
+    }>
   > {
-    const competenciasDoPerfil = this.db
-      .select({ id: moduloCompetencias.competenciaId })
-      .from(moduloCompetencias)
-      .innerJoin(modulosTrilha, eq(modulosTrilha.id, moduloCompetencias.moduloId))
-      .innerJoin(trilhasEstudo, eq(trilhasEstudo.id, modulosTrilha.trilhaId))
-      .innerJoin(objetivosEstudo, eq(objetivosEstudo.id, trilhasEstudo.objetivoId))
-      .where(eq(objetivosEstudo.perfilId, perfilId))
-      .union(
-        this.db
-          .select({ id: competenciaProgresso.competenciaId })
-          .from(competenciaProgresso)
-          .where(eq(competenciaProgresso.perfilId, perfilId)),
-      );
-
     const rows = await this.db.execute<{
       id: string;
       nome: string;
-      progresso: string | null;
+      descricao: string | null;
+      categoria: string | null;
+      nivelAtual: string | null;
+      atualizadoEm: string | null;
       prerequisitosPendentes: number;
     }>(sql`
       WITH competencias_perfil AS (
-        ${competenciasDoPerfil}
+        ${this.sqlCompetenciasDoPerfil(perfilId)}
       ),
       progresso AS (
         SELECT
           cp.competencia_id AS id,
-          cp.nivel_atual AS nivel
+          cp.nivel_atual AS nivel,
+          cp.atualizado_em
         FROM competencia_progresso cp
         WHERE cp.perfil_id = ${perfilId}
       ),
@@ -235,7 +231,10 @@ export class KnowledgeGraphRepository {
         SELECT
           c.id,
           c.nome,
-          COALESCE(p.nivel, 'nao_iniciado') AS progresso
+          c.descricao,
+          c.categoria,
+          p.nivel,
+          p.atualizado_em
         FROM competencias c
         JOIN competencias_perfil cp ON cp.id = c.id
         LEFT JOIN progresso p ON p.id = c.id
@@ -256,13 +255,16 @@ export class KnowledgeGraphRepository {
       SELECT
         r.id,
         r.nome,
-        r.progresso,
-        COALESCE(pr.pendentes, 0) AS prerequisitosPendentes
+        r.descricao,
+        r.categoria,
+        r.nivel AS "nivelAtual",
+        r.atualizado_em AS "atualizadoEm",
+        COALESCE(pr.pendentes, 0)::int AS "prerequisitosPendentes"
       FROM recomendadas r
       LEFT JOIN prerequisitos pr ON pr.destino_id = r.id
       WHERE COALESCE(pr.pendentes, 0) = 0
       ORDER BY
-        CASE r.progresso
+        CASE COALESCE(r.nivel, 'nao_iniciado')
           WHEN 'nao_iniciado' THEN 0
           WHEN 'aprendendo' THEN 1
           WHEN 'praticando' THEN 2
@@ -272,6 +274,85 @@ export class KnowledgeGraphRepository {
     `);
 
     return Array.isArray(rows) ? rows : rows.rows;
+  }
+
+  async buscarGrafoVisualDoPerfil(perfilId: string): Promise<{
+    nodes: Array<{
+      id: string;
+      nome: string;
+      descricao: string | null;
+      categoria: string | null;
+      nivelAtual: string;
+    }>;
+    edges: Array<{ id: string; source: string; target: string; tipo: string }>;
+  }> {
+    const nodesResult = await this.db.execute<{
+      id: string;
+      nome: string;
+      descricao: string | null;
+      categoria: string | null;
+      nivelAtual: string;
+    }>(sql`
+      WITH competencias_perfil AS (
+        ${this.sqlCompetenciasDoPerfil(perfilId)}
+      ),
+      progresso_recente AS (
+        SELECT DISTINCT ON (cp.competencia_id)
+          cp.competencia_id AS id,
+          cp.nivel_atual
+        FROM competencia_progresso cp
+        WHERE cp.perfil_id = ${perfilId}
+        ORDER BY cp.competencia_id, cp.atualizado_em DESC
+      )
+      SELECT
+        c.id,
+        c.nome,
+        c.descricao,
+        c.categoria,
+        COALESCE(pr.nivel_atual, 'nao_iniciado') AS "nivelAtual"
+      FROM competencias c
+      JOIN competencias_perfil cpf ON cpf.id = c.id
+      LEFT JOIN progresso_recente pr ON pr.id = c.id
+      ORDER BY c.nome;
+    `);
+
+    const edgesResult = await this.db.execute<{
+      id: string;
+      source: string;
+      target: string;
+      tipo: string;
+    }>(sql`
+      WITH competencias_perfil AS (
+        ${this.sqlCompetenciasDoPerfil(perfilId)}
+      )
+      SELECT
+        r.id,
+        r.competencia_origem_id AS "source",
+        r.competencia_destino_id AS "target",
+        r.tipo_relacao AS "tipo"
+      FROM competencia_relacoes r
+      JOIN competencias_perfil o ON o.id = r.competencia_origem_id
+      JOIN competencias_perfil d ON d.id = r.competencia_destino_id;
+    `);
+
+    const nodes = Array.isArray(nodesResult) ? nodesResult : nodesResult.rows;
+    const edges = Array.isArray(edgesResult) ? edgesResult : edgesResult.rows;
+    return { nodes, edges };
+  }
+
+  private sqlCompetenciasDoPerfil(perfilId: string) {
+    return sql`
+      SELECT mc.competencia_id AS id
+      FROM modulo_competencias mc
+      JOIN modulos_trilha mt ON mt.id = mc.modulo_id
+      JOIN trilhas_estudo te ON te.id = mt.trilha_id
+      JOIN objetivos_estudo oe ON oe.id = te.objetivo_id
+      WHERE oe.perfil_id = ${perfilId}
+      UNION
+      SELECT cp.competencia_id AS id
+      FROM competencia_progresso cp
+      WHERE cp.perfil_id = ${perfilId}
+    `;
   }
 
   async buscarCaminhoDePreRequisitos(

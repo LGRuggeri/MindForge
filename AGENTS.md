@@ -130,8 +130,9 @@ Variáveis obrigatórias e observações:
 
 - `DATABASE_URL`: aponte para `localhost:5433/mindforge` (o container Docker mapeia `5433:5432` para não conflitar com Postgres nativo).
 - `LLM_API_KEY`: chave do provedor de chat.
-- `OPENAI_BASE_URL`: URL do endpoint compatível com OpenAI (padrão: `https://opencode.ai/zen/go/v1`).
-- `LLM_MODEL`: modelo de chat (padrão: `grok-4.5`).
+- `OPENAI_BASE_URL`: URL do endpoint compatível com OpenAI (padrão do código: `https://opencode.ai/zen/go/v1`). Setup em uso no projeto: Google Gemini (`https://generativelanguage.googleapis.com/v1beta/openai/`).
+- `LLM_MODEL`: modelo de chat (padrão do código: `grok-4.5`). Setup em uso: `gemini-3.6-flash` — o `gemini-2.5-flash` foi descontinuado para usuários novos pela Google; ao trocar o modelo, reinicie a API (o `.env` é lido no boot).
+- `LLM_FALLBACK_BASE_URLS` / `LLM_FALLBACK_API_KEYS` / `LLM_FALLBACK_MODELS`: opcionais; provedores de reserva do `LlmFallbackService`, na mesma ordem. Setup em uso: Ollama local (`http://localhost:11434/v1` / `ollama` / `qwen3:8b`), acionado quando o provedor principal falha (ex.: 503 de alta demanda).
 - `EMBEDDING_MODEL`: modelo de embeddings; a dimensão precisa bater com a coluna `embedding` de `conteudo_chunks` (768 dim no schema do repositório — veja §13).
 - `EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL`: opcionais; quando o provedor de chat não expõe `/embeddings`, aponte para Ollama local (`http://localhost:11434/v1`).
 - `SEARCH_PROVIDER`: seletor de web search (`duckduckgo` padrão, `api` genérica com Bearer, `serper`).
@@ -204,12 +205,12 @@ npm run test:watch     # modo watch
 npm run test:cov       # com relatório de cobertura (coverage/)
 ```
 
-Status verificado em 2026-09-04:
+Status verificado em 2026-09-05:
 
 - `npm run build`: sucesso (backend e frontend).
-- `npm run test` (backend): 28 suites, 153 testes passando (com a PR backend aplicada; o `main` sozinho tem 24 suites/135).
+- `npm run test` (backend): 28 suites, 161 testes passando.
 - `npm test` (frontend): 5 arquivos, 21 testes passando.
-- `npm run lint`: backend sem erros (warnings de CRLF do Prettier em arquivos antigos); frontend 0 erros/warnings.
+- `npm run lint`: backend 0 erros (warnings de CRLF do Prettier em arquivos antigos); frontend 0 erros/warnings.
 
 ## 9. Segurança
 
@@ -298,6 +299,7 @@ Para decisões de produto, arquitetura e modelagem de dados, consulte `docs/`:
 - **Dimensão de embeddings**: `conteudo_chunks.embedding` usa 768 dim no repositório (modelo `nomic-embed-text` via Ollama). O default do `EMBEDDING_MODEL` no código é `text-embedding-3-small` (1536 dim) — se for usar provedor com outra dimensão, gere uma nova migration para recriar a coluna com a dimensão correta.
 - **Provedor de chat vs embeddings**: podem ser provedores distintos. O chat usa `OPENAI_BASE_URL`; embeddings podem usar `EMBEDDING_BASE_URL` separado (ADR-016).
 - **Web search**: o provider `duckduckgo` faz scraping de HTML e pode falhar se o layout mudar; os providers `api` (genérica com Bearer) e `serper` são alternativas estáveis. Em qualquer falha, o sistema continua com curadoria baseada no conhecimento interno do LLM (ADR-017).
-- **Fallback de LLM**: `agentes/llm-fallback.service.ts` contorna limites do provedor principal (ADR-019).
+- **Fallback de LLM**: `agentes/llm-fallback.service.ts` contorna limites do provedor principal (ADR-019). Setup atual: Gemini como principal e Ollama local (`qwen3:8b`) como fallback — em 503 de alta demanda do Gemini a trilha sai pelo modelo local (pode demorar mais).
+- **Armadilhas do Drizzle com SQL bruto** (bitse reais de set/2026, cobertas por teste de regressão em `knowledge-graph.repository.spec.ts`): (1) aliases de coluna se perdem quando um builder `.select({ id: ... }).union(...)` é embutido em `sql` — escreva a CTE à mão; (2) em `with.where` de relational queries, referenciar campo da tabela pai faz o Drizzle ligá-lo ao alias da subquery lateral — a condição da relação já é implícita, não repita; (3) alias de saída em SQL bruto precisam de aspas duplas (`AS "nivelAtual"`), senão o Postgres devolve em minúsculas; (4) `COUNT` vira bigint (string no node-pg) — use `::int`. Os specs usam `drizzle({} as never)` + `PgDialect.sqlToQuery` para inspecionar o SQL real sem banco conectado.
 - **Jobs assíncronos**: geração de conteúdo e exercícios suportam modo enfileirado (flag `async` retorna `{ jobId, status: 'enfileirado' }`); acompanhe o resultado pelo endpoint de jobs ou pelo `job-poller` no front.
 - **Próximo passo documentado**: sandbox de código (roadmap) e telas de Research/Diário no front-end.

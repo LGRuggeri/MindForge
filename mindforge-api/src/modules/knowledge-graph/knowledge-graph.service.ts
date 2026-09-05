@@ -11,6 +11,26 @@ export interface CompetenciaExtraida {
   categoria?: string;
 }
 
+export interface CompetenciaRecomendada {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  categoria: string | null;
+  progresso: { nivelAtual: string; atualizadoEm: string } | null;
+  prerequisitosPendentes: number;
+}
+
+export interface GrafoVisual {
+  nodes: Array<{
+    id: string;
+    nome: string;
+    descricao: string | null;
+    categoria: string | null;
+    nivelAtual: string;
+  }>;
+  edges: Array<{ id: string; source: string; target: string; tipo: string }>;
+}
+
 @Injectable()
 export class KnowledgeGraphService {
   private readonly logger = new Logger(KnowledgeGraphService.name);
@@ -89,12 +109,22 @@ export class KnowledgeGraphService {
     }));
   }
 
-  async recomendarCompetencias(
-    perfilId: string,
-  ): Promise<
-    Array<{ id: string; nome: string; progresso: string | null; prerequisitosPendentes: number }>
-  > {
-    return this.repo.recomendarCompetencias(perfilId);
+  async recomendarCompetencias(perfilId: string): Promise<CompetenciaRecomendada[]> {
+    const rows = await this.repo.recomendarCompetencias(perfilId);
+    return rows.map((r) => ({
+      id: r.id,
+      nome: r.nome,
+      descricao: r.descricao,
+      categoria: r.categoria,
+      progresso: r.nivelAtual
+        ? { nivelAtual: r.nivelAtual, atualizadoEm: r.atualizadoEm ?? '' }
+        : null,
+      prerequisitosPendentes: r.prerequisitosPendentes,
+    }));
+  }
+
+  async buscarGrafoVisual(perfilId: string): Promise<GrafoVisual> {
+    return this.repo.buscarGrafoVisualDoPerfil(perfilId);
   }
 
   async buscarCaminhoDePreRequisitos(competenciaId: string) {

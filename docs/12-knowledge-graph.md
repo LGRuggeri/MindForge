@@ -53,10 +53,15 @@ Progresso é atualizado via `KnowledgeGraphService.marcarProgressoPorModulo` e a
 |---|---|---|
 | `GET` | `/knowledge-graph/perfis/:perfilId` | Grafo completo com progresso do perfil |
 | `GET` | `/knowledge-graph/perfis/:perfilId/grafo` | Nós e arestas formatados para visualização |
+| `GET` | `/knowledge-graph/perfis/:perfilId/proximos` | Próximas competências (pré-requisitos satisfeitos) |
+| `GET` | `/knowledge-graph/competencias` | Lista de competências |
+| `POST` | `/knowledge-graph/competencias` | Cria competência |
 | `GET` | `/knowledge-graph/competencias/:id` | Competência por ID |
-| `GET` | `/knowledge-graph/competencias/:id/cadeia` | Cadeia de pré-requisitos |
+| `GET` | `/knowledge-graph/competencias/:id/pre-requisitos` | Cadeia de pré-requisitos |
 | `GET` | `/knowledge-graph/competencias/:id/dependentes` | Competências que dependem desta |
-| `POST` | `/knowledge-graph/competencias/:id/progresso` | Atualiza progresso do perfil |
+| `POST` | `/knowledge-graph/relacoes` | Cria relação entre competências |
+| `POST` | `/knowledge-graph/progresso` | Atualiza progresso do perfil |
+| `POST` | `/knowledge-graph/progresso/modulo` | Marca progresso a partir de um módulo concluído |
 
 ---
 

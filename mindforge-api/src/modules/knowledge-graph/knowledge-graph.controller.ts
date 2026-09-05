@@ -1,5 +1,9 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
-import { KnowledgeGraphService } from './knowledge-graph.service';
+import {
+  CompetenciaRecomendada,
+  GrafoVisual,
+  KnowledgeGraphService,
+} from './knowledge-graph.service';
 import { CriarCompetenciaDto } from './dto/criar-competencia.dto';
 import { CriarRelacaoDto } from './dto/criar-relacao.dto';
 import { AtualizarProgressoDto } from './dto/atualizar-progresso.dto';
@@ -50,10 +54,13 @@ export class KnowledgeGraphController {
   @Get('perfis/:perfilId/proximos')
   async proximosPassos(
     @Param('perfilId', ParseUUIDPipe) perfilId: string,
-  ): Promise<
-    Array<{ id: string; nome: string; progresso: string | null; prerequisitosPendentes: number }>
-  > {
+  ): Promise<CompetenciaRecomendada[]> {
     return this.service.recomendarCompetencias(perfilId);
+  }
+
+  @Get('perfis/:perfilId/grafo')
+  buscarGrafoVisual(@Param('perfilId', ParseUUIDPipe) perfilId: string): Promise<GrafoVisual> {
+    return this.service.buscarGrafoVisual(perfilId);
   }
 
   @Post('progresso')
