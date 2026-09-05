@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useHistoricoTutor, useTirarDuvida } from '@/lib/hooks/useTutor';
+import { useModulosDoPerfil } from '@/lib/hooks/useModulos';
+import { SeletorModulo } from '@/components/seletor-modulo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +19,11 @@ export default function TutorPage() {
   const [pergunta, setPergunta] = useState('');
   const [moduloId, setModuloId] = useState('');
   const { data: historico, isLoading } = useHistoricoTutor(perfilSelecionado?.id || null);
+  const { data: modulosDisponiveis } = useModulosDoPerfil(perfilSelecionado?.id || null);
   const tirarDuvida = useTirarDuvida();
+
+  const tituloModulo = (id: string) =>
+    modulosDisponiveis.find((item) => item.modulo.id === id)?.modulo.titulo ?? id;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +32,7 @@ export default function TutorPage() {
       return;
     }
     if (!moduloId) {
-      toast.error('Informe o ID do módulo');
+      toast.error('Selecione o módulo');
       return;
     }
     try {
@@ -72,14 +78,13 @@ export default function TutorPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="modulo" className="text-sm font-medium">
-                ID do módulo
+                Módulo
               </label>
-              <Input
+              <SeletorModulo
                 id="modulo"
+                perfilId={perfilSelecionado.id}
                 value={moduloId}
-                onChange={(e) => setModuloId(e.target.value)}
-                placeholder="Cole o ID do módulo"
-                required
+                onValueChange={setModuloId}
               />
             </div>
             <div className="space-y-2">
@@ -113,7 +118,7 @@ export default function TutorPage() {
                   <User className="h-5 w-5 mt-0.5 text-muted-foreground" />
                   <div>
                     <p className="font-medium">{duvida.pergunta}</p>
-                    <p className="text-xs text-muted-foreground">Módulo: {duvida.moduloId}</p>
+                    <p className="text-xs text-muted-foreground">Módulo: {tituloModulo(duvida.moduloId)}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 rounded-lg bg-muted p-4">

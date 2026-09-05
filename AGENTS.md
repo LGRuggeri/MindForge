@@ -10,10 +10,11 @@ MindForge é uma plataforma pessoal de estudo guiada por IA. O usuário informa 
 2. Pesquisa fontes de conteúdo, com busca web real opcional (Research Engine).
 3. Sintetiza o material didático (Synthesizer + Reviewer).
 4. Responde dúvidas via RAG (Tutor IA).
-5. Gera exercícios e avaliações com correção automática.
+5. Gera exercícios, avaliações e simulados com correção automática.
 6. Registra progresso, diário de aprendizagem e um grafo de competências pessoal.
+7. Gerencia projetos de aprendizado com entregas e feedback (IA).
 
-Este repositório contém **apenas o backend** (`mindforge-api/`) e a documentação (`docs/`). O front-end é documentado como Next.js + Tailwind + shadcn/ui, mas ainda não existe no repositório.
+O repositório contém o **backend** (`mindforge-api/`), o **front-end** (`mindforge-web/`) e a documentação (`docs/`). O front-end é Next.js + Tailwind + shadcn/ui e consome a API REST do backend.
 
 ## 2. Layout do repositório
 
@@ -24,6 +25,7 @@ MindForge/
 │   ├── 02-arquitetura.md
 │   ├── 03-stack-tecnologica.md
 │   ├── 04-modelagem-dados.md
+│   ├── 13-roadmap.md
 │   └── ...
 ├── mindforge-api/              # Backend NestJS + Drizzle + PostgreSQL/pgvector
 │   ├── src/
@@ -32,7 +34,7 @@ MindForge/
 │   │   ├── config/             # validação de env com Zod
 │   │   ├── database/           # DatabaseModule + schema + migrations
 │   │   ├── common/filters/     # ProblemDetailsFilter (RFC 7807)
-│   │   ├── jobs/               # fila pg-boss + handlers
+│   │   ├── jobs/               # fila pg-boss + handlers (workers assíncronos reais)
 │   │   └── modules/            # módulos de domínio
 │   ├── .env.example            # modelo de variáveis de ambiente
 │   ├── docker-compose.yml      # sobe Postgres 17 + pgvector na porta 5433
@@ -42,10 +44,18 @@ MindForge/
 │   ├── tsconfig.spec.json      # config de testes
 │   ├── jest.config.js          # Jest + ts-jest
 │   └── eslint.config.js        # ESLint flat config + Prettier
+├── mindforge-web/              # Front-end Next.js 16 + React 19 + Tailwind v4
+│   ├── app/                    # rotas (dashboard, objetivos, tutor, revisão, etc.)
+│   ├── components/             # componentes shadcn/ui + específicos (ex.: job-poller)
+│   ├── lib/                    # cliente Axios (api.ts), hooks TanStack Query, store Zustand
+│   ├── AGENTS.md               # regras específicas do Next.js 16 (gerado pelo next dev)
+│   └── package.json
 └── archive/                    # arquivos históricos
 ```
 
 ## 3. Stack tecnológica
+
+**Backend (`mindforge-api/`)**:
 
 - **Runtime**: Node.js 20+
 - **Framework**: NestJS 11 (REST; GraphQL planejado na documentação)
@@ -59,9 +69,19 @@ MindForge/
 - **Testes**: Jest 30 + ts-jest + @nestjs/testing
 - **Lint/Format**: ESLint 10 (flat config) + Prettier 3
 
+**Front-end (`mindforge-web/`)**:
+
+- **Runtime**: Node.js **>= 20.19** (Vite 7, jsdom 28 e @vitejs/plugin-react 5 exigem ^20.19; declarado em `engines` do `package.json`)
+- **Framework**: Next.js 16 (App Router) + React 19
+- **Estilo**: Tailwind CSS v4 + shadcn/ui + tw-animate-css
+- **Dados**: TanStack Query (hooks em `lib/hooks/`) + Axios (`lib/api.ts`, base URL em `NEXT_PUBLIC_API_URL`, default `http://localhost:3000`)
+- **Estado**: Zustand (perfil ativo)
+- **Visualização**: React Flow (`@xyflow/react`) para o knowledge graph
+- **Testes**: Vitest 3 + jsdom + Testing Library (`npm test`, config em `vitest.config.ts`, setup em `test/`)
+
 ## 4. Convenções de organização do código
 
-### Padrão de módulo
+### Padrão de módulo (backend)
 
 Cada domínio em `src/modules/<dominio>/` segue a estrutura fixa:
 
@@ -79,6 +99,12 @@ dto/
 - **DTO**: classes com decoradores do `class-validator` + `class-transformer`.
 
 Essa divisão é intencionalmente pragmática (sem hexagonal completo). O serviço depende do repositório, não do ORM, o que já isola a troca futura de ORM num único arquivo.
+
+### Front-end
+
+- Rotas em `app/<rota>/page.tsx`; dados via hooks TanStack Query em `lib/hooks/`, nunca com `fetch` solto nas páginas.
+- Jobs assíncronos da API são acompanhados com `components/job-poller.tsx`.
+- Componentes base em `components/ui/` (shadcn/ui); não edite estilos globais à mão quando um componente shadcn resolver.
 
 ### Outras regras de estilo
 
@@ -106,9 +132,12 @@ Variáveis obrigatórias e observações:
 - `LLM_API_KEY`: chave do provedor de chat.
 - `OPENAI_BASE_URL`: URL do endpoint compatível com OpenAI (padrão: `https://opencode.ai/zen/go/v1`).
 - `LLM_MODEL`: modelo de chat (padrão: `grok-4.5`).
-- `EMBEDDING_MODEL`: modelo de embeddings (padrão: `text-embedding-3-small`); a dimensão precisa bater com a coluna `embedding` de `conteudo_chunks`.
+- `EMBEDDING_MODEL`: modelo de embeddings; a dimensão precisa bater com a coluna `embedding` de `conteudo_chunks` (768 dim no schema do repositório — veja §13).
 - `EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL`: opcionais; quando o provedor de chat não expõe `/embeddings`, aponte para Ollama local (`http://localhost:11434/v1`).
+- `SEARCH_PROVIDER`: seletor de web search (`duckduckgo` padrão, `api` genérica com Bearer, `serper`).
 - `AGENT_KB_ENABLED`, `AGENT_KB_SCRIPT_PATH`, `AGENT_KB_PROJECT_ID`: opcionais; ligam o agente-kb.
+
+No `mindforge-web/`, defina `NEXT_PUBLIC_API_URL` apontando para a API (default: `http://localhost:3000`).
 
 > `.env` está no `.gitignore`. Nunca commite segredos.
 
@@ -119,7 +148,7 @@ Variáveis obrigatórias e observações:
 - Tabelas usam UUID como PK (`defaultRandom()`), CHECK constraints ao invés de ENUMs, e HNSW para busca vetorial.
 - Relacionamentos declarados via `relations()` em `src/database/schema/index.ts`.
 
-Comandos:
+Comandos (dentro de `mindforge-api/`):
 
 ```bash
 npm run db:generate   # gera migration a partir de mudanças no schema
@@ -130,7 +159,7 @@ npm run db:studio     # abre Drizzle Studio para inspeção
 
 ## 7. Build e execução local
 
-Pré-requisito: Docker e Node.js 20+.
+Pré-requisito: Docker e Node.js 20+ (o front-end exige >= 20.19 — veja §3).
 
 ```bash
 cd mindforge-api
@@ -142,9 +171,15 @@ npm run db:migrate
 npm run start:dev
 ```
 
-A API sobe em `http://localhost:3000`.
+A API sobe em `http://localhost:3000`. Em outro terminal:
 
-Outros scripts importantes:
+```bash
+cd mindforge-web
+npm install
+npm run dev     # sobe em http://localhost:3001 (Next.js)
+```
+
+Outros scripts importantes (backend):
 
 ```bash
 npm run build          # compila para dist/
@@ -159,8 +194,9 @@ npm run start:dev      # watch mode
 - Cobertura mínima esperada: **80%** geral, com foco em services e repositories.
 - Tipos: unitários, integração de controllers e, quando crítico, E2E.
 - Mocks: use `jest.fn()` para isolar controllers; services/repositories podem usar banco de teste quando apropriado.
+- O front-end tem suíte própria com Vitest + Testing Library; mocks do cliente HTTP via `vi.mock` em `lib/api`, sem chamadas à API real.
 
-Comandos:
+Comandos (backend):
 
 ```bash
 npm run test           # executa todos os testes
@@ -168,17 +204,18 @@ npm run test:watch     # modo watch
 npm run test:cov       # com relatório de cobertura (coverage/)
 ```
 
-Status verificado em 2026-08-23:
+Status verificado em 2026-09-04:
 
-- `npm run build`: sucesso.
-- `npm run test`: 17 suites, 74 testes passando.
-- `npm run lint`: sem erros, 12 warnings de formatação Prettier (corrigíveis com `--fix`).
+- `npm run build`: sucesso (backend e frontend).
+- `npm run test` (backend): 28 suites, 153 testes passando (com a PR backend aplicada; o `main` sozinho tem 24 suites/135).
+- `npm test` (frontend): 5 arquivos, 21 testes passando.
+- `npm run lint`: backend sem erros (warnings de CRLF do Prettier em arquivos antigos); frontend 0 erros/warnings.
 
 ## 9. Segurança
 
 - Variáveis sensíveis (`DATABASE_URL`, `LLM_API_KEY`) vêm exclusivamente do ambiente e são validadas no startup.
 - `.env` e arquivos de credenciais nunca devem ser commitados.
-- Erros HTTP são normalizados pelo `ProblemDetailsFilter` no formato RFC 7807; stack traces não vazam para o cliente.
+- Erros HTTP são normalizados pelo `ProblemDetailsFilter` no formato RFC 7807; stack traces não vazam para o cliente. O front já interpreta esse formato no interceptor de erros do Axios.
 - Não há autenticação/autorização implementada no momento; todas as rotas são públicas. Só adicione rotas sensíveis após implementar guards.
 - **Decisão (2026-09):** o MindForge é um projeto local de uso pessoal (localhost, usuário único). Guards/autenticação serão implementados apenas na fase de auth, junto com identidade de usuário — guards ad-hoc antes disso seriam complexidade sem ganho real de segurança. Até lá, mitigações sem auth: validação de propriedade (ex.: avaliação pertence ao perfil), escopo de dados sensíveis por `perfilId` e redação de payloads (ex.: endpoints de jobs não retornam `job.data`).
 - Prevenção de injeção SQL: use apenas queries tipadas do Drizzle. Não passe input do usuário para `sql.raw()`.
@@ -224,15 +261,25 @@ Conforme `docs/README.md` e o código em `src/modules/`:
 |--------|--------|-------------|
 | `perfil` | ✅ implementado | CRUD de referência |
 | `planner` | ✅ implementado | cria objetivos e gera trilhas via LLM |
-| `research` | ✅ implementado | curadoria por LLM + web search opcional via DuckDuckGo |
+| `research` | ✅ implementado | curadoria por LLM + web search real (3 providers, `SEARCH_PROVIDER`) |
 | `synthesizer` | ✅ implementado | geração + reviewer + `conteudo_fontes` + chunking |
 | `biblioteca-viva` | ✅ implementado | indexação e busca vetorial (RAG) |
 | `tutor` | ✅ implementado | `teacher` + `agent-kb` + contexto contínuo |
-| `exercicios-avaliacoes` | ✅ implementado | geração, correção, avaliações compostas, revisão espaçada SM-2 |
+| `exercicios-avaliacoes` | ✅ implementado | geração, correção, avaliações compostas, simulados, revisão espaçada SM-2 |
 | `diario` | ✅ implementado | registro manual + teacher |
 | `knowledge-graph` | ✅ implementado | competências, relações, progresso, extração no Planner/Synthesizer |
-| `agentes` | ✅ implementado | logging de execuções em `agentes_execucoes` |
-| `jobs` | ✅ implementado | pg-boss sobe e conecta; handlers registrados |
+| `projetos` | ✅ implementado | projetos de aprendizado com geração IA, entregas e feedback |
+| `agentes` | ✅ implementado | logging de execuções em `agentes_execucoes` + consulta via `GET /agentes/execucoes` (filtros: agente, status, limite, offset; **listagem sem payload** — `entrada`/`saida` só no detalhe) e `GET /agentes/execucoes/:id` |
+| `jobs` | ✅ implementado | pg-boss operacional: handlers de `synthesizer.gerar-conteudo`, `exercicios.gerar`, embeddings e `research.pesquisar`; retry e endpoint de inspeção |
+
+### Front-end — rotas existentes
+
+Dashboard (`/`), `/perfis`, `/objetivos` (+ detalhe), `/modulos/[id]`, `/tutor` (com seletor de módulo), `/revisao`, `/knowledge-graph` (React Flow), `/projetos/[id]`, `/simulados/[id]`, `/pesquisa` (Research), `/diario`.
+
+### Pendências conhecidas
+
+- **Sandbox de código**: único item em aberto no roadmap (`docs/13-roadmap.md`).
+- **Listagem de módulos no front**: o backend não expõe módulos por perfil diretamente; o seletor de módulo faz N+1 calls (objetivos → detalhe de cada um). Follow-up: `with: { trilhas: { with: { modulos: true } } }` em `listarObjetivosDoPerfil`.
 
 ## 12. Documentação complementar
 
@@ -242,12 +289,15 @@ Para decisões de produto, arquitetura e modelagem de dados, consulte `docs/`:
 - `docs/02-arquitetura.md`: módulos e fluxo de dados.
 - `docs/03-stack-tecnologica.md`: stack e decisões de tooling.
 - `docs/04-modelagem-dados.md`: schema Postgres + pgvector.
-- `docs/14-decisoes-arquiteturais.md`: ADRs (sem Redis, pg-boss, Drizzle, provedor de embeddings separado, etc.).
+- `docs/13-roadmap.md`: fases e o que falta (sandbox de código).
+- `docs/14-decisoes-arquiteturais.md`: ADRs (sem Redis, pg-boss, Drizzle, provedor de embeddings separado, web search, fallback de LLM etc.).
 
 ## 13. Dicas operacionais
 
 - **Porta do Postgres local**: use `5433` no `DATABASE_URL`, pois o container mapeia `5433:5432` (ADR-014).
-- **Dimensão de embeddings**: `conteudo_chunks.embedding` usa 768 dim no repositório (modelo `nomic-embed-text` via Ollama). Se mudar o modelo, gere uma nova migration para recriar a coluna com a dimensão correta.
+- **Dimensão de embeddings**: `conteudo_chunks.embedding` usa 768 dim no repositório (modelo `nomic-embed-text` via Ollama). O default do `EMBEDDING_MODEL` no código é `text-embedding-3-small` (1536 dim) — se for usar provedor com outra dimensão, gere uma nova migration para recriar a coluna com a dimensão correta.
 - **Provedor de chat vs embeddings**: podem ser provedores distintos. O chat usa `OPENAI_BASE_URL`; embeddings podem usar `EMBEDDING_BASE_URL` separado (ADR-016).
-- **Web search**: o `WebSearchService` faz scraping do HTML do DuckDuckGo. Pode falhar se o layout mudar; o sistema continua com curadoria baseada no conhecimento interno do LLM (ADR-017).
-- **Próximo passo documentado**: Fase 3.2 — workers assíncronos no `pg-boss` e web search real no Research.
+- **Web search**: o provider `duckduckgo` faz scraping de HTML e pode falhar se o layout mudar; os providers `api` (genérica com Bearer) e `serper` são alternativas estáveis. Em qualquer falha, o sistema continua com curadoria baseada no conhecimento interno do LLM (ADR-017).
+- **Fallback de LLM**: `agentes/llm-fallback.service.ts` contorna limites do provedor principal (ADR-019).
+- **Jobs assíncronos**: geração de conteúdo e exercícios suportam modo enfileirado (flag `async` retorna `{ jobId, status: 'enfileirado' }`); acompanhe o resultado pelo endpoint de jobs ou pelo `job-poller` no front.
+- **Próximo passo documentado**: sandbox de código (roadmap) e telas de Research/Diário no front-end.

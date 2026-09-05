@@ -8,3 +8,5 @@ export * from './useTutor';
 export * from './useRevisao';
 export * from './useKnowledgeGraph';
 export * from './useJobs';
+export * from './useResearch';
+export * from './useDiario';

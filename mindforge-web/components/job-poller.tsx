@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useJob } from '@/lib/hooks/useJobs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
@@ -15,10 +16,14 @@ export function JobPoller({ nome, id, onComplete }: JobPollerProps) {
 
   const status = job?.status;
   const finalizado = status === 'completed' || status === 'failed' || status === 'cancelled';
+  const onCompleteChamado = useRef(false);
 
-  if (finalizado && onComplete) {
-    onComplete();
-  }
+  useEffect(() => {
+    if (finalizado && onComplete && !onCompleteChamado.current) {
+      onCompleteChamado.current = true;
+      onComplete();
+    }
+  }, [finalizado, onComplete]);
 
   return (
     <Card>

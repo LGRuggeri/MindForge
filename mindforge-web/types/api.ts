@@ -24,6 +24,7 @@ export interface Trilha {
   id: string;
   objetivoId: string;
   versao: number;
+  status: 'ativa' | 'concluida' | 'substituida';
   criadoEm: string;
   modulos?: Modulo[];
 }
@@ -324,4 +325,56 @@ export interface GerarProjetoInput {
 
 export interface SubmeterEntregaInput {
   conteudo: string;
+}
+
+export interface PesquisarFontesInput {
+  moduloId: string;
+  topico?: string;
+  limite?: number;
+  webSearch?: boolean;
+  async?: boolean;
+}
+
+export interface ResultadoPesquisa {
+  moduloId: string;
+  topico: string;
+  estrategia: string;
+  fontes: Fonte[];
+  resultadosWeb: number;
+}
+
+export interface PesquisaEnfileirada {
+  jobId: string;
+  status: 'enfileirado';
+  moduloId: string;
+  topico: string;
+}
+
+export type RespostaPesquisa = ResultadoPesquisa | PesquisaEnfileirada;
+
+export interface RegistroDiario {
+  id: string;
+  perfilId: string;
+  data: string;
+  tempoInvestidoMin: number;
+  dificuldades?: string | null;
+  conquistas?: string | null;
+  recomendacoesIa?: string | null;
+  criadoEm: string;
+  modulos?: { diarioId: string; moduloId: string; modulo: Modulo }[];
+}
+
+export interface RegistrarDiarioInput {
+  perfilId: string;
+  data?: string;
+  tempoInvestidoMin?: number;
+  dificuldades?: string;
+  conquistas?: string;
+  moduloIds?: string[];
+}
+
+export interface RegistroDiarioComRecomendacoes extends RegistroDiario {
+  recomendacoesIa: string;
+  proximoFoco: string;
+  ajustesSugeridos: string[];
 }

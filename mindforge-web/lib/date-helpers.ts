@@ -10,3 +10,14 @@ export function parseDateOnlyLocal(dateOnly: string): Date {
   const [ano, mes, dia] = dateOnly.split('-').map(Number);
   return new Date(ano, mes - 1, dia);
 }
+
+/**
+ * Retorna a data atual no fuso local no formato `YYYY-MM-DD`, sem conversão
+ * para UTC (diferente de `new Date().toISOString().split('T')[0]`).
+ */
+export function hojeLocal(): string {
+  const hoje = new Date();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoje.getDate()).padStart(2, '0');
+  return `${hoje.getFullYear()}-${mes}-${dia}`;
+}

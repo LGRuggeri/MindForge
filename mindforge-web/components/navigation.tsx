@@ -12,12 +12,14 @@ import {
 } from '@/components/ui/select';
 import { useAppStore } from '@/lib/store';
 import { usePerfis } from '@/lib/hooks/usePerfis';
-import { Brain, Target, MessageCircle, Repeat, Network, User } from 'lucide-react';
+import { Brain, Target, MessageCircle, Repeat, Network, User, Search, NotebookPen } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Brain },
   { href: '/perfis', label: 'Perfis', icon: User },
   { href: '/objetivos', label: 'Objetivos', icon: Target },
+  { href: '/pesquisa', label: 'Pesquisa', icon: Search },
+  { href: '/diario', label: 'Diário', icon: NotebookPen },
   { href: '/revisao', label: 'Revisão', icon: Repeat },
   { href: '/tutor', label: 'Tutor', icon: MessageCircle },
   { href: '/knowledge-graph', label: 'Grafo', icon: Network },
