@@ -148,12 +148,14 @@ export default function ObjetivoPage() {
             <h2 className="text-xl font-semibold">Módulos da trilha</h2>
             <div className="flex items-center gap-2">
               <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger>
-                  <Button variant="outline" size="sm">
-                    <ClipboardList className="mr-2 h-4 w-4" />
-                    Criar simulado
-                  </Button>
-                </DialogTrigger>
+                <DialogTrigger
+                  render={
+                    <Button variant="outline" size="sm">
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Criar simulado
+                    </Button>
+                  }
+                />
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Criar simulado</DialogTitle>
