@@ -1,10 +1,13 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { DRIZZLE, DrizzleDb } from '../../database/database.module';
-import { agentesExecucoes, NovaAgenteExecucao } from '../../database/schema';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  AgentesRepository,
+  type AgenteExecucaoResumo,
+  type AgenteTipo,
+  type FiltrosExecucoes,
+} from './agentes.repository';
 import { LlmService } from './llm.service';
 
-export type AgenteTipo =
-  'planner' | 'researcher' | 'synthesizer' | 'teacher' | 'evaluator' | 'reviewer';
+export type { AgenteTipo } from './agentes.repository';
 
 export interface ExecutarAgenteOptions<T> {
   agente: AgenteTipo;
@@ -20,7 +23,7 @@ export class AgentesService {
   private readonly logger = new Logger(AgentesService.name);
 
   constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDb,
+    private readonly repo: AgentesRepository,
     private readonly llm: LlmService,
   ) {}
 
@@ -43,7 +46,7 @@ export class AgentesService {
 
       const duracaoMs = Date.now() - inicio;
 
-      await this.registrar({
+      await this.repo.registrar({
         agente,
         entrada,
         saida: { resultado: resposta.parsed, raw: resposta.raw },
@@ -63,7 +66,7 @@ export class AgentesService {
         erro instanceof Error ? erro.stack : undefined,
       );
 
-      await this.registrar({
+      await this.repo.registrar({
         agente,
         entrada,
         saida: undefined,
@@ -78,7 +81,15 @@ export class AgentesService {
     }
   }
 
-  private async registrar(dados: Omit<NovaAgenteExecucao, 'id' | 'criadoEm'>): Promise<void> {
-    await this.db.insert(agentesExecucoes).values(dados);
+  listar(filtros: FiltrosExecucoes): Promise<AgenteExecucaoResumo[]> {
+    return this.repo.listar(filtros);
+  }
+
+  async buscarPorId(id: string) {
+    const execucao = await this.repo.buscarPorId(id);
+    if (!execucao) {
+      throw new NotFoundException(`Execução ${id} não encontrada`);
+    }
+    return execucao;
   }
 }

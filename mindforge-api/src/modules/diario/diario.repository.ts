@@ -1,7 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
-import { diarioAprendizagem, diarioModulos, NovoDiarioAprendizagem } from '../../database/schema';
+import {
+  diarioAprendizagem,
+  diarioModulos,
+  modulosTrilha,
+  NovoDiarioAprendizagem,
+  objetivosEstudo,
+  trilhasEstudo,
+} from '../../database/schema';
 
 @Injectable()
 export class DiarioRepository {
@@ -18,6 +25,21 @@ export class DiarioRepository {
     }
 
     return this.buscarPorId(registro.id);
+  }
+
+  /**
+   * Conta quantos dos módulos informados pertencem a objetivos do perfil.
+   * Usado para validar propriedade antes de vincular ao registro diário.
+   */
+  async contarModulosDoPerfil(perfilId: string, moduloIds: string[]): Promise<number> {
+    if (moduloIds.length === 0) return 0;
+    const [resultado] = await this.db
+      .select({ total: count() })
+      .from(modulosTrilha)
+      .innerJoin(trilhasEstudo, eq(modulosTrilha.trilhaId, trilhasEstudo.id))
+      .innerJoin(objetivosEstudo, eq(trilhasEstudo.objetivoId, objetivosEstudo.id))
+      .where(and(eq(objetivosEstudo.perfilId, perfilId), inArray(modulosTrilha.id, moduloIds)));
+    return resultado?.total ?? 0;
   }
 
   async buscarPorId(id: string) {
