@@ -18,7 +18,7 @@ import { NotebookPen, Plus, Sparkles, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { hojeLocal, parseDateOnlyLocal } from '@/lib/date-helpers';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownViewer } from '@/components/markdown-viewer';
 
 export default function DiarioPage() {
   const { perfilSelecionado } = useAppStore();
@@ -228,7 +228,7 @@ export default function DiarioPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="prose prose-neutral dark:prose-invert max-w-none text-sm">
-              <ReactMarkdown>{ultimaRecomendacao.recomendacoesIa}</ReactMarkdown>
+              <MarkdownViewer>{ultimaRecomendacao.recomendacoesIa}</MarkdownViewer>
             </div>
             {(ultimaRecomendacao.ajustesSugeridos ?? []).length > 0 && (
               <div>
@@ -292,7 +292,7 @@ export default function DiarioPage() {
                       Recomendações da IA
                     </p>
                     <div className="prose prose-neutral dark:prose-invert max-w-none text-sm">
-                      <ReactMarkdown>{registro.recomendacoesIa}</ReactMarkdown>
+                      <MarkdownViewer>{registro.recomendacoesIa}</MarkdownViewer>
                     </div>
                   </div>
                 )}

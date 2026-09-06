@@ -1,7 +1,9 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -12,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useAppStore } from '@/lib/store';
 import { usePerfis } from '@/lib/hooks/usePerfis';
-import { Brain, Target, MessageCircle, Repeat, Network, User, Search, NotebookPen } from 'lucide-react';
+import { Brain, Target, MessageCircle, Repeat, Network, User, Search, NotebookPen, Sun, Moon } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Brain },
@@ -29,9 +31,18 @@ export function Navigation() {
   const pathname = usePathname();
   const { data: perfis = [] } = usePerfis();
   const { perfilSelecionado, selecionarPerfil } = useAppStore();
+  const { resolvedTheme, setTheme } = useTheme();
+  // Só renderiza o ícone correto após montar no cliente (evita mismatch de hydration).
+  const montado = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  const temaEscuro = resolvedTheme === 'dark';
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="border-b bg-background/95 backdrop-blur shadow-sm supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
           <Brain className="h-6 w-6 text-primary" />
@@ -59,6 +70,22 @@ export function Navigation() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(temaEscuro ? 'light' : 'dark')}
+            aria-label={
+              montado && temaEscuro
+                ? 'Mudar para tema claro'
+                : 'Mudar para tema escuro'
+            }
+          >
+            {montado && temaEscuro ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
+          </Button>
           <Select
             value={perfilSelecionado?.id || ''}
             onValueChange={(id) => {

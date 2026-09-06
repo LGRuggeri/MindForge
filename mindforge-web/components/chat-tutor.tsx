@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Bot, User } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownViewer } from '@/components/markdown-viewer';
 
 interface ChatTutorProps {
   perfilId: string;
@@ -50,7 +50,7 @@ export function ChatTutor({ perfilId, moduloId }: ChatTutorProps) {
               <CardContent className="p-4 flex items-start gap-3">
                 <Bot className="h-5 w-5 mt-0.5 text-primary" />
                 <div className="prose prose-neutral dark:prose-invert max-w-none text-sm">
-                  <ReactMarkdown>{msg.resposta}</ReactMarkdown>
+                  <MarkdownViewer>{msg.resposta}</MarkdownViewer>
                 </div>
               </CardContent>
             </Card>

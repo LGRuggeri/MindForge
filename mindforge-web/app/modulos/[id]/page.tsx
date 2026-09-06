@@ -39,7 +39,13 @@ import {
   Loader2,
   FolderKanban,
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownViewer } from '@/components/markdown-viewer';
+
+const VARIANTE_STATUS_CONTEUDO: Record<string, 'default' | 'secondary' | 'outline'> = {
+  gerado: 'default',
+  revisado: 'secondary',
+  pendente: 'outline',
+};
 
 const TIPOS_EXERCICIO = [
   { value: 'questao_objetiva', label: 'Questão objetiva' },
@@ -162,8 +168,8 @@ export default function ModuloPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" className="mt-1" asChild>
             <Link
               href={
                 modulo.trilha?.objetivoId
@@ -179,6 +185,12 @@ export default function ModuloPage() {
             {modulo.objetivoAprendizagem && (
               <p className="text-muted-foreground">{modulo.objetivoAprendizagem}</p>
             )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant="outline">Ordem {modulo.ordem}</Badge>
+              {modulo.tempoEstimadoMin && (
+                <Badge variant="secondary">{modulo.tempoEstimadoMin} min</Badge>
+              )}
+            </div>
           </div>
         </div>
         <Button
@@ -194,13 +206,6 @@ export default function ModuloPage() {
           )}
           Concluir
         </Button>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="outline">Ordem {modulo.ordem}</Badge>
-        {modulo.tempoEstimadoMin && (
-          <Badge variant="secondary">{modulo.tempoEstimadoMin} min</Badge>
-        )}
       </div>
 
       <Tabs defaultValue="conteudo">
@@ -225,12 +230,15 @@ export default function ModuloPage() {
               <Card key={conteudo.id}>
                 <CardHeader>
                   <CardTitle>{conteudo.titulo}</CardTitle>
-                  <CardDescription>
-                    Status: <Badge variant="outline">{conteudo.status}</Badge>
+                  <CardDescription className="flex items-center gap-2">
+                    Status:
+                    <Badge variant={VARIANTE_STATUS_CONTEUDO[conteudo.status] ?? 'outline'}>
+                      {conteudo.status}
+                    </Badge>
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="prose prose-neutral dark:prose-invert max-w-none">
-                  <ReactMarkdown>{conteudo.corpoMarkdown}</ReactMarkdown>
+                <CardContent className="prose prose-neutral max-w-none dark:prose-invert">
+                  <MarkdownViewer>{conteudo.corpoMarkdown}</MarkdownViewer>
                 </CardContent>
               </Card>
             ))
@@ -268,9 +276,11 @@ export default function ModuloPage() {
             exercicios.map((exercicio) => (
               <Card key={exercicio.id}>
                 <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base">{exercicio.enunciado}</CardTitle>
-                    <Badge variant="outline" className="capitalize">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="prose prose-sm max-w-none flex-1 dark:prose-invert">
+                      <MarkdownViewer>{exercicio.enunciado}</MarkdownViewer>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 capitalize">
                       {exercicio.tipo}
                     </Badge>
                   </div>
@@ -291,7 +301,13 @@ export default function ModuloPage() {
                     Submeter resposta
                   </Button>
                   {feedback[exercicio.id] && (
-                    <div className="rounded-lg bg-muted p-3 text-sm">
+                    <div
+                      className={`rounded-lg border p-3 text-sm ${
+                        feedback[exercicio.id].startsWith('Correto')
+                          ? 'border-emerald-500/40 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
+                          : 'border-rose-500/40 bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100'
+                      }`}
+                    >
                       {feedback[exercicio.id]}
                     </div>
                   )}

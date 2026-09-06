@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { MessageCircle, Send, User, Bot } from 'lucide-react';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownViewer } from '@/components/markdown-viewer';
 
 export default function TutorPage() {
   const { perfilSelecionado } = useAppStore();
@@ -124,7 +124,7 @@ export default function TutorPage() {
                 <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
                   <Bot className="h-5 w-5 mt-0.5 text-primary" />
                   <div className="prose prose-neutral dark:prose-invert max-w-none text-sm">
-                    <ReactMarkdown>{duvida.resposta}</ReactMarkdown>
+                    <MarkdownViewer>{duvida.resposta}</MarkdownViewer>
                   </div>
                 </div>
               </CardContent>
