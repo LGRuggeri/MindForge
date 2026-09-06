@@ -37,7 +37,11 @@ export const envSchema = z.object({
   // Provedor de geração de imagens (módulo midia). Modelo, chave e URL podem ser
   // distintos do chat — gemini-3.6-flash é texto-only e a família de imagem tem
   // model ID próprio (verificado via endpoint de models, pode ser renomeado pela
-  // Google). Se omitidos, IMAGE_API_KEY cai em LLM_API_KEY.
+  // Google). IMAGE_API_KEY é opcional apenas quando o provedor de chat já é o
+  // Gemini (OPENAI_BASE_URL apontando para generativelanguage.googleapis.com) —
+  // nesse caso a geração de imagem reutiliza LLM_API_KEY; com qualquer outro
+  // provedor de chat ela é obrigatória, sob pena de a API recusar subir
+  // (ver ImageService.resolverChave).
   IMAGE_MODEL: z.string().default('gemini-3.1-flash-image'),
   IMAGE_API_KEY: z.string().min(1).optional(),
   IMAGE_BASE_URL: z.string().url().default('https://generativelanguage.googleapis.com/v1beta'),

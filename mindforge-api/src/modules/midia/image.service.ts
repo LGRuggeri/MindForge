@@ -51,7 +51,7 @@ export class ImageService {
     const chaveImagem = this.config.get<string>('IMAGE_API_KEY');
     if (chaveImagem) return chaveImagem;
 
-    const baseUrlChat = this.config.get<string>('OPENAI_BASE_URL') ?? '';
+    const baseUrlChat = (this.config.get<string>('OPENAI_BASE_URL') ?? '').toLowerCase();
     if (baseUrlChat.includes('generativelanguage.googleapis.com')) {
       return this.config.getOrThrow<string>('LLM_API_KEY');
     }

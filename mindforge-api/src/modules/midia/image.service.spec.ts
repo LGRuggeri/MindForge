@@ -145,7 +145,7 @@ describe('ImageService', () => {
       expect(() => new ImageService(config, storage)).not.toThrow();
     });
 
-    it('deve preferir IMAGE_API_KEY mesmo com provedor de chat Gemini', () => {
+    it('deve preferir IMAGE_API_KEY mesmo com provedor de chat Gemini', async () => {
       const config = criarConfig(
         {
           IMAGE_API_KEY: 'chave-imagem-dedicada',
@@ -159,7 +159,15 @@ describe('ImageService', () => {
       );
 
       const serviceDedicado = new ImageService(config, storage);
-      expect(serviceDedicado).toBeDefined();
+      storage.buscar.mockResolvedValue(null);
+      fetchMock.mockResolvedValue(respostaGemini(Buffer.from('png-fake').toString('base64')));
+      storage.salvar.mockResolvedValue('imagem-abc.png');
+
+      await serviceDedicado.gerarImagem({ prompt: 'Diagrama' });
+
+      const [url] = fetchMock.mock.calls[0] as [string];
+      expect(url).toContain('key=chave-imagem-dedicada');
+      expect(url).not.toContain('key=gemini-key');
     });
   });
 });
