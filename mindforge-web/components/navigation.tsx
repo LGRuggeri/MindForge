@@ -52,7 +52,10 @@ export function Navigation() {
         <nav className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            // Rota ativa só após montar: em páginas pré-renderizadas o SSR não
+            // conhece o pathname e a classe extra quebrava a hidratação.
+            const active =
+              montado && (pathname === item.href || pathname.startsWith(`${item.href}/`));
             return (
               <Button key={item.href} variant="ghost" size="sm" asChild>
                 <Link
@@ -113,7 +116,8 @@ export function Navigation() {
         <div className="container mx-auto px-4 py-2 flex items-center justify-around gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active =
+              montado && (pathname === item.href || pathname.startsWith(`${item.href}/`));
             return (
               <Button
                 key={item.href}
