@@ -41,3 +41,20 @@ export function useCriarObjetivo() {
     },
   });
 }
+
+export function useRemoverObjetivo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (objetivoId: string) => {
+      await api.delete(`/planner/objetivos/${objetivoId}`);
+    },
+    onSuccess: () => {
+      // Remove em cascata trilhas e módulos: os seletores e o grafo precisam
+      // refletir a exclusão, não só a lista de objetivos.
+      queryClient.invalidateQueries({ queryKey: [OBJETIVOS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['modulos'] });
+      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+    },
+  });
+}

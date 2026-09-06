@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { AgentesService } from '../agentes/agentes.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { PlannerService } from './planner.service';
@@ -38,6 +39,7 @@ describe('PlannerService', () => {
       listarObjetivosDoPerfil: jest.fn(),
       buscarModuloPorId: jest.fn(),
       buscarObjetivoPorId: jest.fn(),
+      removerObjetivo: jest.fn(),
       executarEmTransacao: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
       criarTrilha: jest.fn(),
       substituirTrilhasAnteriores: jest.fn(),
@@ -135,6 +137,21 @@ describe('PlannerService', () => {
 
       await expect(service.gerarTrilha(objetivoId)).rejects.toThrow(/resposta inválida/);
       expect(repo.criarTrilha).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removerObjetivo', () => {
+    it('remove o objetivo existente', async () => {
+      await service.removerObjetivo(objetivoId);
+
+      expect(repo.removerObjetivo).toHaveBeenCalledWith(objetivoId);
+    });
+
+    it('lança NotFound quando o objetivo não existe e não remove nada', async () => {
+      repo.buscarObjetivoPorId.mockResolvedValue(null as never);
+
+      await expect(service.removerObjetivo(objetivoId)).rejects.toThrow(NotFoundException);
+      expect(repo.removerObjetivo).not.toHaveBeenCalled();
     });
   });
 });

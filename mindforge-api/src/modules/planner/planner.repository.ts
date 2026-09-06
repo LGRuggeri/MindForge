@@ -32,6 +32,19 @@ export class PlannerRepository {
     });
   }
 
+  /**
+   * Remove o objetivo e, em cascata no banco, suas trilhas, módulos,
+   * conteúdos, exercícios e vínculos de diário. Avaliações, projetos e
+   * fontes de pesquisa sobrevivem com a referência anulada (set null).
+   */
+  async removerObjetivo(id: string) {
+    const [removido] = await this.db
+      .delete(objetivosEstudo)
+      .where(eq(objetivosEstudo.id, id))
+      .returning();
+    return removido;
+  }
+
   private getClient(tx?: DrizzleDb) {
     return tx ?? this.db;
   }

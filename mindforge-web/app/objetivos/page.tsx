@@ -3,10 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
-import { useObjetivos, useCriarObjetivo } from '@/lib/hooks/useObjetivos';
+import { useObjetivos, useCriarObjetivo, useRemoverObjetivo } from '@/lib/hooks/useObjetivos';
+import type { Objetivo } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -18,7 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Target, ArrowRight } from 'lucide-react';
+import { Plus, Target, ArrowRight, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseDateOnlyLocal } from '@/lib/date-helpers';
@@ -33,6 +42,9 @@ export default function ObjetivosPage() {
   const { perfilSelecionado } = useAppStore();
   const { data: objetivos, isLoading } = useObjetivos(perfilSelecionado?.id || null);
   const criar = useCriarObjetivo();
+  const remover = useRemoverObjetivo();
+
+  const [objetivoParaExcluir, setObjetivoParaExcluir] = useState<Objetivo | null>(null);
 
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -60,6 +72,17 @@ export default function ObjetivosPage() {
       setPrazo('');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao criar objetivo');
+    }
+  };
+
+  const confirmarExclusao = async () => {
+    if (!objetivoParaExcluir) return;
+    try {
+      await remover.mutateAsync(objetivoParaExcluir.id);
+      toast.success('Objetivo excluído');
+      setObjetivoParaExcluir(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao excluir objetivo');
     }
   };
 
@@ -180,11 +203,21 @@ export default function ObjetivosPage() {
                         ` · Prazo: ${format(parseDateOnlyLocal(objetivo.prazoEstimado), 'dd/MM/yyyy')}`}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/objetivos/${objetivo.id}`}>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Excluir objetivo ${objetivo.titulo}`}
+                      onClick={() => setObjetivoParaExcluir(objetivo)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link href={`/objetivos/${objetivo.id}`}>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -193,6 +226,31 @@ export default function ObjetivosPage() {
           <p className="text-sm text-muted-foreground">Nenhum objetivo encontrado.</p>
         )}
       </div>
+
+      <Dialog
+        open={objetivoParaExcluir !== null}
+        onOpenChange={(aberto) => {
+          if (!aberto) setObjetivoParaExcluir(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir objetivo?</DialogTitle>
+            <DialogDescription>
+              &quot;{objetivoParaExcluir?.titulo}&quot; e todas as suas trilhas, módulos, conteúdos
+              e exercícios serão removidos. Essa ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setObjetivoParaExcluir(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmarExclusao} disabled={remover.isPending}>
+              {remover.isPending ? 'Excluindo...' : 'Excluir definitivamente'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

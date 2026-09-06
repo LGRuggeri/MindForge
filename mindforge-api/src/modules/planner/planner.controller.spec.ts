@@ -38,6 +38,7 @@ describe('PlannerController (integração)', () => {
             criarObjetivo: jest.fn().mockResolvedValue(objetivoMock),
             buscarObjetivoPorId: jest.fn().mockResolvedValue(objetivoMock),
             listarObjetivosDoPerfil: jest.fn().mockResolvedValue([objetivoMock]),
+            removerObjetivo: jest.fn().mockResolvedValue(objetivoMock),
             gerarTrilha: jest.fn().mockResolvedValue(trilhaMock),
           },
         },
@@ -68,5 +69,11 @@ describe('PlannerController (integração)', () => {
 
     expect(service.gerarTrilha).toHaveBeenCalledWith(dto.objetivoId);
     expect(resultado).toEqual(trilhaMock);
+  });
+
+  it('deve remover o objetivo pelo id', async () => {
+    await controller.removerObjetivo(objetivoMock.id);
+
+    expect(service.removerObjetivo).toHaveBeenCalledWith(objetivoMock.id);
   });
 });

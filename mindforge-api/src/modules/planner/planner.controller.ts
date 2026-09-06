@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { PlannerService } from './planner.service';
 import { CriarObjetivoDto } from './dto/criar-objetivo.dto';
 import { GerarTrilhaDto } from './dto/gerar-trilha.dto';
@@ -21,6 +21,12 @@ export class PlannerController {
   @Get('perfis/:perfilId/objetivos')
   listarObjetivosDoPerfil(@Param('perfilId') perfilId: string) {
     return this.service.listarObjetivosDoPerfil(perfilId);
+  }
+
+  @Delete('objetivos/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removerObjetivo(@Param('id') id: string) {
+    await this.service.removerObjetivo(id);
   }
 
   @Post('trilhas')

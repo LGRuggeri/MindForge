@@ -71,6 +71,13 @@ export class PlannerService {
     return objetivo;
   }
 
+  async removerObjetivo(id: string) {
+    // 404 se não existir antes de tentar remover.
+    await this.buscarObjetivoPorId(id);
+    await this.repo.removerObjetivo(id);
+    this.logger.log(`Objetivo removido: ${id}`);
+  }
+
   async gerarTrilha(objetivoId: string) {
     const objetivo = await this.buscarObjetivoPorId(objetivoId);
 
