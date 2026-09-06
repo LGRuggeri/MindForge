@@ -54,13 +54,13 @@ export function Navigation() {
             const Icon = item.icon;
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
-              <Button
-                key={item.href}
-                variant={active ? 'secondary' : 'ghost'}
-                size="sm"
-                asChild
-              >
-                <Link href={item.href} className="gap-2">
+              <Button key={item.href} variant="ghost" size="sm" asChild>
+                <Link
+                  href={item.href}
+                  className={
+                    active ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary' : ''
+                  }
+                >
                   <Icon className="h-4 w-4" />
                   {item.label}
                 </Link>
@@ -94,7 +94,9 @@ export function Navigation() {
             }}
           >
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Selecionar perfil" />
+              {/* Children estático: base-ui não resolve o rótulo do item com o
+                  popup fechado e exibiria o ID do perfil (review: valor cru no trigger). */}
+              <SelectValue>{perfilSelecionado?.nome ?? 'Selecionar perfil'}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {perfis.map((perfil) => (
@@ -115,9 +117,13 @@ export function Navigation() {
             return (
               <Button
                 key={item.href}
-                variant={active ? 'secondary' : 'ghost'}
+                variant="ghost"
                 size="icon"
-                className="shrink-0"
+                className={
+                  active
+                    ? 'shrink-0 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
+                    : 'shrink-0'
+                }
                 asChild
               >
                 <Link href={item.href}>

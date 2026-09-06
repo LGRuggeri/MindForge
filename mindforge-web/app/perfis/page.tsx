@@ -91,7 +91,11 @@ export default function PerfisPage() {
               <Label htmlFor="nivel">Nível atual</Label>
               <Select value={nivel} onValueChange={(value) => setNivel(value || '')}>
                 <SelectTrigger id="nivel">
-                  <SelectValue placeholder="Selecione um nível" />
+                  <SelectValue>
+                    {(valor: string | null) =>
+                      niveis.find((n) => n.value === valor)?.label ?? 'Selecione um nível'
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {niveis.map((n) => (

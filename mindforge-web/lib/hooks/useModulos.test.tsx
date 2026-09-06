@@ -102,6 +102,53 @@ describe('useModulosDoPerfil', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.data).toEqual([]);
+    expect(result.current.grupos).toEqual([]);
     expect(apiGet).not.toHaveBeenCalled();
+  });
+
+  it('agrupa módulos por trilha ativa, excluindo substituídas', async () => {
+    const { result } = renderHook(() => useModulosDoPerfil('perfil-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.grupos).toHaveLength(1);
+    expect(result.current.grupos[0]).toMatchObject({
+      trilhaId: 'trilha-atual',
+      titulo: 'Aprender NestJS · v2',
+      objetivoTitulo: 'Aprender NestJS',
+    });
+    expect(result.current.grupos[0].modulos.map((modulo) => modulo.id)).toEqual(['mod-atual']);
+  });
+
+  it('omite a versão no título do grupo quando a trilha é a primeira', async () => {
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/planner/perfis/perfil-1/objetivos') {
+        return Promise.resolve({ data: [objetivoResumido] });
+      }
+      if (url === '/planner/objetivos/obj-1') {
+        return Promise.resolve({
+          data: {
+            ...objetivoDetalhe,
+            trilhas: [
+              {
+                id: 'trilha-unica',
+                objetivoId: 'obj-1',
+                versao: 1,
+                status: 'ativa',
+                criadoEm: '2026-09-01T00:00:00Z',
+                modulos: [moduloAtual],
+              },
+            ],
+          },
+        });
+      }
+      return Promise.reject(new Error(`URL não mapeada no teste: ${url}`));
+    });
+
+    const { result } = renderHook(() => useModulosDoPerfil('perfil-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.grupos[0].titulo).toBe('Aprender NestJS');
   });
 });

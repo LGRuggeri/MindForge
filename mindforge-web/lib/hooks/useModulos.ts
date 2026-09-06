@@ -14,6 +14,13 @@ export interface ModuloComObjetivo {
   objetivoTitulo: string;
 }
 
+export interface GrupoTrilha {
+  trilhaId: string;
+  titulo: string;
+  objetivoTitulo: string;
+  modulos: Modulo[];
+}
+
 export function useModulosDoPerfil(perfilId: string | null) {
   const { data: objetivos, isLoading: objetivosLoading } = useObjetivos(perfilId);
   const detalhes = useQueries({
@@ -29,9 +36,13 @@ export function useModulosDoPerfil(perfilId: string | null) {
 
   const isLoading = objetivosLoading || detalhes.some((query) => query.isLoading);
 
-  const data = useMemo<ModuloComObjetivo[]>(() => {
+  const { data, grupos } = useMemo<{
+    data: ModuloComObjetivo[];
+    grupos: GrupoTrilha[];
+  }>(() => {
     const vistos = new Set<string>();
     const lista: ModuloComObjetivo[] = [];
+    const gruposPorTrilha = new Map<string, GrupoTrilha>();
     for (const query of detalhes) {
       const objetivo = query.data;
       if (!objetivo) continue;
@@ -39,17 +50,24 @@ export function useModulosDoPerfil(perfilId: string | null) {
         // Trilhas substituídas (replanejamento) não oferecem módulos —
         // versões antigas ficam no histórico do objetivo, não no seletor.
         if (trilha.status === 'substituida') continue;
-        for (const modulo of trilha.modulos ?? []) {
+        const modulos = trilha.modulos ?? [];
+        gruposPorTrilha.set(trilha.id, {
+          trilhaId: trilha.id,
+          titulo: trilha.versao > 1 ? `${objetivo.titulo} · v${trilha.versao}` : objetivo.titulo,
+          objetivoTitulo: objetivo.titulo,
+          modulos,
+        });
+        for (const modulo of modulos) {
           if (vistos.has(modulo.id)) continue;
           vistos.add(modulo.id);
           lista.push({ modulo, objetivoTitulo: objetivo.titulo });
         }
       }
     }
-    return lista;
+    return { data: lista, grupos: [...gruposPorTrilha.values()] };
   }, [detalhes]);
 
-  return { data, isLoading };
+  return { data, grupos, isLoading };
 }
 
 export function useModulo(id: string | null) {

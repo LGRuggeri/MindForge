@@ -330,7 +330,12 @@ export default function ModuloPage() {
                     onValueChange={(value) => setTipoExercicio(value as TipoExercicio)}
                   >
                     <SelectTrigger id="tipo" className="w-full">
-                      <SelectValue placeholder="Selecione o tipo de exercício" />
+                      <SelectValue>
+                        {(valor: string | null) =>
+                          TIPOS_EXERCICIO.find((t) => t.value === valor)?.label ??
+                          'Selecione o tipo de exercício'
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {TIPOS_EXERCICIO.map((tipo) => (

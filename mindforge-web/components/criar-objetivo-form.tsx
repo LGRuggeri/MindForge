@@ -84,7 +84,11 @@ export function CriarObjetivoForm({ perfilId, onSuccess }: CriarObjetivoFormProp
             onValueChange={(value) => setNivel((value as Nivel) || '')}
           >
             <SelectTrigger id="nivel">
-              <SelectValue placeholder="Selecione" />
+              <SelectValue>
+                {(valor: string | null) =>
+                  niveis.find((n) => n.value === valor)?.label ?? 'Selecione'
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {niveis.map((n) => (

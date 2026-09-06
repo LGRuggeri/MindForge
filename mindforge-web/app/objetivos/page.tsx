@@ -118,7 +118,11 @@ export default function ObjetivosPage() {
                 <Label htmlFor="nivel">Nível desejado</Label>
                 <Select value={nivel} onValueChange={(value) => setNivel(value || '')}>
                   <SelectTrigger id="nivel">
-                    <SelectValue placeholder="Selecione" />
+                    <SelectValue>
+                      {(valor: string | null) =>
+                        niveis.find((n) => n.value === valor)?.label ?? 'Selecione'
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {niveis.map((n) => (

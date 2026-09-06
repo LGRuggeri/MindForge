@@ -27,6 +27,9 @@ vi.mock('sonner', () => ({
 const apiGet = api.get as unknown as Mock;
 const apiPost = api.post as unknown as Mock;
 
+// Popup do base-ui chama scrollIntoView, ausente no jsdom.
+Element.prototype.scrollIntoView = vi.fn();
+
 const modulo: Modulo = {
   id: 'mod-1',
   trilhaId: 'trilha-1',
@@ -92,6 +95,14 @@ function mapearUrls() {
   });
 }
 
+/** Fluxo em cascata: escolhe a trilha (agrupadora) e depois o módulo. */
+async function selecionarModulo() {
+  await userEvent.click(await screen.findByText('Selecione a trilha'));
+  await userEvent.click(await screen.findByText('Aprender NestJS'));
+  await userEvent.click(await screen.findByText('Selecione o módulo'));
+  await userEvent.click(await screen.findByText('1. Fundamentos de NestJS'));
+}
+
 describe('Página de Pesquisa', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -113,7 +124,7 @@ describe('Página de Pesquisa', () => {
 
     renderComQuery(<PesquisaPage />);
 
-    await screen.findByText('Selecione o módulo');
+    await screen.findByText('Selecione a trilha');
     expect(screen.getByRole('button', { name: 'Pesquisar fontes' })).toBeDisabled();
     expect(screen.getByLabelText('Tópico (opcional)')).toBeInTheDocument();
   });
@@ -136,9 +147,7 @@ describe('Página de Pesquisa', () => {
     const user = userEvent.setup();
     renderComQuery(<PesquisaPage />);
 
-    const gatilho = await screen.findByText('Selecione o módulo');
-    await user.click(gatilho);
-    await user.click(await screen.findByText('Fundamentos de NestJS'));
+    await selecionarModulo();
 
     await user.type(screen.getByLabelText('Tópico (opcional)'), 'Injeção de dependência');
     await user.click(screen.getByRole('button', { name: 'Pesquisar fontes' }));
@@ -168,8 +177,7 @@ describe('Página de Pesquisa', () => {
     const user = userEvent.setup();
     renderComQuery(<PesquisaPage />);
 
-    await user.click(await screen.findByText('Selecione o módulo'));
-    await user.click(await screen.findByText('Fundamentos de NestJS'));
+    await selecionarModulo();
     await user.click(screen.getByRole('button', { name: 'Pesquisar fontes' }));
 
     await waitFor(() =>
@@ -196,8 +204,7 @@ describe('Página de Pesquisa', () => {
     const user = userEvent.setup();
     renderComQuery(<PesquisaPage />);
 
-    await user.click(await screen.findByText('Selecione o módulo'));
-    await user.click(await screen.findByText('Fundamentos de NestJS'));
+    await selecionarModulo();
     await user.clear(screen.getByLabelText('Quantidade de fontes'));
     await user.click(screen.getByRole('button', { name: 'Pesquisar fontes' }));
 
@@ -229,8 +236,7 @@ describe('Página de Pesquisa', () => {
     const user = userEvent.setup();
     renderComQuery(<PesquisaPage />);
 
-    await user.click(await screen.findByText('Selecione o módulo'));
-    await user.click(await screen.findByText('Fundamentos de NestJS'));
+    await selecionarModulo();
     await user.click(screen.getByRole('button', { name: 'Pesquisar fontes' }));
     await screen.findByText('Resultado da pesquisa');
     const chamadasFontes = apiGet.mock.calls.filter(([url]) =>
@@ -247,7 +253,7 @@ describe('Página de Pesquisa', () => {
     );
     // Perfil novo sem trilhas: o seletor não pode continuar exibindo o módulo antigo
     expect(
-      screen.getByText('Nenhum módulo disponível (gere uma trilha primeiro)'),
+      screen.getByText('Nenhuma trilha ativa (gere uma trilha primeiro)'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Fundamentos de NestJS/)).not.toBeInTheDocument();
     const chamadasAposTroca = apiGet.mock.calls.filter(([url]) =>
@@ -276,8 +282,7 @@ describe('Página de Pesquisa', () => {
     const user = userEvent.setup();
     renderComQuery(<PesquisaPage />);
 
-    await user.click(await screen.findByText('Selecione o módulo'));
-    await user.click(await screen.findByText('Fundamentos de NestJS'));
+    await selecionarModulo();
 
     await user.click(screen.getByRole('button', { name: 'Pesquisar fontes' }));
     await screen.findByText('Resultado da pesquisa');
@@ -309,15 +314,14 @@ describe('Página de Pesquisa', () => {
     const user = userEvent.setup();
     renderComQuery(<PesquisaPage />);
 
-    await user.click(await screen.findByText('Selecione o módulo'));
-    await user.click(await screen.findByText('Fundamentos de NestJS'));
+    await selecionarModulo();
     await user.click(screen.getByRole('button', { name: 'Pesquisar fontes' }));
 
     // Troca de perfil antes de a pesquisa resolver
     useAppStore.setState({
       perfilSelecionado: { id: 'perfil-2', nome: 'Beto', criadoEm: '2026-09-01T00:00:00Z' },
     });
-    await screen.findByText('Nenhum módulo disponível (gere uma trilha primeiro)');
+    await screen.findByText('Nenhuma trilha ativa (gere uma trilha primeiro)');
 
     resolverResposta({
       data: {

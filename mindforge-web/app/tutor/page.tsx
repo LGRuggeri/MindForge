@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useHistoricoTutor, useTirarDuvida } from '@/lib/hooks/useTutor';
 import { useModulosDoPerfil } from '@/lib/hooks/useModulos';
-import { SeletorModulo } from '@/components/seletor-modulo';
+import { SeletorTrilhaModulo } from '@/components/seletor-trilha-modulo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +17,16 @@ import { MarkdownViewer } from '@/components/markdown-viewer';
 export default function TutorPage() {
   const { perfilSelecionado } = useAppStore();
   const [pergunta, setPergunta] = useState('');
+  const [rascunhoDoPerfil, setRascunhoDoPerfil] = useState(perfilSelecionado?.id);
+  const [trilhaId, setTrilhaId] = useState('');
   const [moduloId, setModuloId] = useState('');
+  // Ao trocar de perfil, descarta trilha e módulo selecionados — a dúvida do
+  // perfil anterior não pode ser enviada "como se fosse" do perfil novo.
+  if (rascunhoDoPerfil !== perfilSelecionado?.id) {
+    setRascunhoDoPerfil(perfilSelecionado?.id);
+    setTrilhaId('');
+    setModuloId('');
+  }
   const { data: historico, isLoading } = useHistoricoTutor(perfilSelecionado?.id || null);
   const { data: modulosDisponiveis } = useModulosDoPerfil(perfilSelecionado?.id || null);
   const tirarDuvida = useTirarDuvida();
@@ -77,14 +86,14 @@ export default function TutorPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="modulo" className="text-sm font-medium">
-                Módulo
-              </label>
-              <SeletorModulo
+              <p className="text-sm font-medium">Módulo da trilha</p>
+              <SeletorTrilhaModulo
                 id="modulo"
                 perfilId={perfilSelecionado.id}
-                value={moduloId}
-                onValueChange={setModuloId}
+                trilhaId={trilhaId}
+                moduloId={moduloId}
+                onTrilhaChange={setTrilhaId}
+                onModuloChange={setModuloId}
               />
             </div>
             <div className="space-y-2">

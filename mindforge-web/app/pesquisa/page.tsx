@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
 import { usePesquisarFontes, useFontesModulo } from '@/lib/hooks/useResearch';
 import type { ResultadoPesquisa } from '@/types/api';
-import { SeletorModulo } from '@/components/seletor-modulo';
+import { SeletorTrilhaModulo } from '@/components/seletor-trilha-modulo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,18 +29,20 @@ function rotuloTipo(tipo: string): string {
 
 export default function PesquisaPage() {
   const { perfilSelecionado } = useAppStore();
+  const [trilhaId, setTrilhaId] = useState('');
   const [moduloId, setModuloId] = useState('');
   const [topico, setTopico] = useState('');
   const [limite, setLimite] = useState('5');
   const [webSearch, setWebSearch] = useState(true);
   const [resultado, setResultado] = useState<ResultadoPesquisa | null>(null);
 
-  // Ao trocar de perfil, descarta módulo e resultado durante o render — o
+  // Ao trocar de perfil, descarta trilha, módulo e resultado durante o render — o
   // módulo do perfil anterior não pode ser pesquisado "como se fosse" do
   // perfil novo (review Codex P2).
   const [estadoDoPerfil, setEstadoDoPerfil] = useState(perfilSelecionado?.id);
   if (estadoDoPerfil !== perfilSelecionado?.id) {
     setEstadoDoPerfil(perfilSelecionado?.id);
+    setTrilhaId('');
     setModuloId('');
     setResultado(null);
   }
@@ -129,12 +131,14 @@ export default function PesquisaPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="modulo">Módulo</Label>
-              <SeletorModulo
+              <p className="text-sm font-medium">Módulo da trilha</p>
+              <SeletorTrilhaModulo
                 id="modulo"
                 perfilId={perfilSelecionado.id}
-                value={moduloId}
-                onValueChange={(id) => {
+                trilhaId={trilhaId}
+                moduloId={moduloId}
+                onTrilhaChange={setTrilhaId}
+                onModuloChange={(id) => {
                   setModuloId(id);
                   setResultado(null);
                 }}

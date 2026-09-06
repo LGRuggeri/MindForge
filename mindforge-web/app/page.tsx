@@ -24,6 +24,33 @@ export default function DashboardPage() {
   const revisoesPendentes =
     revisoes?.filter((r) => isPast(parseISO(r.proximaRevisao))) ?? [];
 
+  const estatisticas = [
+    {
+      titulo: 'Objetivos',
+      valor: objetivos?.length ?? 0,
+      icone: Target,
+      carregando: objetivosLoading,
+    },
+    {
+      titulo: 'Trilhas ativas',
+      valor: objetivos?.reduce((acc, o) => acc + (o.trilhas?.length ?? 0), 0) ?? 0,
+      icone: BookOpen,
+      carregando: objetivosLoading,
+    },
+    {
+      titulo: 'Revisões pendentes',
+      valor: revisoesPendentes.length,
+      icone: Repeat,
+      carregando: false,
+    },
+    {
+      titulo: 'Próximos passos',
+      valor: proximos?.length ?? 0,
+      icone: Network,
+      carregando: proximosLoading,
+    },
+  ];
+
   if (!perfilSelecionado) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -49,59 +76,26 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Objetivos</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {objetivosLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{objetivos?.length ?? 0}</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Trilhas ativas</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {objetivosLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">
-                {objetivos?.reduce((acc, o) => acc + (o.trilhas?.length ?? 0), 0) ?? 0}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Revisões pendentes</CardTitle>
-            <Repeat className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{revisoesPendentes.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Próximos passos</CardTitle>
-            <Network className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {proximosLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{proximos?.length ?? 0}</div>
-            )}
-          </CardContent>
-        </Card>
+        {estatisticas.map((stat) => (
+          <Card
+            key={stat.titulo}
+            className="transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/25"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">{stat.titulo}</CardTitle>
+              <span className="rounded-lg bg-primary/10 p-1.5 text-primary">
+                <stat.icone className="h-4 w-4" />
+              </span>
+            </CardHeader>
+            <CardContent>
+              {stat.carregando ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-3xl font-bold tracking-tight">{stat.valor}</div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -117,7 +111,7 @@ export default function DashboardPage() {
               objetivos.slice(0, 5).map((objetivo) => (
                 <div
                   key={objetivo.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:border-primary/30 hover:bg-muted/50"
                 >
                   <div>
                     <p className="font-medium">{objetivo.titulo}</p>
@@ -129,13 +123,21 @@ export default function DashboardPage() {
                   </div>
                   <Button variant="ghost" size="icon" asChild>
                     <Link href={`/objetivos/${objetivo.id}`}>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </Link>
                   </Button>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhum objetivo criado ainda.</p>
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center">
+                <Target className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Nenhum objetivo criado ainda. Comece definindo o que quer aprender.
+                </p>
+                <Button variant="outline" asChild>
+                  <Link href="/objetivos">Criar objetivo</Link>
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -150,7 +152,7 @@ export default function DashboardPage() {
               revisoesPendentes.slice(0, 5).map((revisao) => (
                 <div
                   key={revisao.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:border-primary/30 hover:bg-muted/50"
                 >
                   <div>
                     <p className="font-medium capitalize">{revisao.itemTipo}</p>
@@ -166,7 +168,15 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma revisão pendente.</p>
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center">
+                <Repeat className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma revisão pendente. O sistema agenda revisões conforme você estuda.
+                </p>
+                <Button variant="outline" asChild>
+                  <Link href="/revisao">Ver revisão</Link>
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

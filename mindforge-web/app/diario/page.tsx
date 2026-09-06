@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { useDiario, useRegistrarDiario } from '@/lib/hooks/useDiario';
 import { useModulosDoPerfil } from '@/lib/hooks/useModulos';
 import type { RegistroDiarioComRecomendacoes } from '@/types/api';
-import { SeletorModulo } from '@/components/seletor-modulo';
+import { SeletorTrilhaModulo } from '@/components/seletor-trilha-modulo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export default function DiarioPage() {
   const [conquistas, setConquistas] = useState('');
   const [dificuldades, setDificuldades] = useState('');
   const [moduloSelecionado, setModuloSelecionado] = useState('');
+  const [trilhaSelecionada, setTrilhaSelecionada] = useState('');
   const [moduloIds, setModuloIds] = useState<string[]>([]);
   const [ultimaRecomendacao, setUltimaRecomendacao] =
     useState<RegistroDiarioComRecomendacoes | null>(null);
@@ -51,6 +52,7 @@ export default function DiarioPage() {
     setDificuldades('');
     setModuloIds([]);
     setModuloSelecionado('');
+    setTrilhaSelecionada('');
     setUltimaRecomendacao(null);
   }
 
@@ -174,21 +176,23 @@ export default function DiarioPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="modulo">Módulos estudados</Label>
-              <div className="flex gap-2">
-                <SeletorModulo
-                  id="modulo"
-                  perfilId={perfilSelecionado.id}
-                  value={moduloSelecionado}
-                  onValueChange={adicionarModulo}
-                />
+              <p className="text-sm font-medium">Módulos estudados</p>
+              <SeletorTrilhaModulo
+                id="modulo"
+                perfilId={perfilSelecionado.id}
+                trilhaId={trilhaSelecionada}
+                moduloId={moduloSelecionado}
+                onTrilhaChange={setTrilhaSelecionada}
+                onModuloChange={setModuloSelecionado}
+              />
+              <div>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => adicionarModulo(moduloSelecionado)}
                   disabled={!moduloSelecionado || moduloIds.includes(moduloSelecionado)}
                 >
-                  Adicionar
+                  Adicionar módulo
                 </Button>
               </div>
               {moduloIds.length > 0 && (
