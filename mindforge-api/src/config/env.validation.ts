@@ -34,6 +34,21 @@ export const envSchema = z.object({
   LLM_FALLBACK_MODELS: z.string().optional(),
   // URL do frontend para configuração de CORS. Opcional; default é http://localhost:3001.
   FRONTEND_URL: z.string().url().optional(),
+  // Provedor de geração de imagens (módulo midia). Modelo, chave e URL podem ser
+  // distintos do chat — gemini-3.6-flash é texto-only e a família de imagem tem
+  // model ID próprio (verificado via endpoint de models, pode ser renomeado pela
+  // Google). Se omitidos, IMAGE_API_KEY cai em LLM_API_KEY.
+  IMAGE_MODEL: z.string().default('gemini-3.1-flash-image'),
+  IMAGE_API_KEY: z.string().min(1).optional(),
+  IMAGE_BASE_URL: z.string().url().default('https://generativelanguage.googleapis.com/v1beta'),
+  // Provedor de TTS do módulo midia. 'edge-tts' usa as vozes neurais do
+  // Microsoft Edge Read Aloud (gratuito, sem chave). Interface pronta para
+  // provedores futuros (ex.: 'kokoro' local).
+  AUDIO_PROVIDER: z.string().default('edge-tts'),
+  // Diretório do cache de mídias geradas (imagens e áudios).
+  MIDIA_DIR: z.string().default('./data/midias'),
+  // URL pública da API, usada para montar links de imagem no Markdown do conteúdo.
+  API_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

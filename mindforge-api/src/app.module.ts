@@ -12,6 +12,7 @@ import { ExerciciosAvaliacoesModule } from './modules/exercicios-avaliacoes/exer
 import { BibliotecaVivaModule } from './modules/biblioteca-viva/biblioteca-viva.module';
 import { DiarioModule } from './modules/diario/diario.module';
 import { KnowledgeGraphModule } from './modules/knowledge-graph/knowledge-graph.module';
+import { MidiaModule } from './modules/midia/midia.module';
 import { AgentesModule } from './modules/agentes/agentes.module';
 import { AgentKbModule } from './modules/agent-kb/agent-kb.module';
 import { ProjetosModule } from './modules/projetos/projetos.module';
@@ -30,6 +31,7 @@ import { ProjetosModule } from './modules/projetos/projetos.module';
     BibliotecaVivaModule,
     DiarioModule,
     KnowledgeGraphModule,
+    MidiaModule,
     AgentesModule,
     AgentKbModule,
     ProjetosModule,

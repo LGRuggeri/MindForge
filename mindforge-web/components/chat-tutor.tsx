@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Bot, User } from 'lucide-react';
 import { MarkdownViewer } from '@/components/markdown-viewer';
+import { AudioButton } from '@/components/audio-button';
 
 interface ChatTutorProps {
   perfilId: string;
@@ -49,9 +50,10 @@ export function ChatTutor({ perfilId, moduloId }: ChatTutorProps) {
             <Card className="bg-muted">
               <CardContent className="p-4 flex items-start gap-3">
                 <Bot className="h-5 w-5 mt-0.5 text-primary" />
-                <div className="prose prose-neutral dark:prose-invert max-w-none text-sm">
+                <div className="prose prose-neutral dark:prose-invert max-w-none text-sm flex-1">
                   <MarkdownViewer>{msg.resposta}</MarkdownViewer>
                 </div>
+                <AudioButton texto={msg.resposta} label="Ouvir resposta do tutor" />
               </CardContent>
             </Card>
           </div>

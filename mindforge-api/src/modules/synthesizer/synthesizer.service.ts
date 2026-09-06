@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
+import { ImageService } from '../midia/image.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
@@ -13,6 +15,7 @@ export interface ConteudoGerado {
   corpoMarkdown: string;
   resumo: string;
   palavrasChave: string[];
+  ilustracoes?: { prompt: string }[];
 }
 
 interface ModuloContexto {
@@ -45,6 +48,8 @@ export class SynthesizerService {
     private readonly biblioteca: BibliotecaVivaService,
     private readonly reviewer: ReviewerService,
     private readonly knowledgeGraph: KnowledgeGraphService,
+    private readonly imageService: ImageService,
+    private readonly config: ConfigService,
     @Inject(JOB_QUEUE) private readonly queue: JobsService,
   ) {}
 
@@ -105,6 +110,8 @@ export class SynthesizerService {
     }
 
     const status = avaliacao.nota >= 3 ? 'revisado' : 'rascunho';
+
+    conteudoGerado.corpoMarkdown = await this.injetarIlustracoes(conteudoGerado);
 
     const conteudo = await this.repo.criarConteudo({
       moduloId: dto.moduloId,
@@ -183,6 +190,51 @@ export class SynthesizerService {
     }
   }
 
+  /**
+   * Gera as imagens pedidas pelo LLM e substitui os placeholders
+   * `[[imagem:N]]` do corpoMarkdown por `![descrição](url)`. Falha na geração
+   * de uma imagem não derruba a síntese: o placeholder é removido e o conteúdo
+   * segue sem aquela ilustração (degradação graciosa, padrão ADR-017).
+   */
+  private async injetarIlustracoes(conteudo: ConteudoGerado): Promise<string> {
+    let corpo = conteudo.corpoMarkdown;
+    const ilustracoes = conteudo.ilustracoes ?? [];
+    const apiPublica = this.config.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
+
+    // Geração sequencial de propósito: respeita o rate limit do free tier do
+    // provedor de imagem (no máx. 3 ilustrações por conteúdo).
+    for (let i = 0; i < ilustracoes.length; i++) {
+      const placeholder = `[[imagem:${i}]]`;
+      if (!corpo.includes(placeholder)) {
+        this.logger.warn(
+          `Placeholder ${placeholder} não encontrado no corpo — ilustração ${i} ignorada`,
+        );
+        continue;
+      }
+      try {
+        const { arquivo } = await this.imageService.gerarImagem({ prompt: ilustracoes[i].prompt });
+        // Sanitização: o prompt vem do LLM — caracteres de markdown no alt
+        // quebrariam a sintaxe ![...](...) persistida em corpoMarkdown.
+        const alt =
+          ilustracoes[i].prompt
+            .replace(/[[\]()]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 80) || 'Ilustração';
+        corpo = corpo.replace(placeholder, `![${alt}](${apiPublica}/midia/imagem/${arquivo})`);
+      } catch (erro) {
+        this.logger.error(
+          `Falha ao gerar ilustração ${i} do conteúdo "${conteudo.titulo}" — seguindo sem imagem`,
+          erro instanceof Error ? erro.stack : String(erro),
+        );
+        corpo = corpo.replace(placeholder, '');
+      }
+    }
+
+    // Remove placeholders órfãos (ex.: LLM pediu mais ilustrações do que gerou).
+    return corpo.replace(/\[\[imagem:\d+\]\]/g, '');
+  }
+
   private extrairTermosPorHeuristica(corpo: string): string[] {
     const titulos = corpo.match(/^#{2,3}\s+(.+)$/gm) ?? [];
     if (titulos.length > 0) {
@@ -235,14 +287,16 @@ Regras:
 3. Inclua exemplos concretos e, quando aplicável, um exercício mental ou pequeno desafio no final.
 4. Respeite o nível do aluno (iniciante, intermediário, avançado).
 5. Não copie textos das fontes; reescreva com suas próprias palavras e organize didaticamente.
-6. Retorne APENAS um objeto JSON válido, sem markdown ao redor, sem explicações adicionais.
+6. SUGIRA de 0 a 3 ilustrações didáticas quando o tema se beneficiar de figura (diagrama, esquema, mapa conceitual, fluxo, anatomia de algo). Temas abstratos sem representação visual clara NÃO devem ter ilustração. Cada ilustração tem um "prompt" descritivo em inglês (estilo didático, rótulos na língua do conteúdo) e o corpoMarkdown deve conter o placeholder [[imagem:N]] (N = índice, começando em 0) exatamente no ponto onde a imagem deve aparecer, em linha própria.
+7. Retorne APENAS um objeto JSON válido, sem markdown ao redor, sem explicações adicionais.
 
 Formato obrigatório:
 {
   "titulo": "string",
-  "corpoMarkdown": "string",
+  "corpoMarkdown": "string (com placeholders [[imagem:N]] quando houver ilustrações)",
   "resumo": "string",
-  "palavrasChave": ["string"]
+  "palavrasChave": ["string"],
+  "ilustracoes": [{ "prompt": "descrição em inglês da ilustração didática" }]
 }`;
   }
 
