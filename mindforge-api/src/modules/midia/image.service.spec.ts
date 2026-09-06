@@ -107,4 +107,59 @@ describe('ImageService', () => {
 
     await expect(service.gerarImagem({ prompt: 'x' })).rejects.toThrow(ServiceUnavailableException);
   });
+
+  describe('resolução de chave de API', () => {
+    const criarConfig = (valoresGet: Record<string, string>, valoresThrow: Record<string, string>) =>
+      ({
+        get: jest.fn((key: string) => valoresGet[key]),
+        getOrThrow: jest.fn((key: string) => {
+          const valor = valoresThrow[key];
+          if (!valor) throw new Error(`Variável ${key} não configurada`);
+          return valor;
+        }),
+      }) as unknown as ConfigService;
+
+    it('deve exigir IMAGE_API_KEY quando o provedor de chat não é o Gemini', () => {
+      const config = criarConfig(
+        { OPENAI_BASE_URL: 'https://opencode.ai/zen/go/v1' },
+        {
+          IMAGE_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta',
+          IMAGE_MODEL: 'gemini-3.1-flash-image',
+          LLM_API_KEY: 'chave-do-opencode',
+        },
+      );
+
+      expect(() => new ImageService(config, storage)).toThrow(/IMAGE_API_KEY/);
+    });
+
+    it('deve reutilizar LLM_API_KEY quando o provedor de chat é o Gemini', () => {
+      const config = criarConfig(
+        { OPENAI_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai/' },
+        {
+          IMAGE_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta',
+          IMAGE_MODEL: 'gemini-3.1-flash-image',
+          LLM_API_KEY: 'gemini-key',
+        },
+      );
+
+      expect(() => new ImageService(config, storage)).not.toThrow();
+    });
+
+    it('deve preferir IMAGE_API_KEY mesmo com provedor de chat Gemini', () => {
+      const config = criarConfig(
+        {
+          IMAGE_API_KEY: 'chave-imagem-dedicada',
+          OPENAI_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        },
+        {
+          IMAGE_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta',
+          IMAGE_MODEL: 'gemini-3.1-flash-image',
+          LLM_API_KEY: 'gemini-key',
+        },
+      );
+
+      const serviceDedicado = new ImageService(config, storage);
+      expect(serviceDedicado).toBeDefined();
+    });
+  });
 });

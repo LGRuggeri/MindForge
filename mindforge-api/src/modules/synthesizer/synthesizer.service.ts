@@ -198,7 +198,18 @@ export class SynthesizerService {
    */
   private async injetarIlustracoes(conteudo: ConteudoGerado): Promise<string> {
     let corpo = conteudo.corpoMarkdown;
-    const ilustracoes = conteudo.ilustracoes ?? [];
+    // O LLM pode devolver mais itens do que o pedido ou entradas malformadas;
+    // antes de qualquer chamada externa (cada uma pode demorar até 60s),
+    // validamos o shape e limitamos a 3 ilustrações por conteúdo.
+    const ilustracoes = (conteudo.ilustracoes ?? [])
+      .filter((i) => typeof i?.prompt === 'string' && i.prompt.trim().length > 0)
+      .slice(0, 3);
+    if ((conteudo.ilustracoes?.length ?? 0) > ilustracoes.length) {
+      this.logger.warn(
+        `Conteúdo "${conteudo.titulo}": ${conteudo.ilustracoes?.length} ilustrações solicitadas ` +
+          `pelo LLM, usando as ${ilustracoes.length} primeiras válidas (limite: 3)`,
+      );
+    }
     const apiPublica = this.config.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
 
     // Geração sequencial de propósito: respeita o rate limit do free tier do

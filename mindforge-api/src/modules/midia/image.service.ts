@@ -38,8 +38,28 @@ export class ImageService {
   ) {
     this.baseUrl = this.config.getOrThrow<string>('IMAGE_BASE_URL');
     this.model = this.config.getOrThrow<string>('IMAGE_MODEL');
-    this.apiKey =
-      this.config.get<string>('IMAGE_API_KEY') ?? this.config.getOrThrow<string>('LLM_API_KEY');
+    this.apiKey = this.resolverChave();
+  }
+
+  /**
+   * IMAGE_API_KEY tem prioridade. Sem ela, só reutilizamos LLM_API_KEY quando o
+   * provedor de chat é sabidamente o Gemini — senão a chave de outro provedor
+   * (ex.: OpenCode Go) iria parar no query param `key` da API do Google,
+   * vazando a credencial e quebrando a geração.
+   */
+  private resolverChave(): string {
+    const chaveImagem = this.config.get<string>('IMAGE_API_KEY');
+    if (chaveImagem) return chaveImagem;
+
+    const baseUrlChat = this.config.get<string>('OPENAI_BASE_URL') ?? '';
+    if (baseUrlChat.includes('generativelanguage.googleapis.com')) {
+      return this.config.getOrThrow<string>('LLM_API_KEY');
+    }
+
+    throw new Error(
+      'IMAGE_API_KEY não configurada e o provedor de chat não é o Gemini — ' +
+        'defina IMAGE_API_KEY com uma chave da API Gemini (https://aistudio.google.com/apikey).',
+    );
   }
 
   async gerarImagem(params: GerarImagemParams): Promise<{ arquivo: string; prompt: string }> {

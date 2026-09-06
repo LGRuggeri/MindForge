@@ -53,7 +53,11 @@ export function ChatTutor({ perfilId, moduloId }: ChatTutorProps) {
                 <div className="prose prose-neutral dark:prose-invert max-w-none text-sm flex-1">
                   <MarkdownViewer>{msg.resposta}</MarkdownViewer>
                 </div>
-                <AudioButton texto={msg.resposta} label="Ouvir resposta do tutor" />
+                <AudioButton
+                  texto={msg.resposta}
+                  idioma="pt-br"
+                  label="Ouvir resposta do tutor"
+                />
               </CardContent>
             </Card>
           </div>
