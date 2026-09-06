@@ -74,8 +74,12 @@ export class PlannerService {
   async removerObjetivo(id: string) {
     // 404 se não existir antes de tentar remover.
     await this.buscarObjetivoPorId(id);
+    // Competências dos módulos deste objetivo precisam ser coletadas antes da
+    // exclusão — depois dela a cascata já apagou os vínculos (modulo_competencias).
+    const competenciasVinculadas = await this.repo.listarCompetenciasDosModulosDoObjetivo(id);
     await this.repo.removerObjetivo(id);
-    this.logger.log(`Objetivo removido: ${id}`);
+    const orfasRemovidas = await this.repo.removerCompetenciasOrfas(competenciasVinculadas);
+    this.logger.log(`Objetivo removido: ${id} (${orfasRemovidas} competências órfãs removidas)`);
   }
 
   async gerarTrilha(objetivoId: string) {

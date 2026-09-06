@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import {
+  competencias,
   modulosTrilha,
+  moduloCompetencias,
   NovoModuloTrilha,
   NovaTrilhaEstudo,
   NovoObjetivoEstudo,
@@ -43,6 +45,45 @@ export class PlannerRepository {
       .where(eq(objetivosEstudo.id, id))
       .returning();
     return removido;
+  }
+
+  /** Competências vinculadas a qualquer módulo das trilhas do objetivo. */
+  async listarCompetenciasDosModulosDoObjetivo(objetivoId: string): Promise<string[]> {
+    const linhas = await this.db
+      .selectDistinct({ competenciaId: moduloCompetencias.competenciaId })
+      .from(moduloCompetencias)
+      .innerJoin(modulosTrilha, eq(moduloCompetencias.moduloId, modulosTrilha.id))
+      .innerJoin(trilhasEstudo, eq(modulosTrilha.trilhaId, trilhasEstudo.id))
+      .where(eq(trilhasEstudo.objetivoId, objetivoId));
+    return linhas.map((linha) => linha.competenciaId);
+  }
+
+  /**
+   * Remove competências auto-derivadas (planner/synthesizer) que ficaram sem
+   * nenhum vínculo com módulo — ou seja, pertenciam só ao conteúdo excluído.
+   * Competências compartilhadas com outros objetivos são preservadas.
+   * Relações e progresso em cascata no banco.
+   */
+  async removerCompetenciasOrfas(competenciaIds: string[]): Promise<number> {
+    if (competenciaIds.length === 0) return 0;
+    const aindaVinculadas = await this.db
+      .selectDistinct({ competenciaId: moduloCompetencias.competenciaId })
+      .from(moduloCompetencias)
+      .where(inArray(moduloCompetencias.competenciaId, competenciaIds));
+    const semVinculo = competenciaIds.filter(
+      (id) => !aindaVinculadas.some((linha) => linha.competenciaId === id),
+    );
+    if (semVinculo.length === 0) return 0;
+    const removidas = await this.db
+      .delete(competencias)
+      .where(
+        and(
+          inArray(competencias.id, semVinculo),
+          inArray(competencias.categoria, ['planner', 'synthesizer']),
+        ),
+      )
+      .returning({ id: competencias.id });
+    return removidas.length;
   }
 
   private getClient(tx?: DrizzleDb) {

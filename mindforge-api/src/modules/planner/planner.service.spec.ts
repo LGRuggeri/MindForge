@@ -40,6 +40,8 @@ describe('PlannerService', () => {
       buscarModuloPorId: jest.fn(),
       buscarObjetivoPorId: jest.fn(),
       removerObjetivo: jest.fn(),
+      listarCompetenciasDosModulosDoObjetivo: jest.fn(),
+      removerCompetenciasOrfas: jest.fn(),
       executarEmTransacao: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
       criarTrilha: jest.fn(),
       substituirTrilhasAnteriores: jest.fn(),
@@ -141,16 +143,33 @@ describe('PlannerService', () => {
   });
 
   describe('removerObjetivo', () => {
-    it('remove o objetivo existente', async () => {
+    beforeEach(() => {
+      repo.listarCompetenciasDosModulosDoObjetivo.mockResolvedValue(['comp-1', 'comp-2']);
+      repo.removerCompetenciasOrfas.mockResolvedValue(2);
+    });
+
+    it('remove o objetivo existente e as competências órfãs dos módulos', async () => {
+      await service.removerObjetivo(objetivoId);
+
+      expect(repo.listarCompetenciasDosModulosDoObjetivo).toHaveBeenCalledWith(objetivoId);
+      expect(repo.removerObjetivo).toHaveBeenCalledWith(objetivoId);
+      expect(repo.removerCompetenciasOrfas).toHaveBeenCalledWith(['comp-1', 'comp-2']);
+    });
+
+    it('delega lista vazia quando o objetivo não tinha módulos (repositório no-op)', async () => {
+      repo.listarCompetenciasDosModulosDoObjetivo.mockResolvedValue([]);
+
       await service.removerObjetivo(objetivoId);
 
       expect(repo.removerObjetivo).toHaveBeenCalledWith(objetivoId);
+      expect(repo.removerCompetenciasOrfas).toHaveBeenCalledWith([]);
     });
 
     it('lança NotFound quando o objetivo não existe e não remove nada', async () => {
       repo.buscarObjetivoPorId.mockResolvedValue(null as never);
 
       await expect(service.removerObjetivo(objetivoId)).rejects.toThrow(NotFoundException);
+      expect(repo.listarCompetenciasDosModulosDoObjetivo).not.toHaveBeenCalled();
       expect(repo.removerObjetivo).not.toHaveBeenCalled();
     });
   });
