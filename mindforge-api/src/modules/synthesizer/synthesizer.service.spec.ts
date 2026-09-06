@@ -418,4 +418,37 @@ describe('SynthesizerService', () => {
     expect(salvo.corpoMarkdown).not.toContain('[[imagem:');
     expect((resultado as { status: string }).status).toBe('revisado');
   });
+
+  it('deve substituir todas as ocorrências de um placeholder repetido pelo LLM', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '# Ciclo\n\n[[imagem:0]]\n\nTexto.\n\n[[imagem:0]]\n\nFim.',
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      ilustracoes: [{ prompt: 'Water cycle diagram' }],
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-dup.png', prompt: 'Water cycle diagram' });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-dup',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(imageService.gerarImagem).toHaveBeenCalledTimes(1);
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    const ocorrencias = salvo.corpoMarkdown.split('/midia/imagem/imagem-dup.png').length - 1;
+    expect(ocorrencias).toBe(2);
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:');
+  });
 });

@@ -37,11 +37,8 @@ export const envSchema = z.object({
   // Provedor de geração de imagens (módulo midia). Modelo, chave e URL podem ser
   // distintos do chat — gemini-3.6-flash é texto-only e a família de imagem tem
   // model ID próprio (verificado via endpoint de models, pode ser renomeado pela
-  // Google). IMAGE_API_KEY é opcional apenas quando o provedor de chat já é o
-  // Gemini (OPENAI_BASE_URL apontando para generativelanguage.googleapis.com) —
-  // nesse caso a geração de imagem reutiliza LLM_API_KEY; com qualquer outro
-  // provedor de chat ela é obrigatória, sob pena de a API recusar subir
-  // (ver ImageService.resolverChave).
+  // Google). A regra de quando IMAGE_API_KEY é opcional está no superRefine do
+  // schema abaixo (e reforçada em ImageService.resolverChave).
   IMAGE_MODEL: z.string().default('gemini-3.1-flash-image'),
   IMAGE_API_KEY: z.string().min(1).optional(),
   IMAGE_BASE_URL: z.string().url().default('https://generativelanguage.googleapis.com/v1beta'),
@@ -53,6 +50,23 @@ export const envSchema = z.object({
   MIDIA_DIR: z.string().default('./data/midias'),
   // URL pública da API, usada para montar links de imagem no Markdown do conteúdo.
   API_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
+}).superRefine((env, ctx) => {
+  // IMAGE_API_KEY só pode ser omitida quando o provedor de chat já é o Gemini
+  // (mesma chave serve para a API de imagem); com qualquer outro provedor,
+  // reutilizar LLM_API_KEY enviaria a chave de terceiros ao Google (ver ADR do
+  // módulo midia e ImageService.resolverChave, que reforça a mesma regra).
+  const chatEhGemini = (env.OPENAI_BASE_URL ?? '')
+    .toLowerCase()
+    .includes('generativelanguage.googleapis.com');
+  if (!env.IMAGE_API_KEY && !chatEhGemini) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['IMAGE_API_KEY'],
+      message:
+        'obrigatória quando o provedor de chat não é o Gemini ' +
+        '(OPENAI_BASE_URL não aponta para generativelanguage.googleapis.com)',
+    });
+  }
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

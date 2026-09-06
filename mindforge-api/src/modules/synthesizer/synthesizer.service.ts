@@ -243,13 +243,18 @@ export class SynthesizerService {
             .replace(/\s+/g, ' ')
             .trim()
             .slice(0, 80) || 'Ilustração';
-        corpo = corpo.replace(placeholder, `![${alt}](${apiPublica}/midia/imagem/${arquivo})`);
+        // replaceAll: se o LLM repetir o mesmo placeholder no corpo, todas as
+        // ocorrências apontam para a mesma ilustração (cache por prompt).
+        corpo = corpo.replaceAll(
+          placeholder,
+          `![${alt}](${apiPublica}/midia/imagem/${arquivo})`,
+        );
       } catch (erro) {
         this.logger.error(
           `Falha ao gerar ilustração ${i} do conteúdo "${conteudo.titulo}" — seguindo sem imagem`,
           erro instanceof Error ? erro.stack : String(erro),
         );
-        corpo = corpo.replace(placeholder, '');
+        corpo = corpo.replaceAll(placeholder, '');
       }
     }
 
