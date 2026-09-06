@@ -6,23 +6,10 @@ import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { UserPlus, User } from 'lucide-react';
-
-const niveis = [
-  { value: 'iniciante', label: 'Iniciante' },
-  { value: 'intermediario', label: 'Intermediário' },
-  { value: 'avancado', label: 'Avançado' },
-];
 
 export default function PerfisPage() {
   const { data: perfis, isLoading } = usePerfis();
@@ -31,7 +18,6 @@ export default function PerfisPage() {
 
   const [nome, setNome] = useState('');
   const [objetivos, setObjetivos] = useState('');
-  const [nivel, setNivel] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,13 +25,11 @@ export default function PerfisPage() {
       const perfil = await criar.mutateAsync({
         nome,
         objetivosGerais: objetivos || undefined,
-        nivelAtual: (nivel as never) || undefined,
       });
       selecionarPerfil(perfil);
       toast.success('Perfil criado com sucesso');
       setNome('');
       setObjetivos('');
-      setNivel('');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao criar perfil');
     }
@@ -74,7 +58,7 @@ export default function PerfisPage() {
                 id="nome"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex: Estudante de Programação"
+                placeholder="Seu nome (ex: Luiz Gustavo)"
                 required
               />
             </div>
@@ -84,27 +68,8 @@ export default function PerfisPage() {
                 id="objetivos"
                 value={objetivos}
                 onChange={(e) => setObjetivos(e.target.value)}
-                placeholder="Descreva seus objetivos de aprendizado..."
+                placeholder="Descreva seus objetivos de aprendizado. O Tutor IA usa esse contexto junto com as trilhas e pesquisas para entender o que você busca aprender."
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nivel">Nível atual</Label>
-              <Select value={nivel} onValueChange={(value) => setNivel(value || '')}>
-                <SelectTrigger id="nivel">
-                  <SelectValue>
-                    {(valor: string | null) =>
-                      niveis.find((n) => n.value === valor)?.label ?? 'Selecione um nível'
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {niveis.map((n) => (
-                    <SelectItem key={n.value} value={n.value}>
-                      {n.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <Button type="submit" disabled={criar.isPending}>
               {criar.isPending ? 'Criando...' : 'Criar perfil'}
@@ -135,9 +100,9 @@ export default function PerfisPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{perfil.nome}</p>
-                    {perfil.nivelAtual && (
-                      <p className="text-sm text-muted-foreground capitalize">
-                        Nível: {perfil.nivelAtual}
+                    {perfil.objetivosGerais && (
+                      <p className="text-sm text-muted-foreground line-clamp-1">
+                        {perfil.objetivosGerais}
                       </p>
                     )}
                   </div>

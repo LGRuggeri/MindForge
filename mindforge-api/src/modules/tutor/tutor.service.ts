@@ -19,7 +19,7 @@ interface ModuloContexto {
     objetivo?: {
       titulo: string;
       descricao: string | null;
-      perfil?: { nivelAtual: string };
+      nivelDesejado: string | null;
     };
   };
 }
@@ -331,7 +331,7 @@ Formato obrigatório:
   ): string {
     const tituloTrilha = modulo.trilha?.objetivo?.titulo ?? 'Trilha';
     const descricao = modulo.trilha?.objetivo?.descricao ?? 'Sem descrição';
-    const nivelAluno = modulo.trilha?.objetivo?.perfil?.nivelAtual ?? 'iniciante';
+    const nivelAluno = modulo.trilha?.objetivo?.nivelDesejado ?? 'iniciante';
 
     const chunksTexto =
       chunks.length > 0

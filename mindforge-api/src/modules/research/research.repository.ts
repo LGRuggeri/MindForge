@@ -10,7 +10,7 @@ export class ResearchRepository {
   async buscarModuloPorId(id: string) {
     return this.db.query.modulosTrilha.findFirst({
       where: eq(modulosTrilha.id, id),
-      with: { trilha: { with: { objetivo: { with: { perfil: true } } } } },
+      with: { trilha: { with: { objetivo: true } } },
     });
   }
 

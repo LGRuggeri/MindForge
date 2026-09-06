@@ -22,7 +22,7 @@ interface ModuloContexto {
     objetivo?: {
       titulo: string;
       descricao: string | null;
-      perfil?: { nivelAtual: string };
+      nivelDesejado: string | null;
     };
   };
 }
@@ -221,7 +221,7 @@ export class SynthesizerService {
     fontes: FonteContexto[],
   ): string {
     const tituloTrilha = modulo.trilha?.objetivo?.titulo ?? 'Trilha';
-    const nivelAluno = dto.nivelAlvo ?? modulo.trilha?.objetivo?.perfil?.nivelAtual ?? 'iniciante';
+    const nivelAluno = dto.nivelAlvo ?? modulo.trilha?.objetivo?.nivelDesejado ?? 'iniciante';
     return `Trilha: ${tituloTrilha}\nMódulo: ${modulo.titulo}\nNível: ${nivelAluno}\nTópico: ${dto.topico}\nFontes: ${fontes.length}`;
   }
 
@@ -254,7 +254,7 @@ Formato obrigatório:
   ): string {
     const tituloTrilha = modulo.trilha?.objetivo?.titulo ?? 'Trilha';
     const descricao = modulo.trilha?.objetivo?.descricao ?? 'Sem descrição';
-    const nivelAluno = dto.nivelAlvo ?? modulo.trilha?.objetivo?.perfil?.nivelAtual ?? 'iniciante';
+    const nivelAluno = dto.nivelAlvo ?? modulo.trilha?.objetivo?.nivelDesejado ?? 'iniciante';
 
     const fontesTexto =
       fontes.length > 0

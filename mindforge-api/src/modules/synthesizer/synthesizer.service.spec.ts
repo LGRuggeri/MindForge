@@ -25,7 +25,7 @@ describe('SynthesizerService', () => {
       objetivo: {
         titulo: 'Python para Iniciantes',
         descricao: 'Aprender Python do zero',
-        perfil: { nivelAtual: 'iniciante' },
+        nivelDesejado: 'iniciante',
       },
     },
   };

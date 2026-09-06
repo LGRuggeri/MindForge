@@ -138,7 +138,7 @@ export default function ObjetivosPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="nivel">Nível desejado</Label>
+                <Label htmlFor="nivel">Seu nível no assunto</Label>
                 <Select value={nivel} onValueChange={(value) => setNivel(value || '')}>
                   <SelectTrigger id="nivel">
                     <SelectValue>

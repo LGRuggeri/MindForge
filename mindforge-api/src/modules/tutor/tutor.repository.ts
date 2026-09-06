@@ -13,11 +13,7 @@ export class TutorRepository {
       with: {
         trilha: {
           with: {
-            objetivo: {
-              with: {
-                perfil: true,
-              },
-            },
+            objetivo: true,
           },
         },
       },

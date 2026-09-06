@@ -182,7 +182,7 @@ Sua tarefa é transformar um objetivo de estudo em uma trilha de aprendizado est
 Regras:
 1. Analise o objetivo e crie de 3 a 8 módulos sequenciais.
 2. Cada módulo deve ter um título claro, um objetivo de aprendizagem mensurável e tempo estimado em minutos.
-3. Respeite o nível desejado do aluno (iniciante, intermediário, avançado).
+3. Respeite o nível do aluno no assunto (iniciante, intermediário, avançado), informado no objetivo.
 4. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
 
 Formato obrigatório:
@@ -208,7 +208,7 @@ Formato obrigatório:
   }): string {
     return `Objetivo de estudo: ${objetivo.titulo}
 Descrição: ${objetivo.descricao ?? 'Não informada'}
-Nível desejado: ${objetivo.nivelDesejado ?? 'iniciante'}
+Nível do aluno no assunto: ${objetivo.nivelDesejado ?? 'iniciante'}
 Prazo estimado: ${objetivo.prazoEstimado ?? 'não informado'}
 
 Gere a trilha de aprendizado no formato JSON especificado.`;
