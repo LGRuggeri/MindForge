@@ -1,8 +1,8 @@
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
 
-export class GerarAudioQueryDto {
+export class GerarAudioDto {
   @IsString()
-  @Length(1, 500)
+  @Length(1, 10000)
   texto!: string;
 
   @IsOptional()

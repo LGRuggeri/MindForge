@@ -102,6 +102,7 @@ export interface Duvida {
   chunksIds: unknown[];
   avaliacao?: number | null;
   feedback?: string | null;
+  idiomaResposta: string;
   criadoEm: string;
   atualizadoEm: string;
 }

@@ -1,13 +1,17 @@
-import { Controller, Get, NotFoundException, Param, Query, Res, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { AudioService } from './audio.service';
-import { GerarAudioQueryDto } from './dto/midia.dto';
+import { GerarAudioDto } from './dto/midia.dto';
 import { MidiaStorageService } from './midia-storage.service';
 
 /**
  * Rotas de mídia gerada: áudio de pronúncia (TTS) e servir imagens ilustrativas
  * do cache. Ambas são públicas por natureza (conteúdo didático, projeto local
  * de uso pessoal — ver decisão em AGENTS.md sobre autenticação).
+ *
+ * O áudio usa POST (não GET com query string) de propósito: respostas longas
+ * do tutor ultrapassariam o limite prático de ~8KB de URL. O áudio é cacheado
+ * no servidor, então a perda de cache do browser não custa nada.
  */
 @Controller('midia')
 export class MidiaController {
@@ -16,11 +20,8 @@ export class MidiaController {
     private readonly storage: MidiaStorageService,
   ) {}
 
-  @Get('audio')
-  async gerarAudio(
-    @Query(new ValidationPipe({ transform: true, whitelist: true })) dto: GerarAudioQueryDto,
-    @Res() res: Response,
-  ) {
+  @Post('audio')
+  async gerarAudio(@Body() dto: GerarAudioDto, @Res() res: Response) {
     const { buffer, mime } = await this.audioService.gerarAudio({
       texto: dto.texto,
       idioma: dto.idioma,

@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { AudioButton, textoPronunciaavel } from '@/components/audio-button';
 
 const playMock = vi.fn().mockResolvedValue(undefined);
+const revokeObjectURL = vi.fn();
+let ultimoBlobUrl = '';
 
-// Construtor mockado do Audio do browser: reprodução sempre resolve.
+// Audio mockado do browser: reprodução sempre resolve.
 const AudioMock = vi.fn(function (this: Record<string, unknown>, src: string) {
   this.src = src;
   this.onended = null;
@@ -12,11 +14,27 @@ const AudioMock = vi.fn(function (this: Record<string, unknown>, src: string) {
   this.play = playMock;
 });
 
+const fetchMock = vi.fn();
+
 describe('AudioButton', () => {
   beforeEach(() => {
     playMock.mockClear();
     AudioMock.mockClear();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['mp3'], { type: 'audio/mpeg' }),
+    });
     vi.stubGlobal('Audio', AudioMock);
+    vi.stubGlobal('fetch', fetchMock);
+    ultimoBlobUrl = '';
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn((blob: Blob) => {
+        ultimoBlobUrl = `blob:${blob.size}`;
+        return ultimoBlobUrl;
+      }),
+      revokeObjectURL,
+    });
   });
 
   afterEach(() => {
@@ -24,32 +42,43 @@ describe('AudioButton', () => {
     vi.unstubAllGlobals();
   });
 
-  it('deve montar a URL do endpoint de áudio com texto e idioma', () => {
+  it('deve chamar o endpoint POST com texto e idioma', async () => {
     render(<AudioButton texto="Hello world" idioma="en" />);
 
     fireEvent.click(screen.getByRole('button', { name: /ouvir pronúncia/i }));
 
-    expect(playMock).toHaveBeenCalledTimes(1);
-    expect(AudioMock).toHaveBeenCalledWith(expect.stringContaining('/midia/audio?texto=Hello+world'));
-    expect(AudioMock).toHaveBeenCalledWith(expect.stringContaining('idioma=en'));
+    await waitFor(() => expect(playMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/midia/audio'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ texto: 'Hello world', idioma: 'en', voz: undefined }),
+      }),
+    );
+    expect(AudioMock).toHaveBeenCalledWith(ultimoBlobUrl);
   });
 
-  it('não deve incluir idioma na URL quando omitido', () => {
+  it('não deve incluir idioma no body quando omitido', async () => {
     render(<AudioButton texto="Olá" />);
 
     fireEvent.click(screen.getByRole('button', { name: /ouvir pronúncia/i }));
 
-    const url = AudioMock.mock.calls[0][0] as string;
-    expect(url).toContain('texto=');
-    expect(url).not.toContain('idioma=');
+    await waitFor(() => expect(playMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body.texto).toBe('Olá');
+    expect(body).not.toHaveProperty('idioma');
   });
 
-  it('deve usar a voz neural informada', () => {
+  it('deve usar a voz neural informada', async () => {
     render(<AudioButton texto="Bonjour" idioma="fr" voz="fr-FR-DeniseNeural" />);
 
     fireEvent.click(screen.getByRole('button', { name: /ouvir pronúncia/i }));
 
-    expect(AudioMock).toHaveBeenCalledWith(expect.stringContaining('voz=fr-FR-DeniseNeural'));
+    await waitFor(() => expect(playMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body.voz).toBe('fr-FR-DeniseNeural');
   });
 
   it('não deve reproduzir com texto vazio', () => {
@@ -57,26 +86,17 @@ describe('AudioButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /ouvir pronúncia/i }));
 
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(playMock).not.toHaveBeenCalled();
   });
 
   it('deve remover sintaxe markdown antes de enviar ao TTS', () => {
     const markdown = '## Título\n\nUse **negrito** e `código`, veja [link](https://ex.com) e ![img](https://ex.com/a.png).';
-    const falado = textoPronunciaavel(markdown);
-    expect(falado).toBe('Título Use negrito e código, veja link e .');
-
-    render(<AudioButton texto={markdown} />);
-    fireEvent.click(screen.getByRole('button', { name: /ouvir pronúncia/i }));
-
-    const url = AudioMock.mock.calls[0][0] as string;
-    // URLSearchParams codifica espaço como '+', que decodeURIComponent não reverte.
-    const urlDecodificada = decodeURIComponent(url).replace(/\+/g, ' ');
-    expect(urlDecodificada).toContain('texto=Título Use negrito');
-    expect(url).not.toContain('%23');
+    expect(textoPronunciaavel(markdown)).toBe('Título Use negrito e código, veja link e .');
   });
 
-  it('deve limitar o texto ao tamanho do endpoint', () => {
-    const longo = 'a'.repeat(600);
-    expect(textoPronunciaavel(longo)).toHaveLength(450);
+  it('não deve truncar respostas longas', () => {
+    const longo = 'a'.repeat(5000);
+    expect(textoPronunciaavel(longo)).toHaveLength(5000);
   });
 });

@@ -136,7 +136,11 @@ export default function TutorPage() {
                   <div className="prose prose-neutral dark:prose-invert max-w-none text-sm flex-1">
                     <MarkdownViewer>{duvida.resposta}</MarkdownViewer>
                   </div>
-                  <AudioButton texto={duvida.resposta} idioma="pt-br" label="Ouvir resposta do tutor" />
+                  <AudioButton
+                    texto={duvida.resposta}
+                    idioma={duvida.idiomaResposta}
+                    label="Ouvir resposta do tutor"
+                  />
                 </div>
               </CardContent>
             </Card>

@@ -19,13 +19,11 @@ interface AudioButtonProps {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-// O endpoint limita o texto a 500 caracteres; ficamos abaixo para a URL.
-const LIMITE_CARACTERES = 450;
 
 /**
  * Converte markdown em texto falável: remove sintaxe (títulos, ênfase,
- * links, imagens, blocos de código) que o TTS leria literalmente, e limita
- * o tamanho para caber no endpoint.
+ * links, imagens, blocos de código) que o TTS leria literalmente.
+ * Não há truncamento — o endpoint aceita a resposta completa.
  */
 export function textoPronunciaavel(markdown: string): string {
   return markdown
@@ -36,32 +34,40 @@ export function textoPronunciaavel(markdown: string): string {
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/[*_>|-]+/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, LIMITE_CARACTERES);
+    .trim();
 }
 
 /**
- * Botão de pronúncia: pede o áudio ao endpoint /midia/audio da API e toca.
- * O áudio é cacheado no servidor (cada texto é sintetizado uma única vez),
- * então repetições são instantâneas.
+ * Botão de pronúncia: pede o áudio ao endpoint /midia/audio da API (POST —
+ * textos longos não caberiam numa query string) e toca. O áudio é cacheado
+ * no servidor (cada texto é sintetizado uma única vez), então repetições são
+ * rápidas mesmo sem cache de browser.
  */
 export function AudioButton({ texto, idioma, voz, label, variante = 'icone' }: AudioButtonProps) {
   const [tocando, setTocando] = useState(false);
 
-  const montarUrl = () => {
-    const params = new URLSearchParams({ texto: textoPronunciaavel(texto) });
-    if (idioma) params.set('idioma', idioma);
-    if (voz) params.set('voz', voz);
-    return `${API_URL}/midia/audio?${params.toString()}`;
-  };
-
   const reproduzir = async () => {
-    if (tocando || !textoPronunciaavel(texto)) return;
+    const textoLimpo = textoPronunciaavel(texto);
+    if (tocando || !textoLimpo) return;
     setTocando(true);
     try {
-      const audio = new Audio(montarUrl());
-      audio.onended = () => setTocando(false);
+      const resposta = await fetch(`${API_URL}/midia/audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: textoLimpo, idioma, voz }),
+      });
+      if (!resposta.ok) {
+        throw new Error(`HTTP ${resposta.status}`);
+      }
+      const blob = await resposta.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        setTocando(false);
+      };
       audio.onerror = () => {
+        URL.revokeObjectURL(url);
         setTocando(false);
         toast.error('Não foi possível carregar o áudio. Tente novamente.');
       };

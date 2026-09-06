@@ -1,0 +1,1 @@
+ALTER TABLE "historico_duvidas" ADD COLUMN "idioma_resposta" varchar(10) DEFAULT 'pt-br' NOT NULL;

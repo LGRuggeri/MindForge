@@ -124,10 +124,13 @@ export class EdgeTtsProvider implements AudioProvider {
         },
       });
 
+      // Timeout proporcional ao texto: ~1s por 100 caracteres (síntese é mais
+      // rápida que isso na prática), com piso de 30s para textos curtos.
+      const timeoutMs = Math.max(30_000, texto.length * 100);
       const timeout = setTimeout(() => {
         ws.terminate();
         reject(new Error('Timeout ao sintetizar áudio com Edge-TTS'));
-      }, 30_000);
+      }, timeoutMs);
 
       ws.on('open', () => {
         ws.send(this.mensagemConfig());

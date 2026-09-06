@@ -1,4 +1,4 @@
-import { check, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { check, integer, jsonb, pgTable, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { objetivosEstudo } from './objetivos.schema';
 import { perfilAprendizagem } from './perfil.schema';
@@ -61,6 +61,9 @@ export const historicoDuvidas = pgTable(
     chunksIds: jsonb('chunks_ids').notNull().default('[]'),
     avaliacao: integer('avaliacao'),
     feedback: text('feedback'),
+    // Idioma (BCP-47) em que o tutor respondeu — usado para escolher a voz do
+    // TTS ao ouvir a dúvida. Default pt-br: registros antigos pré-multimodalidade.
+    idiomaResposta: varchar('idioma_resposta', { length: 10 }).notNull().default('pt-br'),
     criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
     atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
   },
