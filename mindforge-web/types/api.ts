@@ -172,6 +172,13 @@ export interface CriarPerfilInput {
   preferencias?: Record<string, unknown>;
 }
 
+export interface AtualizarPerfilInput {
+  nome?: string;
+  objetivosGerais?: string;
+  nivelAtual?: Nivel;
+  preferencias?: Record<string, unknown>;
+}
+
 export interface CriarObjetivoInput {
   perfilId: string;
   titulo: string;

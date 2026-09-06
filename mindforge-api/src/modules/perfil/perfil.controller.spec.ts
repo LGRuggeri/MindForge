@@ -25,6 +25,7 @@ describe('PerfilController (integração)', () => {
             criar: jest.fn().mockResolvedValue(perfilMock),
             listar: jest.fn().mockResolvedValue([perfilMock]),
             buscarPorId: jest.fn().mockResolvedValue(perfilMock),
+            atualizar: jest.fn().mockResolvedValue(perfilMock),
           },
         },
       ],
@@ -54,6 +55,14 @@ describe('PerfilController (integração)', () => {
     const resultado = await controller.buscarPorId(id);
 
     expect(service.buscarPorId).toHaveBeenCalledWith(id);
+    expect(resultado).toEqual(perfilMock);
+  });
+
+  it('deve atualizar um perfil', async () => {
+    const dto = { nome: 'Luiz Gustavo', objetivosGerais: 'Aprender TypeScript' };
+    const resultado = await controller.atualizar(perfilMock.id, dto);
+
+    expect(service.atualizar).toHaveBeenCalledWith(perfilMock.id, dto);
     expect(resultado).toEqual(perfilMock);
   });
 });

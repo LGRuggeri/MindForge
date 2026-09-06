@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
-import { NovoPerfilAprendizagem, perfilAprendizagem } from '../../database/schema';
+import { NovoPerfilAprendizagem, PerfilAprendizagem, perfilAprendizagem } from '../../database/schema';
 
 /**
  * Único ponto do módulo que importa `drizzle-orm` diretamente. O service
@@ -28,5 +28,14 @@ export class PerfilRepository {
 
   async listar() {
     return this.db.query.perfilAprendizagem.findMany();
+  }
+
+  async atualizar(id: string, dados: Partial<NovoPerfilAprendizagem>) {
+    const [perfil] = await this.db
+      .update(perfilAprendizagem)
+      .set(dados)
+      .where(eq(perfilAprendizagem.id, id))
+      .returning();
+    return perfil as PerfilAprendizagem | undefined;
   }
 }

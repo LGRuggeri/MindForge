@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Perfil, CriarPerfilInput } from '@/types/api';
+import { Perfil, CriarPerfilInput, AtualizarPerfilInput } from '@/types/api';
 
 const PERFIS_KEY = 'perfis';
 
@@ -33,6 +33,20 @@ export function useCriarPerfil() {
   return useMutation({
     mutationFn: async (input: CriarPerfilInput) => {
       const { data } = await api.post<Perfil>('/perfis', input);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [PERFIS_KEY] });
+    },
+  });
+}
+
+export function useAtualizarPerfil() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: AtualizarPerfilInput & { id: string }) => {
+      const { data } = await api.patch<Perfil>(`/perfis/${id}`, input);
       return data;
     },
     onSuccess: () => {
