@@ -198,36 +198,47 @@ export class SynthesizerService {
    */
   private async injetarIlustracoes(conteudo: ConteudoGerado): Promise<string> {
     let corpo = conteudo.corpoMarkdown;
-    // O LLM pode devolver mais itens do que o pedido ou entradas malformadas;
-    // antes de qualquer chamada externa (cada uma pode demorar até 60s),
-    // validamos o shape e limitamos a 3 ilustrações por conteúdo.
-    const ilustracoes = (conteudo.ilustracoes ?? [])
-      .filter((i) => typeof i?.prompt === 'string' && i.prompt.trim().length > 0)
-      .slice(0, 3);
-    if ((conteudo.ilustracoes?.length ?? 0) > ilustracoes.length) {
+    // parseJsonSeguro só faz cast — o LLM pode devolver ilustracoes em shape
+    // não-array (objeto/string) ou itens malformados. Antes de qualquer
+    // chamada externa (cada uma pode demorar até 60s), normalizamos com
+    // Array.isArray, validamos cada prompt e limitamos a 3 por conteúdo.
+    const brutas = Array.isArray(conteudo.ilustracoes) ? conteudo.ilustracoes : [];
+    if (!Array.isArray(conteudo.ilustracoes) && conteudo.ilustracoes != null) {
       this.logger.warn(
-        `Conteúdo "${conteudo.titulo}": ${conteudo.ilustracoes?.length} ilustrações solicitadas ` +
-          `pelo LLM, usando as ${ilustracoes.length} primeiras válidas (limite: 3)`,
+        `Conteúdo "${conteudo.titulo}": ilustracoes veio com shape inválido ` +
+          `(${typeof conteudo.ilustracoes}) — seguindo sem ilustrações`,
+      );
+    }
+    // O índice original de cada entrada precisa sobreviver ao filtro: é ele
+    // que casa com o placeholder [[imagem:N]] escrito pelo LLM no corpo. Um
+    // filter simples compactaria o array e trocaria as ilustrações de seção.
+    const ilustracoes = brutas
+      .map((item, indiceOriginal) => ({ item, indiceOriginal }))
+      .filter(
+        ({ item, indiceOriginal }) =>
+          typeof item?.prompt === 'string' &&
+          item.prompt.trim().length > 0 &&
+          corpo.includes(`[[imagem:${indiceOriginal}]]`),
+      )
+      .slice(0, 3);
+    if (brutas.length > ilustracoes.length) {
+      this.logger.warn(
+        `Conteúdo "${conteudo.titulo}": ${brutas.length} ilustrações informadas pelo LLM, ` +
+          `${ilustracoes.length} usadas (inválidas/órfãs descartadas; limite: 3)`,
       );
     }
     const apiPublica = this.config.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
 
     // Geração sequencial de propósito: respeita o rate limit do free tier do
     // provedor de imagem (no máx. 3 ilustrações por conteúdo).
-    for (let i = 0; i < ilustracoes.length; i++) {
+    for (const { item, indiceOriginal: i } of ilustracoes) {
       const placeholder = `[[imagem:${i}]]`;
-      if (!corpo.includes(placeholder)) {
-        this.logger.warn(
-          `Placeholder ${placeholder} não encontrado no corpo — ilustração ${i} ignorada`,
-        );
-        continue;
-      }
       try {
-        const { arquivo } = await this.imageService.gerarImagem({ prompt: ilustracoes[i].prompt });
+        const { arquivo } = await this.imageService.gerarImagem({ prompt: item.prompt });
         // Sanitização: o prompt vem do LLM — caracteres de markdown no alt
         // quebrariam a sintaxe ![...](...) persistida em corpoMarkdown.
         const alt =
-          ilustracoes[i].prompt
+          item.prompt
             .replace(/[[\]()]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim()
