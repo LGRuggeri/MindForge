@@ -10,6 +10,8 @@ export interface RespostaTutor {
   resposta: string;
   citacoes: string[];
   proximosPassos: string[];
+  /** Idioma (BCP-47, ex.: 'pt-br', 'en') em que a resposta foi escrita. */
+  idioma?: string;
 }
 
 interface ModuloContexto {
@@ -98,6 +100,7 @@ export class TutorService {
       resposta: resposta.resposta,
       citacoes: resposta.citacoes,
       proximosPassos: resposta.proximosPassos,
+      idiomaResposta: this.normalizarIdioma(resposta.idioma),
       chunksIds: chunks.map((c) => c.id),
     });
 
@@ -108,6 +111,7 @@ export class TutorService {
     return {
       duvidaId: registro.id,
       ...resposta,
+      idioma: registro.idiomaResposta,
       chunksConsultados: chunks.map((c) => ({
         id: c.id,
         texto: c.texto,
@@ -287,14 +291,16 @@ Regras:
 5. Mantenha continuidade da conversa: se a pergunta atual for um follow-up (ex: "e se...", "não entendi", "pode repetir", "me dê um exemplo"), responda como continuação direta da última dúvida, citando o que já foi dito e evitando repetir o contexto desnecessariamente.
 6. Nunca invente chunks ou citações. Use apenas os trechos fornecidos.
 7. Explique de forma clara, didática e no nível do aluno.
-8. Sugira 1 a 3 próximos passos concretos (exercício, revisão, próximo conceito).
-9. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
+8. Responda no mesmo idioma em que o aluno escreveu a pergunta (para perguntas em português, responda em português).
+9. Sugira 1 a 3 próximos passos concretos (exercício, revisão, próximo conceito).
+10. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
 
 Formato obrigatório:
 {
   "resposta": "string",
   "citacoes": ["string"],
-  "proximosPassos": ["string"]
+  "proximosPassos": ["string"],
+  "idioma": "código BCP-47 do idioma da resposta (ex.: 'pt-br', 'en', 'es')"
 }`;
   }
 
@@ -372,6 +378,16 @@ Materiais recuperados da Biblioteca Viva:
 ${chunksTexto}
 
 Responda a dúvida no formato JSON especificado.`;
+  }
+
+  /**
+   * O idioma vem do LLM (campo livre no JSON) — valida o formato antes de
+   * persistir para não quebrar a seleção de voz do TTS com lixo tipo '###'.
+   * Fallback pt-br: o projeto é usado em português por padrão.
+   */
+  private normalizarIdioma(idioma: unknown): string {
+    const normalizado = typeof idioma === 'string' ? idioma.trim().toLowerCase() : '';
+    return /^[a-z]{2}(-[a-z0-9]{2,4})?$/.test(normalizado) ? normalizado : 'pt-br';
   }
 
   private parseJsonSeguro<T>(raw: string): T {

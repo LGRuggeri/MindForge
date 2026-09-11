@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
 import { AgentesService } from '../agentes/agentes.service';
+import { ImageService } from '../midia/image.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { ReviewerService } from './reviewer.service';
 import { SynthesizerRepository } from './synthesizer.repository';
@@ -14,6 +16,7 @@ describe('SynthesizerService', () => {
   let biblioteca: jest.Mocked<BibliotecaVivaService>;
   let reviewer: jest.Mocked<ReviewerService>;
   let knowledgeGraph: jest.Mocked<KnowledgeGraphService>;
+  let imageService: jest.Mocked<ImageService>;
 
   const moduloId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -66,6 +69,10 @@ describe('SynthesizerService', () => {
       vincularCompetenciasAoModulo: jest.fn(),
     };
 
+    const imageServiceMock = {
+      gerarImagem: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SynthesizerService,
@@ -74,6 +81,8 @@ describe('SynthesizerService', () => {
         { provide: BibliotecaVivaService, useValue: bibliotecaMock },
         { provide: ReviewerService, useValue: reviewerMock },
         { provide: KnowledgeGraphService, useValue: knowledgeGraphMock },
+        { provide: ImageService, useValue: imageServiceMock },
+        { provide: ConfigService, useValue: { get: jest.fn((_key: string, fallback?: string) => fallback) } },
         { provide: JOB_QUEUE, useValue: { send: jest.fn() } },
       ],
     }).compile();
@@ -84,6 +93,7 @@ describe('SynthesizerService', () => {
     biblioteca = module.get(BibliotecaVivaService);
     reviewer = module.get(ReviewerService);
     knowledgeGraph = module.get(KnowledgeGraphService);
+    imageService = module.get(ImageService);
   });
 
   it('deve aprovar conteudo e salvar como revisado quando reviewer der nota >= 3', async () => {
@@ -231,5 +241,214 @@ describe('SynthesizerService', () => {
     expect(agentes.executar).toHaveBeenCalledTimes(2);
     expect(reviewer.revisar).toHaveBeenCalledTimes(2);
     expect(knowledgeGraph.vincularCompetenciasAoModulo).toHaveBeenCalled();
+  });
+
+  it('deve injetar ilustrações geradas no corpo markdown', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '# Ciclo\n\n[[imagem:0]]\n\nEvaporação e condensação.',
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      ilustracoes: [{ prompt: 'Water cycle diagram with labels' }],
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-abc.png', prompt: 'Water cycle diagram with labels' });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-img',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(imageService.gerarImagem).toHaveBeenCalledWith({ prompt: 'Water cycle diagram with labels' });
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    expect(salvo.corpoMarkdown).toContain('![Water cycle diagram with labels]');
+    expect(salvo.corpoMarkdown).toContain('http://localhost:3000/midia/imagem/imagem-abc.png');
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:0]]');
+  });
+
+  it('deve salvar conteúdo sem imagem quando o provedor de imagem falhar', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '# Ciclo\n\n[[imagem:0]]\n\nTexto.',
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      ilustracoes: [{ prompt: 'Water cycle diagram' }],
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    imageService.gerarImagem.mockRejectedValue(new Error('provedor fora do ar'));
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-sem-img',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    const resultado = await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(repo.criarConteudo).toHaveBeenCalled();
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:0]]');
+    expect(salvo.corpoMarkdown).not.toContain('/midia/imagem/');
+    expect((resultado as { status: string }).status).toBe('revisado');
+  });
+
+  it('deve ignorar prompts inválidos preservando o índice original do placeholder', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    const corpo = '# Ciclo\n\n[[imagem:0]]\n\n[[imagem:1]]\n\n[[imagem:2]]\n\nFim.';
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: corpo,
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      // Índice 1 inválido: o prompt do índice 2 precisa continuar casando com
+      // [[imagem:2]], não ser deslocado para [[imagem:1]].
+      ilustracoes: [
+        { prompt: 'Diagrama 1' },
+        { prompt: '  ' },
+        { prompt: 'Diagrama 2' },
+      ] as never,
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-x.png', prompt: 'p' });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-limite',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(imageService.gerarImagem).toHaveBeenCalledTimes(2);
+    expect(imageService.gerarImagem).toHaveBeenCalledWith({ prompt: 'Diagrama 1' });
+    expect(imageService.gerarImagem).toHaveBeenCalledWith({ prompt: 'Diagrama 2' });
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:');
+  });
+
+  it('deve limitar a 3 ilustrações mesmo quando todas são válidas', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    const corpo = '# Ciclo\n\n[[imagem:0]]\n\n[[imagem:1]]\n\n[[imagem:2]]\n\n[[imagem:3]]\n\nFim.';
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: corpo,
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      ilustracoes: [
+        { prompt: 'Diagrama 1' },
+        { prompt: 'Diagrama 2' },
+        { prompt: 'Diagrama 3' },
+        { prompt: 'Diagrama 4' },
+      ],
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-x.png', prompt: 'p' });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-cap',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(imageService.gerarImagem).toHaveBeenCalledTimes(3);
+    expect(imageService.gerarImagem).not.toHaveBeenCalledWith({ prompt: 'Diagrama 4' });
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:');
+  });
+
+  it('deve seguir sem ilustrações quando ilustracoes vem com shape não-array', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '# Ciclo\n\n[[imagem:0]]\n\nFim.',
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      // parseJsonSeguro faz cast — o LLM pode devolver objeto/string aqui.
+      ilustracoes: { prompt: 'shape errado' } as never,
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-shape',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    const resultado = await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(imageService.gerarImagem).not.toHaveBeenCalled();
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:');
+    expect((resultado as { status: string }).status).toBe('revisado');
+  });
+
+  it('deve substituir todas as ocorrências de um placeholder repetido pelo LLM', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([] as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '# Ciclo\n\n[[imagem:0]]\n\nTexto.\n\n[[imagem:0]]\n\nFim.',
+      resumo: 'Resumo',
+      palavrasChave: ['água'],
+      ilustracoes: [{ prompt: 'Water cycle diagram' }],
+    });
+    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-dup.png', prompt: 'Water cycle diagram' });
+    repo.criarConteudo.mockResolvedValue({
+      id: 'cont-dup',
+      moduloId,
+      titulo: 'Ciclo da água',
+      corpoMarkdown: '',
+      versao: 1,
+      status: 'revisado',
+      criadoEm: new Date(),
+    } as never);
+    biblioteca.indexarTexto.mockResolvedValue([] as never);
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+
+    await service.gerar({ moduloId, topico: 'Ciclo da água' });
+
+    expect(imageService.gerarImagem).toHaveBeenCalledTimes(1);
+    const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
+    const ocorrencias = salvo.corpoMarkdown.split('/midia/imagem/imagem-dup.png').length - 1;
+    expect(ocorrencias).toBe(2);
+    expect(salvo.corpoMarkdown).not.toContain('[[imagem:');
   });
 });

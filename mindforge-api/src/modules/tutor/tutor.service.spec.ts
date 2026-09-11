@@ -129,8 +129,52 @@ describe('TutorService', () => {
         resposta: respostaAgente.resposta,
         citacoes: respostaAgente.citacoes,
         proximosPassos: respostaAgente.proximosPassos,
+        idiomaResposta: 'pt-br',
         chunksIds: [],
       });
+    });
+
+    it('deve persistir o idioma informado pelo agente normalizado', async () => {
+      repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+      repo.listarHistoricoRecentePorPerfil.mockResolvedValue([]);
+      biblioteca.buscar.mockResolvedValue([]);
+
+      agentes.executar.mockResolvedValue({
+        resposta: 'A variable is like a named box.',
+        citacoes: [],
+        proximosPassos: [],
+        idioma: 'EN',
+      });
+
+      repo.salvarDuvida.mockResolvedValue({ id: duvidaId, idiomaResposta: 'en' } as never);
+
+      const resultado = await service.tirarDuvida(dto);
+
+      expect(repo.salvarDuvida).toHaveBeenCalledWith(
+        expect.objectContaining({ idiomaResposta: 'en' }),
+      );
+      expect(resultado.idioma).toBe('en');
+    });
+
+    it.each([123, {}, ['en'], true, null, undefined, '###'])('deve cair em pt-br quando o idioma do agente é inválido: %p', async (idioma) => {
+      repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+      repo.listarHistoricoRecentePorPerfil.mockResolvedValue([]);
+      biblioteca.buscar.mockResolvedValue([]);
+
+      agentes.executar.mockResolvedValue({
+        resposta: 'Resposta sem idioma válido.',
+        citacoes: [],
+        proximosPassos: [],
+        idioma,
+      });
+
+      repo.salvarDuvida.mockResolvedValue({ id: duvidaId } as never);
+
+      await service.tirarDuvida(dto);
+
+      expect(repo.salvarDuvida).toHaveBeenCalledWith(
+        expect.objectContaining({ idiomaResposta: 'pt-br' }),
+      );
     });
 
     it('deve continuar mesmo quando a Biblioteca Viva falha', async () => {

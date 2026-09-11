@@ -47,3 +47,6 @@ Thumbs.db
 
 # Docker volumes
 postgres-data/
+
+# Cache local de mídias geradas (módulo midia)
+data/

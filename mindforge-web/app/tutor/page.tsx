@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { MessageCircle, Send, User, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { MarkdownViewer } from '@/components/markdown-viewer';
+import { AudioButton } from '@/components/audio-button';
 
 export default function TutorPage() {
   const { perfilSelecionado } = useAppStore();
@@ -132,9 +133,14 @@ export default function TutorPage() {
                 </div>
                 <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
                   <Bot className="h-5 w-5 mt-0.5 text-primary" />
-                  <div className="prose prose-neutral dark:prose-invert max-w-none text-sm">
+                  <div className="prose prose-neutral dark:prose-invert max-w-none text-sm flex-1">
                     <MarkdownViewer>{duvida.resposta}</MarkdownViewer>
                   </div>
+                  <AudioButton
+                    texto={duvida.resposta}
+                    idioma={duvida.idiomaResposta}
+                    label="Ouvir resposta do tutor"
+                  />
                 </div>
               </CardContent>
             </Card>
