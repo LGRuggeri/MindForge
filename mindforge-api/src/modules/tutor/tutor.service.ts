@@ -385,8 +385,8 @@ Responda a dúvida no formato JSON especificado.`;
    * persistir para não quebrar a seleção de voz do TTS com lixo tipo '###'.
    * Fallback pt-br: o projeto é usado em português por padrão.
    */
-  private normalizarIdioma(idioma: string | undefined): string {
-    const normalizado = (idioma ?? '').trim().toLowerCase();
+  private normalizarIdioma(idioma: unknown): string {
+    const normalizado = typeof idioma === 'string' ? idioma.trim().toLowerCase() : '';
     return /^[a-z]{2}(-[a-z0-9]{2,4})?$/.test(normalizado) ? normalizado : 'pt-br';
   }
 

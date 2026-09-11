@@ -95,6 +95,11 @@ describe('AudioButton', () => {
     expect(textoPronunciaavel(markdown)).toBe('Título Use negrito e código, veja link e .');
   });
 
+  it('deve preservar operadores e remover marcadores de citação e lista', () => {
+    expect(textoPronunciaavel('x > 3, 5 - 3 e -5')).toBe('x > 3, 5 - 3 e -5');
+    expect(textoPronunciaavel('> x > 3\n- 5 - 3\n-5')).toBe('x > 3 5 - 3 -5');
+  });
+
   it('não deve truncar respostas longas', () => {
     const longo = 'a'.repeat(5000);
     expect(textoPronunciaavel(longo)).toHaveLength(5000);

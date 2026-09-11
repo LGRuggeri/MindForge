@@ -32,7 +32,9 @@ export function textoPronunciaavel(markdown: string): string {
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
-    .replace(/[*_>|-]+/g, ' ')
+    .replace(/^[ \t]*(?:>[ \t]?)+/gm, '')
+    .replace(/^[ \t]*-[ \t]+/gm, '')
+    .replace(/[*_|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

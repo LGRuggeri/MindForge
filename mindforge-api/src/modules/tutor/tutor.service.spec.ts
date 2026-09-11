@@ -156,7 +156,7 @@ describe('TutorService', () => {
       expect(resultado.idioma).toBe('en');
     });
 
-    it('deve cair em pt-br quando o idioma do agente é inválido', async () => {
+    it.each([123, {}, ['en'], true, null, undefined, '###'])('deve cair em pt-br quando o idioma do agente é inválido: %p', async (idioma) => {
       repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
       repo.listarHistoricoRecentePorPerfil.mockResolvedValue([]);
       biblioteca.buscar.mockResolvedValue([]);
@@ -165,7 +165,7 @@ describe('TutorService', () => {
         resposta: 'Resposta sem idioma válido.',
         citacoes: [],
         proximosPassos: [],
-        idioma: '###',
+        idioma,
       });
 
       repo.salvarDuvida.mockResolvedValue({ id: duvidaId } as never);
