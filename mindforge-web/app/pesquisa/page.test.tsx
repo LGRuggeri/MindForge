@@ -31,6 +31,7 @@ const apiPost = api.post as unknown as Mock;
 Element.prototype.scrollIntoView = vi.fn();
 
 const modulo: Modulo = {
+  status: 'nao_iniciado',
   id: 'mod-1',
   trilhaId: 'trilha-1',
   ordem: 1,
@@ -162,8 +163,8 @@ describe('Página de Pesquisa', () => {
       webSearch: true,
     });
     expect(screen.getByText(/Priorizar documentação oficial/)).toBeInTheDocument();
-    expect(screen.getByText(/8 resultados web usados/)).toBeInTheDocument();
-    expect(screen.getByText('Confiabilidade 95%')).toBeInTheDocument();
+    expect(screen.getByText(/8 endereços web disponíveis para curadoria/)).toBeInTheDocument();
+    expect(screen.getByText('Estimativa da IA: 95%')).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith('1 fontes curadas');
   });
 
@@ -340,4 +341,23 @@ describe('Página de Pesquisa', () => {
     );
     expect(screen.queryByText('Resultado da pesquisa')).not.toBeInTheDocument();
   });
+  it('distingue URL encontrada, sugestão e legado sem apresentar score como verificação', async () => {
+    useAppStore.setState({ perfilSelecionado: { id: 'perfil-1', nome: 'Ana', criadoEm: '' } });
+    mapearUrls();
+    const anterior = apiGet.getMockImplementation()!;
+    apiGet.mockImplementation((url: string) => url === '/research/modulos/mod-1/fontes'
+      ? Promise.resolve({ data: [
+        { ...fonte, origem: 'busca_web' },
+        { ...fonte, id: '2', origem: 'sugestao_ia', url: null },
+        { ...fonte, id: '3', origem: 'legado', confiabilidadeScore: null, titulo: 'Fonte antiga insegura', url: 'javascript:alert(1)' },
+      ] }) : anterior(url));
+    renderComQuery(<PesquisaPage />);
+    await selecionarModulo();
+    expect(await screen.findByText('URL encontrada na busca')).toBeInTheDocument();
+    expect(screen.getByText('Sugestão da IA · sem URL confirmada')).toBeInTheDocument();
+    expect(screen.getByText('Registro anterior · origem não verificada')).toBeInTheDocument();
+    expect(screen.queryByText(/Confiabilidade 95%/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Fonte antiga insegura' })).not.toBeInTheDocument();
+  });
+
 });

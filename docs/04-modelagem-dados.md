@@ -70,7 +70,7 @@ Se a versão do seu Postgres for diferente, troque o `16` pela sua versão
 
 | Tabela | Papel no fluxo |
 |---|---|
-| `fontes_pesquisa` | O que o Research Engine encontrou online: docs oficiais, artigos, livros, vídeos. |
+| `fontes_pesquisa` | Indicações do Research Engine: docs, artigos, livros e vídeos. `origem` distingue `busca_web`, `sugestao_ia` e `legado`; URL sem correspondência fica nula e score é estimativa. |
 | `conteudos` | O material didático gerado pelo Synthesizer a partir das fontes. Versionado (`versao`), com status de revisão. |
 | `conteudo_fontes` | Tabela associativa N:N — um conteúdo pode citar várias fontes, uma fonte pode alimentar vários conteúdos. |
 
@@ -107,7 +107,9 @@ contexto suficiente sem diluir demais a relevância da busca por similaridade.
 | `tentativas_exercicio` | Cada resposta sua, com correção e feedback gerado pela IA — é aqui que fica o histórico de "erros e acertos" que você pediu. |
 | `avaliacoes` | Agrupamentos de exercícios (prova, simulado, diagnóstico). |
 | `avaliacao_exercicios` | Associativa N:N entre avaliação e exercícios, com ordem. |
-| `resultados_avaliacao` | Resultado consolidado: pontuação, pontos fortes/fracos, recomendações — a análise que o agente Evaluator produz ao final de uma prova. |
+| `resultados_avaliacao` | Resultado consolidado: pontuação, pontos fortes/fracos, recomendações e cópia JSONB (`feedback_exercicios`) da resposta, pontuação e feedback de cada tentativa usada na nota. |
+
+Desde a migration `0014_feedback_resultado`, a finalização preserva os detalhes das tentativas selecionadas na mesma transação do resultado. O GET por avaliação/perfil só os disponibiliza após finalizar. Registros anteriores mantêm a coluna nula: a API apresenta suas tentativas como histórico, sem inferir quais compuseram a nota. Ver [feedback do simulado](plano-feedback-simulado-2026-09-14.md).
 
 ### 3.6 Revisão espaçada
 

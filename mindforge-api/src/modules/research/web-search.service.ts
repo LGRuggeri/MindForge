@@ -23,12 +23,12 @@ export class WebSearchService implements SearchProvider {
     serper: SerperSearchProvider,
   ) {
     const providerName = this.config.get<string>('SEARCH_PROVIDER', 'duckduckgo');
-    const providers: Record<string, SearchProvider> = {
-      api,
-      serper,
-      duckduckgo,
-    };
-    this.provider = providers[providerName] ?? duckduckgo;
+    const providers = new Map<string, SearchProvider>([
+      ['api', api],
+      ['serper', serper],
+      ['duckduckgo', duckduckgo],
+    ]);
+    this.provider = providers.get(providerName) ?? duckduckgo;
   }
 
   async buscar(consulta: string, limite?: number): Promise<WebSearchResultado[]> {

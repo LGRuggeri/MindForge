@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { EMBEDDING_DIMENSIONS } from '../../config/embedding';
 import {
   check,
   index,
@@ -19,7 +20,6 @@ import { fontesPesquisa } from './pesquisa.schema';
  * dimensões diferentes não são intercompatíveis. Ver 04-modelagem-dados.md §3.4
  * e docs/14-decisoes-arquiteturais.md ADR-016.
  */
-const EMBEDDING_DIMENSIONS = 768;
 
 export const conteudos = pgTable(
   'conteudos',

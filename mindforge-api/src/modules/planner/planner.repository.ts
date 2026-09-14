@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import {
   competencias,
+  competenciaProgresso,
   modulosTrilha,
   moduloCompetencias,
   NovoModuloTrilha,
@@ -131,10 +132,45 @@ export class PlannerRepository {
     });
   }
 
-  async buscarModuloPorId(id: string) {
-    return this.db.query.modulosTrilha.findFirst({
+  async buscarModuloPorId(id: string, tx?: DrizzleDb) {
+    return this.getClient(tx).query.modulosTrilha.findFirst({
       where: eq(modulosTrilha.id, id),
       with: { trilha: { with: { objetivo: true } } },
     });
+  }
+
+  async marcarModuloConcluido(id: string, tx: DrizzleDb) {
+    const [modulo] = await tx
+      .update(modulosTrilha)
+      .set({ status: 'concluido' })
+      .where(eq(modulosTrilha.id, id))
+      .returning();
+    return modulo;
+  }
+
+  async registrarEstudoCompetencias(moduloId: string, perfilId: string, tx: DrizzleDb) {
+    const vinculos = await tx
+      .select({ competenciaId: moduloCompetencias.competenciaId })
+      .from(moduloCompetencias)
+      .where(eq(moduloCompetencias.moduloId, moduloId));
+    if (vinculos.length === 0) return;
+    const evidencia = `Estudo do módulo ${moduloId} concluído`;
+    await tx
+      .insert(competenciaProgresso)
+      .values(
+        vinculos.map(({ competenciaId }) => ({
+          competenciaId,
+          perfilId,
+          nivelAtual: 'aprendendo',
+          evidencia,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [competenciaProgresso.competenciaId, competenciaProgresso.perfilId],
+        set: { nivelAtual: 'aprendendo', evidencia, atualizadoEm: new Date() },
+        // A decisão fica no SQL: nem uma atualização concorrente pode rebaixar
+        // progresso ou sobrescrever evidências de um nível superior.
+        setWhere: eq(competenciaProgresso.nivelAtual, 'nao_iniciado'),
+      });
   }
 }

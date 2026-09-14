@@ -1,3 +1,4 @@
+import { interpretarFontes, validarResultadosWeb } from './fontes-pesquisa';
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
@@ -5,22 +6,6 @@ import { AgentesService } from '../agentes/agentes.service';
 import { PesquisarDto } from './dto/pesquisar.dto';
 import { ResearchRepository } from './research.repository';
 import { WebSearchResultado, WebSearchService } from './web-search.service';
-
-export type TipoFonte = 'documentacao_oficial' | 'livro' | 'artigo' | 'video' | 'outro';
-
-export interface FonteSugerida {
-  tipo: TipoFonte;
-  titulo: string;
-  url?: string | null;
-  autor?: string | null;
-  confiabilidadeScore: number;
-  resumo: string;
-}
-
-export interface ResultadoPesquisa {
-  fontes: FonteSugerida[];
-  estrategia: string;
-}
 
 interface ModuloContexto {
   titulo: string;
@@ -33,14 +18,6 @@ interface ModuloContexto {
     };
   };
 }
-
-const TIPOS_VALIDOS = new Set<TipoFonte>([
-  'documentacao_oficial',
-  'livro',
-  'artigo',
-  'video',
-  'outro',
-]);
 
 @Injectable()
 export class ResearchService {
@@ -97,15 +74,19 @@ export class ResearchService {
 
     let resultadosWeb: WebSearchResultado[] = [];
     if (dto.webSearch) {
-      resultadosWeb = await this.webSearch.buscar(topico, 10);
+      try {
+        resultadosWeb = validarResultadosWeb(await this.webSearch.buscar(topico, 10));
+      } catch {
+        this.logger.warn('Busca web indisponível; continuando com sugestões da IA sem URLs');
+      }
     }
 
-    const resultado = await this.agentes.executar<ResultadoPesquisa>({
+    const resultado = await this.agentes.executar<ReturnType<typeof interpretarFontes>>({
       agente: 'researcher',
       system: this.montarSystemPrompt(limite, resultadosWeb),
       user: this.montarUserPrompt(topico, modulo, limite, resultadosWeb),
       entrada: { moduloId: dto.moduloId, topico, limite, webSearch: dto.webSearch },
-      parser: (raw) => this.normalizarResultado(this.parseJsonSeguro<ResultadoPesquisa>(raw)),
+      parser: (raw) => interpretarFontes(raw, resultadosWeb, limite),
       temperature: 0.4,
     });
 
@@ -116,7 +97,8 @@ export class ResearchService {
         titulo: f.titulo,
         url: f.url ?? null,
         autor: f.autor ?? null,
-        confiabilidadeScore: String(this.clampScore(f.confiabilidadeScore)),
+        origem: f.origem,
+        confiabilidadeScore: f.confiabilidadeScore == null ? null : String(f.confiabilidadeScore),
         resumo: f.resumo,
       })),
     );
@@ -142,9 +124,9 @@ Sua tarefa é indicar fontes confiáveis para um módulo de aprendizagem.
 
 Regras:
 1. Priorize documentação oficial, depois livros técnicos, artigos de qualidade e vídeos didáticos.
-2. Sugira entre 3 e ${limite} fontes relevantes e diversificadas.
-3. Prefira fontes reais e amplamente conhecidas; se não tiver certeza de uma URL, deixe url como null.
-4. Atribua confiabilidadeScore de 0.00 a 1.00 (documentação oficial tende a 0.90–1.00).
+2. Sugira entre 1 e ${limite} fontes relevantes e diversificadas.
+3. Copie URLs somente dos resultados de busca fornecidos. Sem correspondência, indique a fonte com url null.
+4. Atribua confiabilidadeScore de 0.00 a 1.00 como estimativa, nunca como comprovação factual.
 5. Cada resumo deve explicar em 1–2 frases por que a fonte serve ao módulo.
 6. Retorne APENAS um objeto JSON válido, sem markdown, sem explicações adicionais.
 
@@ -198,50 +180,5 @@ Tópico a pesquisar: ${topico}
 Quantidade desejada de fontes: ${limite}${secaoWeb}
 
 Liste as melhores fontes para este módulo no formato JSON especificado.`;
-  }
-
-  private normalizarResultado(resultado: ResultadoPesquisa): ResultadoPesquisa {
-    if (!resultado?.fontes || !Array.isArray(resultado.fontes)) {
-      throw new Error('O agente Researcher retornou fontes inválidas');
-    }
-
-    const fontes = resultado.fontes
-      .filter((f) => f?.titulo && f?.resumo)
-      .map((f) => ({
-        tipo: TIPOS_VALIDOS.has(f.tipo) ? f.tipo : ('outro' as TipoFonte),
-        titulo: String(f.titulo).trim(),
-        url: f.url ? String(f.url).trim() : null,
-        autor: f.autor ? String(f.autor).trim() : null,
-        confiabilidadeScore: this.clampScore(
-          f.confiabilidadeScore === undefined || f.confiabilidadeScore === null
-            ? 0.7
-            : Number(f.confiabilidadeScore),
-        ),
-        resumo: String(f.resumo).trim(),
-      }));
-
-    if (fontes.length === 0) {
-      throw new Error('O agente Researcher não retornou fontes utilizáveis');
-    }
-
-    return {
-      estrategia: resultado.estrategia?.trim() || 'Fontes curadas por prioridade de confiabilidade',
-      fontes,
-    };
-  }
-
-  private clampScore(score: number): number {
-    if (Number.isNaN(score)) return 0.7;
-    return Math.min(1, Math.max(0, Math.round(score * 100) / 100));
-  }
-
-  private parseJsonSeguro<T>(raw: string): T {
-    const limpo = raw.replace(/```json|```/g, '').trim();
-    try {
-      return JSON.parse(limpo) as T;
-    } catch {
-      this.logger.error('Falha ao parsear JSON do Researcher', raw);
-      throw new Error('O agente Researcher retornou uma resposta inválida');
-    }
   }
 }

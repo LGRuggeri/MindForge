@@ -1,14 +1,8 @@
 import { Controller, Delete, Get, Inject, Param, ParseUUIDPipe } from '@nestjs/common';
 import { JOB_QUEUE } from './job-queue.token';
 import { JobsService } from './jobs.service';
-
-const QUEUES = [
-  'synthesizer.gerar-conteudo',
-  'exercicios.gerar',
-  'exercicios.corrigir-tentativa',
-  'biblioteca-viva.indexar',
-  'research.pesquisar',
-];
+import { FILAS_PUBLICAS, NomeFilaPipe } from './nome-fila.pipe';
+import { resultadoPublico } from './resultado-publico';
 
 @Controller('jobs')
 export class JobsController {
@@ -16,7 +10,7 @@ export class JobsController {
 
   @Get('filas')
   async listarFilas() {
-    const filas = await this.jobs.getQueues(QUEUES);
+    const filas = await this.jobs.getQueues(FILAS_PUBLICAS);
     return filas.map((f) => ({
       nome: f.name,
       enfileirados: f.queuedCount,
@@ -29,7 +23,10 @@ export class JobsController {
   }
 
   @Get(':nome/:id')
-  async buscarJob(@Param('nome') nome: string, @Param('id', ParseUUIDPipe) id: string) {
+  async buscarJob(
+    @Param('nome', NomeFilaPipe) nome: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const job = await this.jobs.getJobById<Record<string, unknown>>(nome, id);
     if (!job) {
       return { encontrado: false };
@@ -43,11 +40,15 @@ export class JobsController {
       iniciadoEm: job.startedOn,
       finalizadoEm: job.completedOn,
       tentativas: job.retryCount,
+      resultado: job.state === 'completed' ? resultadoPublico(nome, job.output) : null,
     };
   }
 
   @Get(':nome/:id/estado')
-  async estadoJob(@Param('nome') nome: string, @Param('id', ParseUUIDPipe) id: string) {
+  async estadoJob(
+    @Param('nome', NomeFilaPipe) nome: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const job = await this.jobs.getJobById<Record<string, unknown>>(nome, id);
     return {
       encontrado: !!job,
@@ -59,7 +60,10 @@ export class JobsController {
   }
 
   @Delete(':nome/:id')
-  async cancelarJob(@Param('nome') nome: string, @Param('id', ParseUUIDPipe) id: string) {
+  async cancelarJob(
+    @Param('nome', NomeFilaPipe) nome: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.jobs.cancelJob(nome, id);
     const job = await this.jobs.getJobById<Record<string, unknown>>(nome, id);
     return {

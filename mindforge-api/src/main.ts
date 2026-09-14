@@ -1,12 +1,10 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+export function configurarAplicacao(app: INestApplication) {
   const config = app.get(ConfigService);
 
   app.enableCors({
@@ -22,11 +20,33 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new ProblemDetailsFilter());
-
-  const port = config.get<number>('PORT', 3000);
-  await app.listen(port);
-
-  console.log(`MindForge API rodando em http://localhost:${port}`);
+  app.enableShutdownHooks();
 }
 
-bootstrap();
+async function criarAplicacao() {
+  const { AppModule } = await import('./app.module');
+  return NestFactory.create(AppModule, { abortOnError: false });
+}
+
+export async function bootstrap(criar: () => Promise<INestApplication> = criarAplicacao) {
+  const app = await criar();
+  try {
+    configurarAplicacao(app);
+    const port = app.get(ConfigService).get<number>('PORT', 3000);
+    await app.listen(port);
+    new Logger('Bootstrap').log(`MindForge API rodando em http://localhost:${port}`);
+    return app;
+  } catch (erro) {
+    await app.close();
+    throw erro;
+  }
+}
+
+if (require.main === module) {
+  void bootstrap().catch(() => {
+    new Logger('Bootstrap').error(
+      'Não foi possível iniciar a API. Verifique a configuração e os serviços locais.',
+    );
+    process.exitCode = 1;
+  });
+}

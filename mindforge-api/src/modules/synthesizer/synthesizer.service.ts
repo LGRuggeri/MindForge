@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { validarRespostaIa } from '../../common/ia/json-ia';
+import { conteudoGeradoSchema } from '../../common/ia/contratos-ia';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
 import { ImageService } from '../midia/image.service';
@@ -31,6 +33,7 @@ interface ModuloContexto {
 }
 
 interface FonteContexto {
+  origem?: string;
   id?: string;
   titulo: string;
   resumo: string | null;
@@ -198,8 +201,7 @@ export class SynthesizerService {
    */
   private async injetarIlustracoes(conteudo: ConteudoGerado): Promise<string> {
     let corpo = conteudo.corpoMarkdown;
-    // parseJsonSeguro só faz cast — o LLM pode devolver ilustracoes em shape
-    // não-array (objeto/string) ou itens malformados. Antes de qualquer
+    // O contrato normaliza ilustrações opcionais inválidas. Antes de qualquer
     // chamada externa (cada uma pode demorar até 60s), normalizamos com
     // Array.isArray, validamos cada prompt e limitamos a 3 por conteúdo.
     const brutas = Array.isArray(conteudo.ilustracoes) ? conteudo.ilustracoes : [];
@@ -245,10 +247,7 @@ export class SynthesizerService {
             .slice(0, 80) || 'Ilustração';
         // replaceAll: se o LLM repetir o mesmo placeholder no corpo, todas as
         // ocorrências apontam para a mesma ilustração (cache por prompt).
-        corpo = corpo.replaceAll(
-          placeholder,
-          `![${alt}](${apiPublica}/midia/imagem/${arquivo})`,
-        );
+        corpo = corpo.replaceAll(placeholder, `![${alt}](${apiPublica}/midia/imagem/${arquivo})`);
       } catch (erro) {
         this.logger.error(
           `Falha ao gerar ilustração ${i} do conteúdo "${conteudo.titulo}" — seguindo sem imagem`,
@@ -289,7 +288,7 @@ export class SynthesizerService {
       system: this.montarSystemPrompt(),
       user: this.montarUserPrompt(dto, modulo, fontes, feedbackReview),
       entrada: { moduloId: dto.moduloId, topico: dto.topico, reescrita: !!feedbackReview },
-      parser: (raw: string) => this.parseJsonSeguro<ConteudoGerado>(raw),
+      parser: (raw: string) => validarRespostaIa(raw, conteudoGeradoSchema, 'Synthesizer'),
       temperature: 0.6,
     });
   }
@@ -313,7 +312,7 @@ Regras:
 2. Use Markdown semântico: títulos (#), listas, blocos de código, tabelas e negrito quando útil.
 3. Inclua exemplos concretos e, quando aplicável, um exercício mental ou pequeno desafio no final.
 4. Respeite o nível do aluno (iniciante, intermediário, avançado).
-5. Não copie textos das fontes; reescreva com suas próprias palavras e organize didaticamente.
+5. Resumos de fontes são gerados pela IA; não trate sugestões ou links encontrados como fatos verificados. Não copie textos das fontes; reescreva com suas próprias palavras e organize didaticamente.
 6. SUGIRA de 0 a 3 ilustrações didáticas quando o tema se beneficiar de figura (diagrama, esquema, mapa conceitual, fluxo, anatomia de algo). Temas abstratos sem representação visual clara NÃO devem ter ilustração. Cada ilustração tem um "prompt" descritivo em inglês (estilo didático, rótulos na língua do conteúdo) e o corpoMarkdown deve conter o placeholder [[imagem:N]] (N = índice, começando em 0) exatamente no ponto onde a imagem deve aparecer, em linha própria.
 7. Retorne APENAS um objeto JSON válido, sem markdown ao redor, sem explicações adicionais.
 
@@ -342,7 +341,7 @@ Formato obrigatório:
         ? fontes
             .map(
               (f) =>
-                `- ${f.titulo} (${f.tipo})${f.url ? ` [${f.url}]` : ''}${f.resumo ? `: ${f.resumo}` : ''}`,
+                `- ${f.titulo} (${f.tipo}; ${f.origem === 'busca_web' ? 'URL encontrada na busca, conteúdo não verificado' : 'origem não verificada'})${f.url ? ` [${f.url}]` : ''}${f.resumo ? `: ${f.resumo}` : ''}`,
             )
             .join('\n')
         : 'Nenhuma fonte registrada. Gere o conteúdo com base no tópico e no objetivo de aprendizagem.';
@@ -363,15 +362,5 @@ Fontes de pesquisa:
 ${fontesTexto}
 
 Gere o conteúdo didático no formato JSON especificado.`;
-  }
-
-  private parseJsonSeguro<T>(raw: string): T {
-    const limpo = raw.replace(/```json|```/g, '').trim();
-    try {
-      return JSON.parse(limpo) as T;
-    } catch {
-      this.logger.error('Falha ao parsear JSON do Synthesizer', raw);
-      throw new Error('O agente Synthesizer retornou uma resposta inválida');
-    }
   }
 }

@@ -1,101 +1,41 @@
-/**
- * Chunking alinhado a docs/09-rag-biblioteca-viva.md:
- * ~500–800 tokens por chunk, overlap ~50–100 tokens.
- * Aproximação: 1 token ≈ 4 caracteres (português/inglês misto).
- */
-const TARGET_CHARS = 2400; // ~600 tokens
-const OVERLAP_CHARS = 300; // ~75 tokens
-const MIN_CHUNK_CHARS = 80;
+/** Aproximação de 600 tokens por chunk e 75 tokens de contexto compartilhado. */
+const TARGET_CHARS = 2400;
+const OVERLAP_CHARS = 300;
+
+// Índices de strings JS são unidades UTF-16; nunca cortar um par substituto.
+function ajustarCorte(texto: string, indice: number): number {
+  const atual = texto.charCodeAt(indice);
+  const anterior = texto.charCodeAt(indice - 1);
+  return atual >= 0xdc00 && atual <= 0xdfff && anterior >= 0xd800 && anterior <= 0xdbff
+    ? indice - 1
+    : indice;
+}
 
 export function chunkTexto(texto: string): string[] {
   const limpo = texto.replace(/\r\n/g, '\n').trim();
   if (!limpo) return [];
+  if (limpo.length <= TARGET_CHARS) return [limpo];
 
-  if (limpo.length <= TARGET_CHARS) {
-    return [limpo];
-  }
-
-  const paragrafos = limpo
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
   const chunks: string[] = [];
-  let buffer = '';
-
-  const flush = () => {
-    const t = buffer.trim();
-    if (t.length >= MIN_CHUNK_CHARS) {
-      chunks.push(t);
-    } else if (t && chunks.length > 0) {
-      chunks[chunks.length - 1] = `${chunks[chunks.length - 1]}\n\n${t}`.trim();
-    } else if (t) {
-      chunks.push(t);
-    }
-    buffer = '';
-  };
-
-  for (const paragrafo of paragrafos) {
-    if (paragrafo.length > TARGET_CHARS) {
-      if (buffer) flush();
-      chunks.push(...chunkPorTamanho(paragrafo));
-      continue;
-    }
-
-    const candidato = buffer ? `${buffer}\n\n${paragrafo}` : paragrafo;
-    if (candidato.length <= TARGET_CHARS) {
-      buffer = candidato;
-    } else {
-      flush();
-      buffer = paragrafo;
-    }
-  }
-
-  if (buffer) flush();
-
-  return aplicarOverlap(chunks);
-}
-
-function chunkPorTamanho(texto: string): string[] {
-  const partes: string[] = [];
   let inicio = 0;
-
-  while (inicio < texto.length) {
-    let fim = Math.min(inicio + TARGET_CHARS, texto.length);
-
-    if (fim < texto.length) {
-      const janela = texto.slice(inicio, fim);
-      const quebra =
-        Math.max(janela.lastIndexOf('\n'), janela.lastIndexOf('. '), janela.lastIndexOf(' ')) ||
-        janela.length;
-      fim = inicio + quebra;
-      if (fim <= inicio) {
-        fim = Math.min(inicio + TARGET_CHARS, texto.length);
+  while (inicio < limpo.length) {
+    let fim = Math.min(inicio + TARGET_CHARS, limpo.length);
+    if (fim < limpo.length) {
+      const janela = limpo.slice(inicio, fim);
+      // Fronteiras próximas do início não podem anular o avanço após o overlap.
+      for (const separador of ['\n\n', '\n', '. ', ' ']) {
+        const posicao = janela.lastIndexOf(separador);
+        if (posicao >= TARGET_CHARS / 2) {
+          fim = inicio + posicao + separador.length;
+          break;
+        }
       }
+      fim = ajustarCorte(limpo, fim);
     }
-
-    const fatia = texto.slice(inicio, fim).trim();
-    if (fatia) partes.push(fatia);
-
-    if (fim >= texto.length) break;
-    inicio = Math.max(fim - OVERLAP_CHARS, inicio + 1);
+    // Preserva indentação e espaços internos, inclusive em exemplos de código.
+    chunks.push(limpo.slice(inicio, fim));
+    if (fim === limpo.length) break;
+    inicio = ajustarCorte(limpo, fim - OVERLAP_CHARS);
   }
-
-  return partes;
-}
-
-function aplicarOverlap(chunks: string[]): string[] {
-  if (chunks.length <= 1) return chunks;
-
-  const comOverlap: string[] = [chunks[0]];
-  for (let i = 1; i < chunks.length; i++) {
-    const anterior = chunks[i - 1];
-    const cauda = anterior.slice(Math.max(0, anterior.length - OVERLAP_CHARS)).trim();
-    const atual = chunks[i];
-    if (cauda && !atual.startsWith(cauda.slice(0, Math.min(40, cauda.length)))) {
-      comOverlap.push(`${cauda}\n\n${atual}`.trim());
-    } else {
-      comOverlap.push(atual);
-    }
-  }
-  return comOverlap;
+  return chunks;
 }

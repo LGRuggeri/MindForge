@@ -1,4 +1,4 @@
-import { Global, Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BibliotecaVivaModule } from '../modules/biblioteca-viva/biblioteca-viva.module';
 import { BibliotecaVivaService } from '../modules/biblioteca-viva/biblioteca-viva.service';
@@ -86,19 +86,5 @@ import { JOB_QUEUE } from './job-queue.token';
   controllers: [JobsController],
   exports: [JOB_QUEUE],
 })
-export class JobsModule implements OnModuleInit, OnModuleDestroy {
-  constructor(
-    @Inject(JOB_QUEUE) private readonly queue: JobsService,
-    private readonly synthesizerHandler: SynthesizerJobHandler,
-    private readonly exerciciosHandler: ExerciciosJobHandler,
-    private readonly embeddingsHandler: EmbeddingsJobHandler,
-  ) {}
-
-  onModuleInit() {
-    return this.queue.onModuleInit();
-  }
-
-  onModuleDestroy() {
-    return this.queue.onModuleDestroy();
-  }
-}
+// O Nest executa os hooks da fila e dos handlers registrados como providers.
+export class JobsModule {}

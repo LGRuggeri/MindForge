@@ -32,6 +32,27 @@ describe('ResearchJobHandler', () => {
     expect(queue.work).toHaveBeenCalledWith(RESEARCH_JOB, expect.any(Function));
   });
 
+  it('retorna somente identificadores e origens das fontes para o pg-boss', async () => {
+    const id = '123e4567-e89b-42d3-a456-426614174000';
+    const fontes = [
+      { id, origem: 'busca_web' },
+      { id, origem: 'sugestao_ia' },
+    ];
+    research.pesquisar.mockResolvedValue({
+      moduloId: id,
+      fontes,
+      resultadosWeb: 1,
+      topico: 'SEGREDO',
+    });
+    await handler.onModuleInit();
+    const [[, executar]] = queue.work.mock.calls;
+    expect(await executar([criarJob({ moduloId: id, async: true })])).toEqual({
+      moduloId: id,
+      fontes,
+      resultadosWeb: 1,
+    });
+  });
+
   it('deve processar o job chamando pesquisar do serviço', async () => {
     await handler.onModuleInit();
     const [[, registeredHandler]] = queue.work.mock.calls;

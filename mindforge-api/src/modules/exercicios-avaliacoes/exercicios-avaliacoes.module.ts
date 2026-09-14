@@ -8,6 +8,7 @@ import { ExerciciosAvaliacoesController } from './exercicios-avaliacoes.controll
 import { ExerciciosAvaliacoesRepository } from './exercicios-avaliacoes.repository';
 import { ExerciciosAvaliacoesService } from './exercicios-avaliacoes.service';
 import { RevisaoEspacadaService } from './revisao-espacada.service';
+import { RevisaoEspacadaRepository } from './revisao-espacada.repository';
 
 @Module({
   imports: [AgentesModule, BibliotecaVivaModule, KnowledgeGraphModule, PlannerModule],
@@ -16,6 +17,7 @@ import { RevisaoEspacadaService } from './revisao-espacada.service';
     ExerciciosAvaliacoesService,
     AvaliacoesService,
     RevisaoEspacadaService,
+    RevisaoEspacadaRepository,
     ExerciciosAvaliacoesRepository,
   ],
   exports: [ExerciciosAvaliacoesService, AvaliacoesService, RevisaoEspacadaService],

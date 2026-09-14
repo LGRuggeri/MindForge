@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { PesquisarDto } from './dto/pesquisar.dto';
 import { ResearchService } from './research.service';
 
@@ -13,7 +22,7 @@ export class ResearchController {
   }
 
   @Get('modulos/:moduloId/fontes')
-  listarPorModulo(@Param('moduloId') moduloId: string) {
+  listarPorModulo(@Param('moduloId', ParseUUIDPipe) moduloId: string) {
     return this.service.listarPorModulo(moduloId);
   }
 }

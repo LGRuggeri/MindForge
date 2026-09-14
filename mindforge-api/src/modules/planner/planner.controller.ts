@@ -1,7 +1,18 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { PlannerService } from './planner.service';
 import { CriarObjetivoDto } from './dto/criar-objetivo.dto';
 import { GerarTrilhaDto } from './dto/gerar-trilha.dto';
+import { ConcluirModuloDto } from './dto/concluir-modulo.dto';
 
 @Controller('planner')
 export class PlannerController {
@@ -38,5 +49,11 @@ export class PlannerController {
   @Get('modulos/:id')
   buscarModulo(@Param('id') id: string) {
     return this.service.buscarModuloPorId(id);
+  }
+
+  @Post('modulos/:id/concluir')
+  @HttpCode(HttpStatus.OK)
+  concluirModulo(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConcluirModuloDto) {
+    return this.service.concluirModulo(id, dto.perfilId);
   }
 }

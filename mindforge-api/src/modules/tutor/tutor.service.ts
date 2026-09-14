@@ -1,4 +1,6 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { validarRespostaIa } from '../../common/ia/json-ia';
+import { respostaTutorSchema } from '../../common/ia/contratos-ia';
 import { AgentKbService } from '../agent-kb/agent-kb.service';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
@@ -58,6 +60,9 @@ export class TutorService {
     if (!modulo) {
       throw new NotFoundException(`Módulo ${dto.moduloId} não encontrado`);
     }
+    if (modulo.trilha?.objetivo?.perfilId !== dto.perfilId) {
+      throw new ForbiddenException('Módulo não pertence ao perfil informado');
+    }
 
     const historico = await this.repo.listarHistoricoRecentePorPerfil(dto.perfilId, 5);
     const historicoNormalizado = this.normalizarHistorico(historico);
@@ -74,6 +79,7 @@ export class TutorService {
     try {
       chunks = await this.biblioteca.buscar({
         consulta: this.montarConsultaRag(dto.pergunta, modulo, thread),
+        moduloId: dto.moduloId,
         limite: dto.limiteChunks ?? 5,
       });
     } catch (erro) {
@@ -89,7 +95,7 @@ export class TutorService {
       system: this.montarSystemPrompt(contextoAgentKb),
       user: this.montarUserPrompt(dto, modulo, chunks, historicoNormalizado, thread),
       entrada: { perfilId: dto.perfilId, moduloId: dto.moduloId, pergunta: dto.pergunta },
-      parser: (raw) => this.parseJsonSeguro<RespostaTutor>(raw),
+      parser: (raw) => validarRespostaIa(raw, respostaTutorSchema, 'Teacher'),
       temperature: 0.6,
     });
 
@@ -388,15 +394,5 @@ Responda a dúvida no formato JSON especificado.`;
   private normalizarIdioma(idioma: unknown): string {
     const normalizado = typeof idioma === 'string' ? idioma.trim().toLowerCase() : '';
     return /^[a-z]{2}(-[a-z0-9]{2,4})?$/.test(normalizado) ? normalizado : 'pt-br';
-  }
-
-  private parseJsonSeguro<T>(raw: string): T {
-    const limpo = raw.replace(/```json|```/g, '').trim();
-    try {
-      return JSON.parse(limpo) as T;
-    } catch {
-      this.logger.error('Falha ao parsear JSON do Teacher (tutor)', raw);
-      throw new Error('O agente Teacher retornou uma resposta inválida');
-    }
   }
 }

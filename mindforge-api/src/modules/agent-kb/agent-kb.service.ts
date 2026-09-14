@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { z } from 'zod';
+import { buscaSchema, contextoSchema, projetoSchema, reciboSchema } from './contratos-agent-kb';
 
 const execFileAsync = promisify(execFile);
 
@@ -102,8 +104,10 @@ export class AgentKbService implements OnModuleInit {
     techStack?: string[];
   }): Promise<AgentKbProject> {
     this.assertAvailable();
-    const existing = await this.run<AgentKbProject[]>(['project', 'list']);
-    const found = existing.find((p) => p.slug === this.projectId || p.name === params.name);
+    const existing = await this.run(['project', 'list'], projetoSchema.array());
+    const found =
+      existing.find((p) => p.id === this.projectId || p.slug === this.projectId) ??
+      existing.find((p) => p.name === params.name);
     if (found) {
       this.projectUuid = found.id;
       return found;
@@ -113,7 +117,8 @@ export class AgentKbService implements OnModuleInit {
     if (params.techStack && params.techStack.length > 0) {
       args.push('--tech-stack', ...params.techStack);
     }
-    const created = await this.run<AgentKbProject>(args);
+    const recibo = await this.run(args, reciboSchema);
+    const created = await this.run(['project', 'get', recibo.id], projetoSchema);
     this.projectUuid = created.id;
     return created;
   }
@@ -158,7 +163,8 @@ export class AgentKbService implements OnModuleInit {
     if (params.sourceRef) {
       args.push('--source-ref', params.sourceRef);
     }
-    return this.run<AgentKbMemoryNode>(args);
+    const recibo = await this.run(args, reciboSchema);
+    return { ...params, id: recibo.id, importance: params.importance ?? 'medium', projectId };
   }
 
   /**
@@ -167,14 +173,10 @@ export class AgentKbService implements OnModuleInit {
   async buildContextPack(query: string, budget = 4000): Promise<AgentKbContextPack> {
     this.assertAvailable();
     const projectId = await this.resolveProjectId();
-    return this.run<AgentKbContextPack>([
-      'context-pack',
-      query,
-      '--project-id',
-      projectId,
-      '--budget',
-      String(budget),
-    ]);
+    return this.run(
+      ['context-pack', query, '--project-id', projectId, '--budget', String(budget)],
+      contextoSchema,
+    );
   }
 
   /**
@@ -183,24 +185,27 @@ export class AgentKbService implements OnModuleInit {
   async semanticSearch(query: string, limit = 5): Promise<AgentKbSearchResult[]> {
     this.assertAvailable();
     const projectId = await this.resolveProjectId();
-    return this.run<AgentKbSearchResult[]>([
-      'semantic-search',
-      query,
-      '--project-id',
-      projectId,
-      '--mode',
-      'hybrid',
-      '--limit',
-      String(limit),
-    ]);
+    return this.run(
+      [
+        'semantic-search',
+        query,
+        '--project-id',
+        projectId,
+        '--mode',
+        'hybrid',
+        '--limit',
+        String(limit),
+      ],
+      buscaSchema,
+    );
   }
 
   private async resolveProjectId(): Promise<string> {
     if (this.projectUuid) {
       return this.projectUuid;
     }
-    const existing = await this.run<AgentKbProject[]>(['project', 'list']);
-    const found = existing.find((p) => p.slug === this.projectId);
+    const existing = await this.run(['project', 'list'], projetoSchema.array());
+    const found = existing.find((p) => p.id === this.projectId || p.slug === this.projectId);
     if (!found) {
       throw new Error(`Projeto ${this.projectId} não encontrado no agent_kb`);
     }
@@ -214,18 +219,19 @@ export class AgentKbService implements OnModuleInit {
     }
   }
 
-  private async run<T>(args: string[]): Promise<T> {
+  private async run<T>(args: string[], schema: z.ZodType<T>): Promise<T> {
     const python = process.platform === 'win32' ? 'python' : 'python3';
     try {
       const { stdout } = await execFileAsync(python, [this.scriptPath!, ...args], {
         maxBuffer: 10 * 1024 * 1024,
         timeout: 60_000,
+        windowsHide: true,
+        encoding: 'utf8',
       });
-      return JSON.parse(stdout) as T;
-    } catch (erro) {
-      const mensagem = erro instanceof Error ? erro.message : String(erro);
-      this.logger.error(`agent_kb falhou (${args.join(' ')}): ${mensagem}`);
-      throw new Error(`Falha ao executar agent_kb: ${mensagem}`);
+      return schema.parse(JSON.parse(stdout) as unknown);
+    } catch {
+      this.logger.error('Falha no subprocesso ou na resposta do agent_kb.');
+      throw new Error('Falha ao executar agent_kb.');
     }
   }
 }

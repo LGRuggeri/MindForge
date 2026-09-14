@@ -1,5 +1,15 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { z } from 'zod';
+import { lerJsonIa, validarRespostaIa } from '../../common/ia/json-ia';
+import { exercicioGeradoSchema } from '../../common/ia/contratos-ia';
 import { AgentesService } from '../agentes/agentes.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
@@ -99,7 +109,7 @@ export class ExerciciosAvaliacoesService {
         tipo: dto.tipo,
         dificuldade: dto.dificuldade,
       },
-      parser: (raw) => this.parseJsonSeguro<ExercicioGerado>(raw),
+      parser: (raw) => validarRespostaIa(raw, exercicioGeradoSchema, 'Evaluator'),
       temperature: 0.7,
     });
 
@@ -127,6 +137,8 @@ export class ExerciciosAvaliacoesService {
     if (!exercicioId) {
       throw new BadRequestException('exercicioId é obrigatório');
     }
+
+    await this.validarVinculosTentativa(dto, exercicioId);
 
     if (dto.async) {
       const jobId = await this.queue.send(
@@ -157,19 +169,7 @@ export class ExerciciosAvaliacoesService {
       throw new NotFoundException(`Exercício ${exercicioId} não encontrado`);
     }
 
-    let modulo: { titulo: string; objetivoAprendizagem: string | null };
-    try {
-      modulo = await this.planner.buscarModuloPorId(exercicio.moduloId);
-    } catch (erro) {
-      if (!(erro instanceof NotFoundException)) {
-        throw erro;
-      }
-      const mensagem = erro instanceof Error ? erro.message : String(erro);
-      this.logger.error(
-        `Módulo ${exercicio.moduloId} não encontrado na correção do exercício ${exercicioId}: ${mensagem}`,
-      );
-      modulo = { titulo: 'Módulo desconhecido', objetivoAprendizagem: null };
-    }
+    const modulo = await this.planner.buscarModuloPorId(exercicio.moduloId);
 
     const numeroTentativa = await this.repo.contarTentativasPorExercicio(exercicioId);
 
@@ -178,9 +178,10 @@ export class ExerciciosAvaliacoesService {
       exercicio,
       dto.respostaUsuario,
       modulo,
-      !dto.avaliacaoId,
     );
 
+    // A correção pode demorar; revalidar se a avaliação foi finalizada nesse intervalo.
+    if (dto.avaliacaoId) await this.validarVinculosTentativa(dto, exercicioId);
     const tentativa = await this.repo.salvarTentativa({
       perfilId: dto.perfilId!,
       exercicioId,
@@ -210,7 +211,40 @@ export class ExerciciosAvaliacoesService {
     const feedbackResposta = dto.avaliacaoId
       ? 'Resposta registrada. O feedback detalhado será disponibilizado após a finalização.'
       : correcao.feedback;
-    return { ...tentativa, feedback: feedbackResposta };
+    return dto.avaliacaoId
+      ? {
+          ...tentativa,
+          correta: null,
+          pontuacao: null,
+          feedbackIa: null,
+          feedback: feedbackResposta,
+        }
+      : { ...tentativa, feedback: feedbackResposta };
+  }
+
+  private async validarVinculosTentativa(dto: SubmeterTentativaDto, exercicioId: string) {
+    const exercicio = await this.repo.buscarExercicioPorId(exercicioId);
+    if (!exercicio) throw new NotFoundException(`Exercício ${exercicioId} não encontrado`);
+    const modulo = await this.planner.buscarModuloPorId(exercicio.moduloId);
+    if (!dto.perfilId || modulo.trilha?.objetivo?.perfilId !== dto.perfilId) {
+      throw new ForbiddenException('Exercício não pertence ao perfil informado');
+    }
+    if (!dto.avaliacaoId) return;
+    const avaliacao = await this.repo.buscarAvaliacaoPorId(dto.avaliacaoId);
+    if (!avaliacao) throw new NotFoundException('Avaliação não encontrada');
+    const dono =
+      avaliacao.modulo?.trilha?.objetivo?.perfilId ?? avaliacao.trilha?.objetivo?.perfilId;
+    if (
+      dono !== dto.perfilId ||
+      !avaliacao.exercicios.some((item) => item.exercicioId === exercicioId)
+    ) {
+      throw new ForbiddenException(
+        'Exercício ou avaliação não pertence ao perfil e avaliação informados',
+      );
+    }
+    if (await this.repo.buscarResultadoPorAvaliacaoEPerfil(dto.avaliacaoId, dto.perfilId)) {
+      throw new ConflictException('Avaliação já finalizada');
+    }
   }
 
   async listarPorModulo(moduloId: string) {
@@ -226,7 +260,6 @@ export class ExerciciosAvaliacoesService {
     exercicio: { enunciado: string; gabarito: string | null; criterios: string[] | null },
     respostaUsuario: string,
     modulo: { titulo: string; objetivoAprendizagem: string | null },
-    revelarGabarito = true,
   ): Promise<TentativaCorrigida> {
     if (tipo === 'questao_objetiva' && exercicio.gabarito) {
       const normalizado = (s: string) =>
@@ -239,11 +272,7 @@ export class ExerciciosAvaliacoesService {
       return {
         correta,
         pontuacao: correta ? 10 : 0,
-        feedback: correta
-          ? 'Resposta correta!'
-          : revelarGabarito
-            ? `Resposta incorreta. ${exercicio.gabarito}`
-            : 'Resposta incorreta. O gabarito será revelado após a finalização.',
+        feedback: correta ? 'Resposta correta!' : `Resposta incorreta. ${exercicio.gabarito}`,
       };
     }
 
@@ -364,9 +393,8 @@ Corrija no formato JSON especificado.`;
   }
 
   private parseJsonSeguro<T>(raw: string): T {
-    const limpo = raw.replace(/```json|```/g, '').trim();
     try {
-      return JSON.parse(limpo) as T;
+      return lerJsonIa(raw) as T;
     } catch {
       this.logger.error('Falha ao parsear JSON do Evaluator');
       throw new Error('O agente Evaluator retornou uma resposta inválida');

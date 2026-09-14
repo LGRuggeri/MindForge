@@ -24,6 +24,7 @@ describe('TutorService', () => {
     objetivoAprendizagem: 'Entender o que é uma variável',
     trilha: {
       objetivo: {
+        perfilId,
         titulo: 'Python para Iniciantes',
         descricao: 'Aprender Python do zero',
         nivelDesejado: 'iniciante',
@@ -156,26 +157,29 @@ describe('TutorService', () => {
       expect(resultado.idioma).toBe('en');
     });
 
-    it.each([123, {}, ['en'], true, null, undefined, '###'])('deve cair em pt-br quando o idioma do agente é inválido: %p', async (idioma) => {
-      repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
-      repo.listarHistoricoRecentePorPerfil.mockResolvedValue([]);
-      biblioteca.buscar.mockResolvedValue([]);
+    it.each([123, {}, ['en'], true, null, undefined, '###'])(
+      'deve cair em pt-br quando o idioma do agente é inválido: %p',
+      async (idioma) => {
+        repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+        repo.listarHistoricoRecentePorPerfil.mockResolvedValue([]);
+        biblioteca.buscar.mockResolvedValue([]);
 
-      agentes.executar.mockResolvedValue({
-        resposta: 'Resposta sem idioma válido.',
-        citacoes: [],
-        proximosPassos: [],
-        idioma,
-      });
+        agentes.executar.mockResolvedValue({
+          resposta: 'Resposta sem idioma válido.',
+          citacoes: [],
+          proximosPassos: [],
+          idioma,
+        });
 
-      repo.salvarDuvida.mockResolvedValue({ id: duvidaId } as never);
+        repo.salvarDuvida.mockResolvedValue({ id: duvidaId } as never);
 
-      await service.tirarDuvida(dto);
+        await service.tirarDuvida(dto);
 
-      expect(repo.salvarDuvida).toHaveBeenCalledWith(
-        expect.objectContaining({ idiomaResposta: 'pt-br' }),
-      );
-    });
+        expect(repo.salvarDuvida).toHaveBeenCalledWith(
+          expect.objectContaining({ idiomaResposta: 'pt-br' }),
+        );
+      },
+    );
 
     it('deve continuar mesmo quando a Biblioteca Viva falha', async () => {
       repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);

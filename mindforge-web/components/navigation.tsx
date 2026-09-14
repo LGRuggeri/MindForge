@@ -96,7 +96,7 @@ export function Navigation() {
               selecionarPerfil(perfil || null);
             }}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-32 sm:w-[180px]">
               {/* Children estático: base-ui não resolve o rótulo do item com o
                   popup fechado e exibiria o ID do perfil (review: valor cru no trigger). */}
               <SelectValue>{perfilSelecionado?.nome ?? 'Selecionar perfil'}</SelectValue>

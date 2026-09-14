@@ -24,13 +24,15 @@ describe('AvaliacoesService', () => {
 
   beforeEach(async () => {
     const repoMock = {
+      buscarModuloDaAvaliacao: jest.fn().mockResolvedValue({ ...moduloComDono, trilhaId }),
+      buscarTrilhaDaAvaliacao: jest.fn().mockResolvedValue(trilhaComDono),
       criarAvaliacao: jest.fn(),
       adicionarExerciciosNaAvaliacao: jest.fn(),
       criarAvaliacaoComExercicios: jest.fn(),
       buscarAvaliacaoPorId: jest.fn(),
       listarTentativasPorExercicioEAvaliacao: jest.fn(),
       salvarResultadoAvaliacao: jest.fn(),
-      listarExerciciosPorModulo: jest.fn(),
+      listarExerciciosPorModulo: jest.fn().mockResolvedValue([{ id: exercicioId }]),
       listarExerciciosPorTrilha: jest.fn(),
       buscarResultadoPorAvaliacaoEPerfil: jest.fn(),
     };
@@ -72,6 +74,7 @@ describe('AvaliacoesService', () => {
       repo.buscarAvaliacaoPorId.mockResolvedValue({ id: avaliacaoId } as never);
 
       const resultado = await service.criar({
+        moduloId,
         titulo: 'Avaliacao 1',
         tipo: TipoAvaliacao.FORMATIVA,
         exerciciosIds: [exercicioId],
@@ -81,7 +84,7 @@ describe('AvaliacoesService', () => {
       expect(resultado!.id).toBe(avaliacaoId);
       expect(repo.criarAvaliacaoComExercicios).toHaveBeenCalledWith(
         expect.objectContaining({
-          moduloId: null,
+          moduloId,
           trilhaId: null,
           titulo: 'Avaliacao 1',
           tipo: TipoAvaliacao.FORMATIVA,
@@ -153,9 +156,7 @@ describe('AvaliacoesService', () => {
           titulo: 'Simulado vazio',
           tipo: TipoAvaliacao.SIMULADO,
         }),
-      ).rejects.toThrow(
-        'Simulado deve receber exerciciosIds ou estar vinculado a um módulo/trilha com exercícios.',
-      );
+      ).rejects.toThrow('Avaliação deve estar vinculada a um módulo ou trilha');
     });
   });
 
@@ -464,7 +465,7 @@ describe('AvaliacoesService', () => {
       expect(knowledgeGraph.marcarProgressoPorModulo).not.toHaveBeenCalled();
     });
 
-    it('deve ignorar respostas de exercicios fora da avaliacao', async () => {
+    it('deve rejeitar respostas de exercicios fora da avaliacao', async () => {
       const exercicioEstranhoId = '523e4567-e89b-12d3-a456-426614174000';
 
       repo.buscarAvaliacaoPorId.mockResolvedValue({
@@ -482,24 +483,20 @@ describe('AvaliacoesService', () => {
         pontuacaoTotal: '10',
       } as never);
 
-      const resultado = await service.submeter({
-        avaliacaoId,
-        perfilId,
-        respostas: [
-          { exercicioId, tentativaId: 'tent-1' },
-          { exercicioId: exercicioEstranhoId, tentativaId: 'tent-9' },
-        ],
-      });
-
-      expect(resultado.pontuacaoTotal).toBe('10');
-      expect(
-        repo.listarTentativasPorExercicioEAvaliacao.mock.calls.every(
-          ([exId]) => exId === exercicioId,
-        ),
-      ).toBe(true);
+      await expect(
+        service.submeter({
+          avaliacaoId,
+          perfilId,
+          respostas: [
+            { exercicioId, tentativaId: 'tent-1' },
+            { exercicioId: exercicioEstranhoId, tentativaId: 'tent-9' },
+          ],
+        }),
+      ).rejects.toThrow('não vinculado');
+      expect(repo.salvarResultadoAvaliacao).not.toHaveBeenCalled();
     });
 
-    it('deve ignorar respostas com exercício fora da avaliação', async () => {
+    it('deve rejeitar respostas com exercício fora da avaliação', async () => {
       const exercicioIdFora = '223e4567-e89b-12d3-a456-426614174099';
 
       repo.buscarAvaliacaoPorId.mockResolvedValue({
@@ -524,21 +521,17 @@ describe('AvaliacoesService', () => {
         pontuacaoTotal: '10',
       } as never);
 
-      const resultado = await service.submeter({
-        avaliacaoId,
-        perfilId,
-        respostas: [
-          { exercicioId, tentativaId: 'tent-1' },
-          { exercicioId: exercicioIdFora, tentativaId: 'tent-99' },
-        ],
-      });
-
-      expect(resultado.pontuacaoTotal).toBe('10');
-      expect(knowledgeGraph.marcarProgressoPorModulo).toHaveBeenCalledWith(
-        moduloId,
-        perfilId,
-        'dominado',
-      );
+      await expect(
+        service.submeter({
+          avaliacaoId,
+          perfilId,
+          respostas: [
+            { exercicioId, tentativaId: 'tent-1' },
+            { exercicioId: exercicioIdFora, tentativaId: 'tent-99' },
+          ],
+        }),
+      ).rejects.toThrow('não vinculado');
+      expect(repo.salvarResultadoAvaliacao).not.toHaveBeenCalled();
     });
 
     it('deve retornar o resultado existente ao submeter a mesma avaliação novamente', async () => {

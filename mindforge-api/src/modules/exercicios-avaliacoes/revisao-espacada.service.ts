@@ -1,7 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
-import { DRIZZLE, DrizzleDb } from '../../database/database.module';
-import { NovaRevisaoEspacada, revisaoEspacada } from '../../database/schema';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DrizzleDb } from '../../database/database.module';
+import { NovaRevisaoEspacada, RevisaoEspacada } from '../../database/schema';
+import { RevisaoEspacadaRepository } from './revisao-espacada.repository';
+import { ConcluirRevisaoDto } from './dto/concluir-revisao.dto';
 
 export interface ResultadoRevisao {
   perfilId: string;
@@ -12,18 +18,28 @@ export interface ResultadoRevisao {
 
 @Injectable()
 export class RevisaoEspacadaService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  constructor(private readonly repo: RevisaoEspacadaRepository) {}
 
   async processarRevisao(resultado: ResultadoRevisao, tx?: DrizzleDb) {
-    const client = tx ?? this.db;
-    const existente = await client.query.revisaoEspacada.findFirst({
-      where: and(
-        eq(revisaoEspacada.perfilId, resultado.perfilId),
-        eq(revisaoEspacada.itemTipo, resultado.itemTipo),
-        eq(revisaoEspacada.itemId, resultado.itemId),
-      ),
-    });
+    this.validarQualidade(resultado.qualidade);
+    const existente = await this.repo.buscarPorItem(
+      resultado.perfilId,
+      resultado.itemTipo,
+      resultado.itemId,
+      tx,
+    );
+    const dados = this.calcularDados(resultado, existente);
+    if (!existente) return this.repo.criar(dados, tx);
+    const atualizado = await this.repo.atualizarSeAtual(existente, dados, tx);
+    if (!atualizado)
+      throw new ConflictException('A agenda mudou. Atualize a página e tente novamente.');
+    return atualizado;
+  }
 
+  private calcularDados(
+    resultado: ResultadoRevisao,
+    existente?: RevisaoEspacada,
+  ): NovaRevisaoEspacada {
     const { intervaloDias, fatorFacilidade, repeticoes } = this.calcularSm2(
       existente?.intervaloDias ?? 1,
       existente?.repeticoes ?? 0,
@@ -31,41 +47,65 @@ export class RevisaoEspacadaService {
       resultado.qualidade,
     );
 
-    const hoje = this.formatarData(new Date());
-    const proximaRevisao = this.formatarData(this.adicionarDias(new Date(), intervaloDias));
+    const agora = new Date();
+    const hoje = this.formatarData(agora);
+    const proximaRevisao = this.formatarData(this.adicionarDias(agora, intervaloDias));
 
     const dados: NovaRevisaoEspacada = {
       perfilId: resultado.perfilId,
       itemTipo: resultado.itemTipo,
       itemId: resultado.itemId,
       intervaloDias,
-      fatorFacilidade: String(fatorFacilidade),
+      fatorFacilidade: String(Number(fatorFacilidade.toFixed(2))),
       repeticoes,
       proximaRevisao,
       ultimaRevisao: hoje,
     };
 
-    if (existente) {
-      const [atualizado] = await client
-        .update(revisaoEspacada)
-        .set(dados)
-        .where(eq(revisaoEspacada.id, existente.id))
-        .returning();
-      return atualizado;
-    }
-
-    const [criado] = await client.insert(revisaoEspacada).values(dados).returning();
-    return criado;
+    return dados;
   }
 
   async listarProximasRevisoes(perfilId: string, data?: string) {
-    return this.db.query.revisaoEspacada.findMany({
-      where: and(
-        eq(revisaoEspacada.perfilId, perfilId),
-        data ? eq(revisaoEspacada.proximaRevisao, data) : undefined,
-      ),
-      orderBy: (tabela, { asc }) => [asc(tabela.proximaRevisao)],
-    });
+    return this.repo.listar(perfilId, data);
+  }
+
+  async buscarDetalhe(id: string, perfilId: string) {
+    const revisao = await this.repo.buscarPorId(id, perfilId);
+    if (!revisao) throw new NotFoundException('Revisão não encontrada para este perfil');
+    const item = await this.repo.buscarItem(revisao.itemTipo, revisao.itemId, perfilId);
+    if (!item)
+      throw new NotFoundException('O item da revisão não está mais disponível para este perfil');
+    return { ...revisao, item };
+  }
+
+  async concluir(id: string, dto: ConcluirRevisaoDto) {
+    this.validarQualidade(dto.qualidade);
+    const revisao = await this.buscarDetalhe(id, dto.perfilId);
+    if (revisao.proximaRevisao !== dto.proximaRevisaoEsperada) {
+      throw new ConflictException('Esta revisão já foi reagendada. Atualize a agenda.');
+    }
+    if (revisao.proximaRevisao > this.formatarData(new Date())) {
+      throw new BadRequestException('Aguarde a data agendada para realizar esta revisão');
+    }
+    const dados = this.calcularDados(
+      {
+        perfilId: dto.perfilId,
+        itemTipo: revisao.itemTipo as ResultadoRevisao['itemTipo'],
+        itemId: revisao.itemId,
+        qualidade: dto.qualidade,
+      },
+      revisao,
+    );
+    const atualizado = await this.repo.atualizarSeAtual(revisao, dados);
+    if (!atualizado)
+      throw new ConflictException('A agenda mudou. Atualize a página e tente novamente.');
+    return atualizado;
+  }
+
+  private validarQualidade(qualidade: number) {
+    if (!Number.isInteger(qualidade) || qualidade < 0 || qualidade > 5) {
+      throw new BadRequestException('Qualidade deve ser um inteiro entre 0 e 5');
+    }
   }
 
   private calcularSm2(

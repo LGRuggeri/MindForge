@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { lerJsonIa } from '../../common/ia/json-ia';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { AgentesService } from '../agentes/agentes.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
@@ -61,6 +62,21 @@ export class PlannerService {
       throw new NotFoundException(`Módulo ${id} não encontrado`);
     }
     return modulo;
+  }
+
+  async concluirModulo(id: string, perfilId: string) {
+    return this.repo.executarEmTransacao(async (tx) => {
+      const modulo = await this.repo.buscarModuloPorId(id, tx);
+      if (!modulo) throw new NotFoundException('Módulo não encontrado');
+      if (modulo.trilha.objetivo.perfilId !== perfilId) {
+        throw new ForbiddenException('Módulo não pertence ao perfil informado');
+      }
+      if (modulo.status === 'concluido') return modulo;
+      const concluido = await this.repo.marcarModuloConcluido(id, tx);
+      if (!concluido) throw new NotFoundException('Módulo não encontrado');
+      await this.repo.registrarEstudoCompetencias(id, perfilId, tx);
+      return { ...modulo, ...concluido };
+    });
   }
 
   async buscarObjetivoPorId(id: string) {
@@ -215,9 +231,8 @@ Gere a trilha de aprendizado no formato JSON especificado.`;
   }
 
   private parseJsonSeguro<T>(raw: string): T {
-    const limpo = raw.replace(/```json|```/g, '').trim();
     try {
-      return JSON.parse(limpo) as T;
+      return lerJsonIa(raw) as T;
     } catch {
       this.logger.error('Falha ao parsear JSON do Planner');
       throw new Error('O agente Planner retornou uma resposta inválida');

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DRIZZLE } from '../../database/database.module';
 import { RevisaoEspacadaService } from './revisao-espacada.service';
+import { RevisaoEspacadaRepository } from './revisao-espacada.repository';
 
 function createMockDb() {
   const returningInsert = jest.fn();
@@ -43,7 +44,11 @@ describe('RevisaoEspacadaService', () => {
     returningUpdate = mocks.returningUpdate;
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [{ provide: DRIZZLE, useValue: db }, RevisaoEspacadaService],
+      providers: [
+        { provide: DRIZZLE, useValue: db },
+        RevisaoEspacadaRepository,
+        RevisaoEspacadaService,
+      ],
     }).compile();
 
     service = module.get(RevisaoEspacadaService);

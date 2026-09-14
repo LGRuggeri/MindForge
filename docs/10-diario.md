@@ -73,3 +73,5 @@ O diário deve alimentar:
 ## 6. Validado
 
 Fluxo real testado: criar perfil → trilha → `POST /diario` com módulo → recomendações coerentes retornadas e persistidas.
+
+Em 14/09/2026, os testes de persistência confirmaram filtros por perfil, ordenação/limite, unicidade por perfil/data e deduplicação de vínculos. Corrigida a criação parcial: diário e vínculos agora são gravados na mesma transação, com rollback integral se uma FK de módulo falhar. Ver [testes de persistência](18-persistencia-testes.md).

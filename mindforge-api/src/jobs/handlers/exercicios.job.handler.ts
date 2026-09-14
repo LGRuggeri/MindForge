@@ -55,10 +55,7 @@ export class ExerciciosJobHandler implements OnModuleInit {
     try {
       return await this.exerciciosService.gerarExercicio({ ...dados, async: false });
     } catch (erro) {
-      this.logger.error(
-        `Falha no job ${GERAR_EXERCICIO_JOB} para módulo ${dados.moduloId}`,
-        erro instanceof Error ? erro.stack : String(erro),
-      );
+      this.logger.error(`Falha no job ${GERAR_EXERCICIO_JOB} para módulo ${dados.moduloId}`);
       throw erro;
     }
   }
@@ -73,7 +70,6 @@ export class ExerciciosJobHandler implements OnModuleInit {
     } catch (erro) {
       this.logger.error(
         `Falha no job ${CORRIGIR_TENTATIVA_JOB} para exercício ${dados.exercicioId}`,
-        erro instanceof Error ? erro.stack : String(erro),
       );
       throw erro;
     }

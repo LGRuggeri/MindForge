@@ -1,15 +1,16 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Job, PgBoss, QueueResult, WorkHandler } from 'pg-boss';
+import { ConstructorOptions, Job, PgBoss, QueueResult, WorkHandler } from 'pg-boss';
 
-export type JobHandler = (jobs: Job<Record<string, unknown>>[]) => Promise<void>;
+export type JobHandler = (jobs: Job<Record<string, unknown>>[]) => Promise<unknown>;
 
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(JobsService.name);
   private boss: PgBoss;
 
-  constructor(connectionString: string) {
-    this.boss = new PgBoss({ connectionString });
+  constructor(connectionString: string, options: Pick<ConstructorOptions, 'schema'> = {}) {
+    this.boss = new PgBoss({ ...options, connectionString });
+    this.boss.on('error', () => this.logger.error('Erro na fila de jobs (pg-boss)'));
   }
 
   private iniciado?: Promise<void>;
@@ -18,7 +19,13 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     // `start()` migra/cria o schema pgboss; os handlers registram filas em
     // onModuleInit concorrentemente, então toda operação precisa esperar (e
     // deduplicar) a inicialização para não correr contra a criação do schema.
-    this.iniciado ??= this.boss.start().then(() => undefined);
+    this.iniciado ??= this.boss
+      .start()
+      .then(() => undefined)
+      .catch((erro: unknown) => {
+        this.iniciado = undefined;
+        throw erro;
+      });
     return this.iniciado;
   }
 
@@ -28,6 +35,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    await this.iniciado?.catch(() => undefined);
     await this.boss.stop();
     this.logger.log('Fila de jobs (pg-boss) encerrada');
   }
@@ -45,10 +53,11 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   async work(nome: string, handler: JobHandler): Promise<void> {
     await this.garantirIniciado();
     await this.criarFilaSeNecessario(nome);
-    const wrapped: WorkHandler<Record<string, unknown>, void> = async (jobs) => {
-      await handler(jobs);
+    const wrapped: WorkHandler<Record<string, unknown>, unknown> = async (jobs) => {
+      return handler(jobs);
     };
-    await this.boss.work(nome, wrapped);
+    // pg-boss persiste o retorno automático somente para execução de um job.
+    await this.boss.work(nome, { batchSize: 1 }, wrapped);
   }
 
   /**
@@ -56,23 +65,35 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
    * existir antes. `createQueue` é idempotente, então chamá-lo por nome uma
    * vez por processo é suficiente.
    */
-  private filasCriadas = new Set<string>();
+  private filasCriadas = new Map<string, Promise<void>>();
 
   private async criarFilaSeNecessario(nome: string): Promise<void> {
-    if (this.filasCriadas.has(nome)) return;
-    await this.boss.createQueue(nome);
-    this.filasCriadas.add(nome);
+    let criacao = this.filasCriadas.get(nome);
+    if (!criacao) {
+      criacao = this.boss
+        .createQueue(nome)
+        .then(() => undefined)
+        .catch((erro: unknown) => {
+          this.filasCriadas.delete(nome);
+          throw erro;
+        });
+      this.filasCriadas.set(nome, criacao);
+    }
+    await criacao;
   }
 
   async getQueues(names?: string[]): Promise<QueueResult[]> {
+    await this.garantirIniciado();
     return this.boss.getQueues(names);
   }
 
   async getJobById<T>(nome: string, id: string) {
+    await this.garantirIniciado();
     return this.boss.getJobById<T>(nome, id);
   }
 
   async cancelJob(nome: string, id: string) {
+    await this.garantirIniciado();
     return this.boss.cancel(nome, id);
   }
 }

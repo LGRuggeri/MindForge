@@ -15,16 +15,16 @@ export class DiarioRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
   async criar(dados: NovoDiarioAprendizagem, moduloIds: string[] = []) {
-    const [registro] = await this.db.insert(diarioAprendizagem).values(dados).returning();
-
-    if (moduloIds.length > 0) {
-      await this.db
-        .insert(diarioModulos)
-        .values(moduloIds.map((moduloId) => ({ diarioId: registro.id, moduloId })))
-        .onConflictDoNothing();
-    }
-
-    return this.buscarPorId(registro.id);
+    return this.db.transaction(async (tx) => {
+      const [registro] = await tx.insert(diarioAprendizagem).values(dados).returning();
+      if (moduloIds.length > 0) {
+        await tx
+          .insert(diarioModulos)
+          .values(moduloIds.map((moduloId) => ({ diarioId: registro.id, moduloId })))
+          .onConflictDoNothing();
+      }
+      return this.buscarPorId(registro.id, tx);
+    });
   }
 
   /**
@@ -42,8 +42,8 @@ export class DiarioRepository {
     return resultado?.total ?? 0;
   }
 
-  async buscarPorId(id: string) {
-    return this.db.query.diarioAprendizagem.findFirst({
+  async buscarPorId(id: string, tx?: DrizzleDb) {
+    return (tx ?? this.db).query.diarioAprendizagem.findFirst({
       where: eq(diarioAprendizagem.id, id),
       with: { modulos: { with: { modulo: true } } },
     });

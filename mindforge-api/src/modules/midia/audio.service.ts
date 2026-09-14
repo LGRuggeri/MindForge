@@ -40,7 +40,9 @@ export class AudioService {
     this.nomeProvider = this.provider.nome;
   }
 
-  async gerarAudio(params: GerarAudioParams): Promise<{ buffer: Buffer; mime: string; arquivo: string }> {
+  async gerarAudio(
+    params: GerarAudioParams,
+  ): Promise<{ buffer: Buffer; mime: string; arquivo: string }> {
     const chave = this.montarChave(params);
     const cacheado = await this.storage.buscar('audio', chave);
     if (cacheado) {
@@ -50,17 +52,20 @@ export class AudioService {
     let sintetizado: { buffer: Buffer; mime: string };
     try {
       sintetizado = await this.provider.sintetizar(params);
-    } catch (erro) {
-      this.logger.error(
-        `Falha ao sintetizar áudio com provedor ${this.nomeProvider}`,
-        erro instanceof Error ? erro.stack : String(erro),
-      );
+    } catch {
+      this.logger.error(`Falha ao sintetizar áudio com provedor ${this.nomeProvider}`);
       throw new ServiceUnavailableException(
         `Provedor de áudio indisponível (${this.nomeProvider}). Tente novamente mais tarde.`,
       );
     }
 
-    const arquivo = await this.storage.salvar('audio', chave, sintetizado.buffer, sintetizado.mime, this.nomeProvider);
+    const arquivo = await this.storage.salvar(
+      'audio',
+      chave,
+      sintetizado.buffer,
+      sintetizado.mime,
+      this.nomeProvider,
+    );
     return { buffer: sintetizado.buffer, mime: sintetizado.mime, arquivo };
   }
 

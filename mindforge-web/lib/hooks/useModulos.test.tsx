@@ -18,6 +18,7 @@ vi.mock('@/lib/api', () => ({
 const apiGet = api.get as unknown as Mock;
 
 const moduloAtual: Modulo = {
+  status: 'nao_iniciado',
   id: 'mod-atual',
   trilhaId: 'trilha-atual',
   ordem: 1,
