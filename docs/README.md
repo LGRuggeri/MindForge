@@ -1,7 +1,7 @@
 # MindForge — Documentação
 
 **Fonte única de verdade.**  
-Atualizado em 14/09/2026: 711 testes aprovados com SQL, 80 no frontend e 11 cenários reais de Docker. Quatro métricas do backend acima de 80%. CI publicado e aprovado no GitHub pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), ainda aberta para revisão. O check obrigatório está bloqueado pelo plano atual da conta para este repositório privado; ver [CI do backend](19-ci-backend.md).
+Atualizado em 14/09/2026: 712 testes aprovados com SQL, 80 no frontend e 15 cenários reais de Docker. Quatro métricas do backend acima de 80%. CI publicado pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), ainda aberta para revisão; execuções e correção do diagnóstico de memória estão registradas em [CI do backend](19-ci-backend.md). O check obrigatório está bloqueado pelo plano atual da conta para este repositório privado.
 
 ## Como usar
 

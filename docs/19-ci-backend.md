@@ -1,6 +1,6 @@
 # 19 — CI do backend e inicialização
 
-Atualizado em 14/09/2026. O workflow e o comando de validação estão implementados; a execução local com banco descartável foi verificada. **A primeira execução no GitHub e a configuração do check obrigatório na branch ainda estão pendentes de publicação.**
+Atualizado em 14/09/2026. O workflow está publicado na PR #11 e teve execuções aprovadas no GitHub. **A configuração do check obrigatório está bloqueada pelo plano da conta para este repositório privado**, conforme a verificação de acesso ao final deste documento.
 
 ## Contrato do pipeline
 
@@ -82,13 +82,15 @@ Também foi executado um smoke local adicional da API compilada contra o banco d
 
 ## Ativação no GitHub
 
-O incremento de sandbox acrescenta preparação das imagens Python/Node e `npm run test:sandbox` após a suíte SQL. Esses 11 cenários executam programas em containers reais e verificam isolamento/limites; não entram no percentual de cobertura Jest. Falha nesse comando reprova o mesmo job. A validação local está registrada em [20-sandbox.md](20-sandbox.md); a primeira execução remota foi aprovada em 14/09/2026.
+O incremento de sandbox acrescenta preparação das imagens Python/Node e `npm run test:sandbox` após a suíte SQL. Esses 15 cenários executam programas em containers reais e verificam isolamento/limites; não entram no percentual de cobertura Jest. Falha nesse comando reprova o mesmo job. A validação local está registrada em [20-sandbox.md](20-sandbox.md); a primeira execução remota foi aprovada em 14/09/2026.
 
 Quando disponível no plano da conta, configurar **`Backend / SQL e cobertura`** como status check obrigatório na regra de proteção/ruleset da branch de integração, sem permitir que um merge o ignore.
 
 O workflow foi publicado na [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), branch `codex/consolidacao-ci-sandbox`, a partir da `main` atualizada. As execuções de [push](https://github.com/LGRuggeri/Mindforge/actions/runs/34881173257) e [pull request](https://github.com/LGRuggeri/Mindforge/actions/runs/34881250830) do commit `ebbd14d506e1addac0342f2a47f56039c9b4bbbf` foram aprovadas: build, lint, 711 testes em 87 suítes sem skips, 11 cenários Docker e artifact `backend-cobertura-1`. Cobertura remota: linhas 93,65%, instruções 93,49%, funções 86,13% e ramificações 82,79%.
 
 A PR permanece aberta para revisão e integração na `main`. Executar o workflow na PR não altera regras de proteção e não torna o check obrigatório por si só.
+
+A [execução posterior da PR](https://github.com/LGRuggeri/Mindforge/actions/runs/34881765366), no commit `aed993c`, identificou uma falha intermitente na classificação do limite de memória do sandbox; SQL e cobertura passaram. A regressão reproduziu o caso com Docker real e `OOMKilled=false`: o programa excedia memória e recebia `limite_tempo` em menos de um segundo. O supervisor agora consulta `memory.events` do cgroup antes de encerrar, sem depender apenas do evento assíncrono do runtime. Os 15 cenários locais incluem ausência do evento e tentativa de forjar o código de diagnóstico nas duas linguagens. A execução do último commit deve ser consultada nos checks da PR.
 
 **Verificação de acesso em 14/09/2026:** Actions está habilitado e a conta possui permissão administrativa, mas as APIs de rulesets e de proteção clássica da `main` retornaram HTTP 403: o GitHub exige upgrade para Pro ou repositório público para habilitar o recurso neste repositório privado. A visibilidade foi preservada. O CI pode executar e reprovar a PR, mas o bloqueio obrigatório de merge depende da disponibilidade dessa função no plano da conta.
 

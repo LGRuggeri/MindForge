@@ -11,8 +11,8 @@ async function main() {
   const processo = new DockerProcesso();
   const executor = new DockerExecutor(new ConfigService({ SANDBOX_TEMPO_MS: 2000 }), processo);
   let aprovados = 0;
-  async function testar(nome, linguagem, codigo, validar, entrada = '') {
-    const res = await executor.executar({ linguagem, codigo, entrada });
+  async function testar(nome, linguagem, codigo, validar, entrada = '', alvo = executor) {
+    const res = await alvo.executar({ linguagem, codigo, entrada });
     validar(res);
     aprovados++;
     console.log(`Aprovado: ${nome} (${res.status})`);
@@ -83,6 +83,36 @@ print(next(l.strip() for l in open('/proc/self/status') if l.startswith('CapEff:
     'a=[bytearray(16*1024*1024) for _ in range(64)]',
     (r) => assert.equal(r.status, 'limite_memoria'),
   );
+  // Reproduz a perda do evento OOM do runtime, mantendo a execução Docker real.
+  const processoSemEvento = new DockerProcesso();
+  const consultar = processoSemEvento.executar.bind(processoSemEvento);
+  processoSemEvento.executar = async (...args) => {
+    const res = await consultar(...args);
+    if (args[0][0] === 'inspect' && res.codigo === 0) {
+      res.stdout = JSON.stringify({ ...JSON.parse(res.stdout), OOMKilled: false });
+    }
+    return res;
+  };
+  const semEvento = new DockerExecutor(new ConfigService({ SANDBOX_TEMPO_MS: 2000 }), processoSemEvento);
+  for (const [linguagem, codigo, saidaReservada] of [
+    ['python', 'a=[bytearray(16*1024*1024) for _ in range(64)]', 'import sys;sys.exit(200)'],
+    ['javascript', 'const a=[];for(let i=0;i<64;i++)a.push(Buffer.alloc(16*1024*1024,1));', 'process.exit(200)'],
+  ]) {
+    await testar(
+      `Memória sem evento OOM do Docker (${linguagem})`,
+      linguagem,
+      codigo,
+      (r) => assert.equal(r.status, 'limite_memoria', JSON.stringify(r)),
+      '',
+      semEvento,
+    );
+    await testar(
+      `Programa não forja o diagnóstico de memória (${linguagem})`,
+      linguagem,
+      saidaReservada,
+      (r) => assert.equal(r.status, 'erro'),
+    );
+  }
   await testar(
     'Rede, identidade, arquivos, segredos e recursos',
     'python',

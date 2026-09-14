@@ -64,6 +64,8 @@ Cada execução cria um container com nome aleatório, rede desativada, sem volu
 
 O supervisor de prazo roda como UID 0 dentro do container com apenas `SETUID`, `SETGID` e `KILL`. Antes de executar qualquer código do aluno, os launchers removem grupos suplementares e mudam GID/UID para 65534, descartando capacidades. Assim, o programa não pode suspender o supervisor com um sinal. `timeout` encerra o grupo e o init encerra os processos restantes quando o supervisor termina; há também prazo externo na API.
 
+Um supervisor fixo `/bin/sh`, também dentro do container, envolve o `timeout` e consulta `oom_kill` em `/sys/fs/cgroup/memory.events` antes de encerrar. O contador do cgroup v2 confirma o limite de memória mesmo quando o runtime perde o evento usado por `docker inspect` (`OOMKilled`). O código de saída 200 é reservado a esse diagnóstico; saída 200 do programa sem OOM vira erro comum (código 1). A consulta a `OOMKilled` continua como fonte adicional. O ambiente validado usa cgroup v2; em hosts sem `memory.events`, a classificação de memória depende do evento do Docker. Referências: [contador do kernel](https://cdn.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html) e [perda de eventos no containerd](https://github.com/containerd/containerd/issues/8893).
+
 Na conclusão, falha, timeout ou saída excessiva, a API remove o container pelo nome gerado. Repete a limpeza uma vez; falha persistente bloqueia novas execuções e registra somente o identificador do container. Verifique o Docker, remova o container identificado e reinicie a API. Para inspeção: `docker ps -a --filter label=mindforge.sandbox=true`. Se a API for encerrada abruptamente, o prazo interno ainda termina o programa; pode restar um container parado para limpeza manual.
 
 Docker compartilha o kernel e não substitui um executor dedicado para código hostil de múltiplos usuários. Autenticação e implantação pública continuam fora do escopo do projeto local.
@@ -71,7 +73,7 @@ Docker compartilha o kernel e não substitui um executor dedicado para código h
 ## Verificação
 
 - Testes Jest: DTO/HTTP, perfil, conexão local, concorrência, subprocesso, limites, diagnóstico e limpeza. PostgreSQL real confirma o proprietário e ausência de tentativas gravadas.
-- `npm run test:sandbox`: 11 cenários reais de Docker, incluindo Python/JS, stdin Unicode, erro, loop, watchdog protegido, descarte de privilégios, memória, saída, rede e arquivos. Comando separado da medição unitária/SQL, também incluído no workflow de CI.
+- `npm run test:sandbox`: 15 cenários reais de Docker, incluindo Python/JS, stdin Unicode, erro, loop, watchdog protegido, descarte de privilégios, memória, saída, rede e arquivos. Inclui OOM com o evento do Docker simulado como ausente e tentativa de forjar o diagnóstico nas duas linguagens. Comando separado da medição unitária/SQL, também incluído no workflow de CI.
 - Vitest: componente com hooks reais e HTTP simulado; submissão separada, erro/repetição, bloqueios, linguagens, resultado desatualizado e renderização de saída como texto.
 - Navegador: API completa real, PostgreSQL CI e Docker; execução Python no módulo, timeout e JavaScript no simulado. Desktop 1440×1000 e celular 390×844, sem rolagem horizontal. Nenhuma correção enviada nem chamada a LLM. Sem erros de console; aviso de preload de CSS do Next após navegação rápida, sem impacto visual observado.
 

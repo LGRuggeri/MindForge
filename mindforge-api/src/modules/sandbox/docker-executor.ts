@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { DockerProcesso } from './docker-processo';
 import { ExecutarCodigoDto } from './dto/executar-codigo.dto';
-import { LAUNCHER_JAVASCRIPT, LAUNCHER_PYTHON } from './programas-sandbox';
+import { LAUNCHER_JAVASCRIPT, LAUNCHER_PYTHON, SUPERVISOR_SANDBOX } from './programas-sandbox';
 
 export type StatusExecucao =
   'concluido' | 'erro' | 'limite_tempo' | 'limite_saida' | 'limite_memoria';
@@ -68,13 +68,14 @@ export class DockerExecutor {
         )
           throw this.indisponivel();
         codigoSaida = estado.ExitCode;
-        status = estado.OOMKilled
-          ? 'limite_memoria'
-          : [124, 137].includes(codigoSaida)
-            ? 'limite_tempo'
-            : codigoSaida === 0
-              ? 'concluido'
-              : 'erro';
+        status =
+          estado.OOMKilled || codigoSaida === 200
+            ? 'limite_memoria'
+            : [124, 137].includes(codigoSaida)
+              ? 'limite_tempo'
+              : codigoSaida === 0
+                ? 'concluido'
+                : 'erro';
         if (saida.codigo !== codigoSaida) throw this.indisponivel();
       }
       resultado = {
@@ -133,8 +134,12 @@ export class DockerExecutor {
       '--workdir=/tmp',
       '--log-driver=none',
       '--restart=no',
-      '--entrypoint=/usr/bin/timeout',
+      '--entrypoint=/bin/sh',
       imagem,
+      '-c',
+      SUPERVISOR_SANDBOX,
+      'mindforge-supervisor',
+      '/usr/bin/timeout',
       '--signal=TERM',
       '--kill-after=0.1s',
       `${tempo / 1000}s`,

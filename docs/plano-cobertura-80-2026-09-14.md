@@ -292,3 +292,7 @@ Não houve alteração em `collectCoverageFrom` ou exclusões. O denominador aum
 **Limite da entrega:** o workflow está no repositório local. Não houve publicação, execução no GitHub ou mudança nas regras de proteção da branch. Falta tornar o check obrigatório no serviço remoto depois da primeira execução; não confundir o gate local aprovado com proteção de merge já ativa.
 
 Sem novas dependências, migrations da aplicação ou alterações de frontend neste lote. Relatórios: `coverage/resultado-ci.json`, `coverage/coverage-summary.json`, `coverage/coverage-sem-sql.json` e `coverage/lcov-report/`. Logs: `coverage/validacao-sem-sql.log` e `coverage/validacao-com-sql.log`. Reprodução e ativação remota em [CI do backend](19-ci-backend.md).
+
+### Atualização após publicação e correção do sandbox
+
+O workflow foi publicado na PR #11 e as primeiras execuções remotas passaram. Uma execução posterior revelou perda do diagnóstico OOM do Docker; a correção consulta o contador do cgroup e foi validada por regressão real. Estado local mais recente: **712 testes em 87 suítes**, sem skips; linhas **93,65%**, instruções **93,49%**, funções **86,13%** e ramificações **82,82%**. Os **15 cenários Docker** são uma validação separada e não alteram o cálculo da cobertura. Detalhes e links das execuções em [CI do backend](19-ci-backend.md). O check obrigatório continua bloqueado pelo plano da conta para o repositório privado.

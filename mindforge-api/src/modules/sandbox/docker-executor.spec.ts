@@ -55,6 +55,7 @@ describe('Executor Docker — limites e limpeza', () => {
     [124, false, 'limite_tempo'],
     [137, false, 'limite_tempo'],
     [137, true, 'limite_memoria'],
+    [200, false, 'limite_memoria'],
   ])('classifica saída %s e OOM %s', async (codigo, oom, status) => {
     processo.executar.mockImplementation(async (args: string[]) => ({
       codigo: args[0] === 'start' ? codigo : 0,

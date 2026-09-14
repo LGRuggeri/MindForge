@@ -1,5 +1,18 @@
 // Launchers fixos. Apenas estes textos são argumentos do Docker; código do aluno
 // chega em JSON pelo stdin e é escrito exclusivamente no tmpfs do container.
+// O supervisor permanece privilegiado e lê o contador do kernel antes de sair.
+// Isso independe do evento OOM assíncrono do Docker. O código 200 é reservado:
+// se vier do programa, sem evento no cgroup, é convertido em erro comum.
+export const SUPERVISOR_SANDBOX = `"$@"
+codigo=$?
+if [ -r /sys/fs/cgroup/memory.events ]; then
+ while read -r evento total; do
+  if [ "$evento" = "oom_kill" ] && [ "$total" -gt 0 ]; then exit 200; fi
+ done < /sys/fs/cgroup/memory.events
+fi
+if [ "$codigo" -eq 200 ]; then exit 1; fi
+exit "$codigo"`;
+
 export const LAUNCHER_PYTHON = `import json,sys,os
 d=json.load(sys.stdin)
 open('/tmp/programa.py','w',encoding='utf-8').write(d['codigo'])
