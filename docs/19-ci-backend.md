@@ -82,11 +82,13 @@ Também foi executado um smoke local adicional da API compilada contra o banco d
 
 ## Ativação no GitHub
 
-O incremento de sandbox acrescenta preparação das imagens Python/Node e `npm run test:sandbox` após a suíte SQL. Esses 11 cenários executam programas em containers reais e verificam isolamento/limites; não entram no percentual de cobertura Jest. Falha nesse comando reprova o mesmo job. A validação local está registrada em [20-sandbox.md](20-sandbox.md); a primeira execução remota continua pendente.
+O incremento de sandbox acrescenta preparação das imagens Python/Node e `npm run test:sandbox` após a suíte SQL. Esses 11 cenários executam programas em containers reais e verificam isolamento/limites; não entram no percentual de cobertura Jest. Falha nesse comando reprova o mesmo job. A validação local está registrada em [20-sandbox.md](20-sandbox.md); a primeira execução remota foi aprovada em 14/09/2026.
 
-Publicar as mudanças e aguardar a primeira execução do workflow. Depois, configurar **`Backend / SQL e cobertura`** como status check obrigatório na regra de proteção/ruleset da branch de integração, sem permitir que um merge o ignore.
+Quando disponível no plano da conta, configurar **`Backend / SQL e cobertura`** como status check obrigatório na regra de proteção/ruleset da branch de integração, sem permitir que um merge o ignore.
 
-O arquivo de workflow define o job, mas não altera as regras de proteção do repositório. Essas configurações e a execução remota **não foram realizadas nesta sessão**. A entrega local não deve ser descrita como proteção já ativa no GitHub.
+O workflow foi publicado na [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), branch `codex/consolidacao-ci-sandbox`, a partir da `main` atualizada. As execuções de [push](https://github.com/LGRuggeri/Mindforge/actions/runs/34881173257) e [pull request](https://github.com/LGRuggeri/Mindforge/actions/runs/34881250830) do commit `ebbd14d506e1addac0342f2a47f56039c9b4bbbf` foram aprovadas: build, lint, 711 testes em 87 suítes sem skips, 11 cenários Docker e artifact `backend-cobertura-1`. Cobertura remota: linhas 93,65%, instruções 93,49%, funções 86,13% e ramificações 82,79%.
+
+A PR permanece aberta para revisão e integração na `main`. Executar o workflow na PR não altera regras de proteção e não torna o check obrigatório por si só.
 
 **Verificação de acesso em 14/09/2026:** Actions está habilitado e a conta possui permissão administrativa, mas as APIs de rulesets e de proteção clássica da `main` retornaram HTTP 403: o GitHub exige upgrade para Pro ou repositório público para habilitar o recurso neste repositório privado. A visibilidade foi preservada. O CI pode executar e reprovar a PR, mas o bloqueio obrigatório de merge depende da disponibilidade dessa função no plano da conta.
 

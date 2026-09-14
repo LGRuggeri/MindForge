@@ -127,7 +127,7 @@ Para localizar linhas e ramos faltantes ao iniciar cada lote, adicionar `--cover
 - [x] Lote 6 — Smoke de inicialização, banco vazio e pipeline completo implementados e validados localmente.
 - [ ] Publicar as mudanças, confirmar a primeira execução remota e configurar o check obrigatório no GitHub.
 
-Próximo passo operacional: publicar e ativar o check **`Backend / SQL e cobertura`**, conforme [CI do backend](19-ci-backend.md). A implementação do plano de cobertura está entregue; a proteção remota ainda precisa ser ativada. Após [geração e resultados](plano-geracao-resultados-2026-09-14.md), o [sandbox local](20-sandbox.md) foi concluído: medição completa de linhas/instruções/funções/ramificações em **93,65%/93,49%/86,13%/82,79%**, com **711 testes**, além de 80 no frontend e 11 cenários reais de Docker. Manter os testes de cada mudança e as quatro métricas acima do limite, sem perseguir 100% mecanicamente.
+O check **`Backend / SQL e cobertura`** foi publicado e aprovado no GitHub pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), conforme [CI do backend](19-ci-backend.md). A PR aguarda revisão/integração; torná-lo obrigatório está bloqueado pelo plano GitHub do repositório privado (HTTP 403, mesmo com acesso administrativo). Após [geração e resultados](plano-geracao-resultados-2026-09-14.md), o [sandbox local](20-sandbox.md) foi concluído: medição completa de linhas/instruções/funções/ramificações em **93,65%/93,49%/86,13%/82,79%**, confirmada remotamente com **711 testes**, além de 80 locais no frontend e 11 cenários reais de Docker locais/remotos. Manter os testes de cada mudança e as quatro métricas acima do limite, sem perseguir 100% mecanicamente.
 
 
 ## 6. Resultado do lote 1 — RAG/Biblioteca Viva

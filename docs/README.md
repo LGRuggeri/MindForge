@@ -1,7 +1,7 @@
 # MindForge — Documentação
 
 **Fonte única de verdade.**  
-Atualizado em 14/09/2026 após o sandbox de código: 711 testes aprovados com SQL, 80 no frontend e 11 cenários reais de Docker. Quatro métricas do backend acima de 80%. Exercícios de código permitem executar Python/JavaScript antes da correção. Publicação e ativação do check obrigatório no GitHub ainda pendentes.
+Atualizado em 14/09/2026: 711 testes aprovados com SQL, 80 no frontend e 11 cenários reais de Docker. Quatro métricas do backend acima de 80%. CI publicado e aprovado no GitHub pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), ainda aberta para revisão. O check obrigatório está bloqueado pelo plano atual da conta para este repositório privado; ver [CI do backend](19-ci-backend.md).
 
 ## Como usar
 
@@ -34,7 +34,7 @@ Atualizado em 14/09/2026 após o sandbox de código: 711 testes aprovados com SQ
 | [16-jobs.md](16-jobs.md) | Jobs e erros HTTP | ✅ execução, retry, saída pública e cancelamento validados |
 | [17-midia-agent-kb.md](17-midia-agent-kb.md) | Mídia e integração Agent KB | ✅ frames, cache, subprocesso e contratos HTTP validados |
 | [18-persistencia-testes.md](18-persistencia-testes.md) | Persistência, transações e concorrência | ✅ rollback, escopo, cascatas e disputas em duas conexões validados |
-| [19-ci-backend.md](19-ci-backend.md) | CI, migrations em banco vazio e inicialização | ✅ execução local sem skips e quatro métricas ≥80%; publicação remota pendente |
+| [19-ci-backend.md](19-ci-backend.md) | CI, migrations em banco vazio e inicialização | ✅ local e GitHub aprovados; PR #11 aberta; check obrigatório depende do plano GitHub |
 | [20-sandbox.md](20-sandbox.md) | Execução local de Python/JavaScript | ✅ módulos e simulados, limites e isolamento validados em Docker real |
 | [plano-sandbox-2026-09-14.md](plano-sandbox-2026-09-14.md) | Plano e validação do sandbox | ✅ incremento local concluído |
 | [plano-geracao-resultados-2026-09-14.md](plano-geracao-resultados-2026-09-14.md) | Geração e resultados de simulados | ✅ ações persistentes, consulta por perfil e recuperação após recarregar |
@@ -90,7 +90,7 @@ Stack: Next.js 16 + React 19 + Tailwind CSS v4 + shadcn/ui + TanStack Query + Zu
 
 ## Próximo passo recomendado
 
-Publicar e ativar o check de [CI do backend](19-ci-backend.md), agora com testes reais de sandbox, e validar os fluxos com os provedores configurados no ambiente pessoal. O [sandbox local](20-sandbox.md) foi concluído; novas linguagens, casos de teste automáticos e ambiente multiusuário exigem planejamento próprio. Autenticação permanece adiada para o uso pessoal local.
+Revisar e integrar a [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), cujo CI foi aprovado; resolver a disponibilidade de proteção de branch no plano da conta para tornar o check obrigatório. Depois, validar os fluxos com os provedores configurados no ambiente pessoal. O [sandbox local](20-sandbox.md) foi concluído; novas linguagens, casos de teste automáticos e ambiente multiusuário exigem planejamento próprio. Autenticação permanece adiada para o uso pessoal local.
 
 ## Infra local
 

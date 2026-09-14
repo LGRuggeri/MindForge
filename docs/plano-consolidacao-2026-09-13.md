@@ -111,3 +111,10 @@ A entrada automática de itens na agenda continua ocorrendo pela submissão de a
 - Validação final: 711 testes backend/87 suítes com SQL e sem skips; 80 testes frontend; 11 cenários Docker. Cobertura 93,65% linhas, 93,49% instruções, 86,13% funções e 82,79% ramificações. Builds/lint aprovados; navegador desktop/celular com API, SQL e Docker reais.
 - Imagens instaladas e flag habilitada no `.env` local; requer reiniciar API de desenvolvimento. Sem migration/dependência/commit/push. [Plano](plano-sandbox-2026-09-14.md) e [operação](20-sandbox.md).
 - Próxima etapa: publicar CI e ativar check obrigatório no GitHub, depois validar provedores do ambiente pessoal. Nenhuma etapa remota foi realizada neste marco.
+
+### Oitavo marco — CI publicado e aprovado no GitHub (14/09/2026)
+
+- Branch `codex/consolidacao-ci-sandbox` criada da `origin/main` atualizada; [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11) reúne as etapas locais de consolidação/cobertura/sandbox. Arquivos locais de agentes e planos antigos foram preservados fora do commit.
+- Commit de implementação `ebbd14d506e1addac0342f2a47f56039c9b4bbbf`: execuções de push e pull request aprovadas, incluindo build/lint, 711 testes SQL, quatro métricas >=80%, 11 cenários Docker e relatórios como artifact. A suíte frontend de 80 testes também foi reconfirmada localmente.
+- APIs de rulesets e proteção clássica retornaram 403: a conta precisa de GitHub Pro para esse recurso no repositório privado, apesar de possuir permissão administrativa. Nenhuma proteção foi ativada e a visibilidade foi mantida.
+- A PR permanece aberta para revisão/integração. Próximos passos: integrar a PR e resolver a disponibilidade da proteção no plano da conta; não confundir CI verde com merge já impedido quando o check falha.
