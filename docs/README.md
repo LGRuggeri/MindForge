@@ -1,7 +1,7 @@
 # MindForge — Documentação
 
 **Fonte única de verdade.**  
-Atualizado em 2026-08-23 após implementação de workers assíncronos no `pg-boss`, abstração de providers de web search e fallback de provedores LLM.
+Atualizado em 14/09/2026 após o sandbox de código: 711 testes aprovados com SQL, 80 no frontend e 11 cenários reais de Docker. Quatro métricas do backend acima de 80%. Exercícios de código permitem executar Python/JavaScript antes da correção. Publicação e ativação do check obrigatório no GitHub ainda pendentes.
 
 ## Como usar
 
@@ -29,19 +29,28 @@ Atualizado em 2026-08-23 após implementação de workers assíncronos no `pg-bo
 | [12-knowledge-graph.md](12-knowledge-graph.md) | Knowledge Graph | ✅ implementado |
 | [13-roadmap.md](13-roadmap.md) | Roadmap por fases | vigente |
 | [14-decisoes-arquiteturais.md](14-decisoes-arquiteturais.md) | ADRs | vigente |
+| [plano-cobertura-80-2026-09-14.md](plano-cobertura-80-2026-09-14.md) | Cobertura global ≥80%: baseline, seis lotes e critérios | seis lotes implementados e validados localmente; ativação remota do CI pendente |
 | [15-projetos.md](15-projetos.md) | Projetos Inteligentes | ✅ implementado |
+| [16-jobs.md](16-jobs.md) | Jobs e erros HTTP | ✅ execução, retry, saída pública e cancelamento validados |
+| [17-midia-agent-kb.md](17-midia-agent-kb.md) | Mídia e integração Agent KB | ✅ frames, cache, subprocesso e contratos HTTP validados |
+| [18-persistencia-testes.md](18-persistencia-testes.md) | Persistência, transações e concorrência | ✅ rollback, escopo, cascatas e disputas em duas conexões validados |
+| [19-ci-backend.md](19-ci-backend.md) | CI, migrations em banco vazio e inicialização | ✅ execução local sem skips e quatro métricas ≥80%; publicação remota pendente |
+| [20-sandbox.md](20-sandbox.md) | Execução local de Python/JavaScript | ✅ módulos e simulados, limites e isolamento validados em Docker real |
+| [plano-sandbox-2026-09-14.md](plano-sandbox-2026-09-14.md) | Plano e validação do sandbox | ✅ incremento local concluído |
+| [plano-geracao-resultados-2026-09-14.md](plano-geracao-resultados-2026-09-14.md) | Geração e resultados de simulados | ✅ ações persistentes, consulta por perfil e recuperação após recarregar |
 
 ## Matriz de implementação (backend)
 
 | Módulo API | Agente | Status | Rotas principais |
 |---|---|---|---|
 | `perfil` | — | ✅ | `POST/GET /perfis` |
+| `sandbox` | — | ✅ execução local isolada; ativação explícita | `POST /sandbox/exercicios/:id/executar` |
 | `planner` | `planner` | ✅ | `POST /planner/objetivos`, `GET /planner/objetivos/:id`, `GET /planner/perfis/:id/objetivos`, `POST /planner/trilhas`, `GET /planner/modulos/:id` |
 | `research` | `researcher` | ✅ implementado: curadoria por LLM + web search real (DuckDuckGo ou API) + async via `pg-boss` | `POST /research/fontes` (aceita `webSearch?: boolean`, `async?: boolean`), `GET /research/modulos/:id/fontes` |
 | `synthesizer` | `synthesizer` + `reviewer` | ✅ geração + revisão automática + `conteudo_fontes` + chunking | `POST /synthesizer/conteudos`, `GET /synthesizer/modulos/:id/conteudos` |
 | `diario` | `teacher` | ✅ | `POST /diario`, `GET /diario/perfis/:id` |
 | `agentes` | orquestração | ✅ | logging em `agentes_execucoes` |
-| `jobs` | — | ✅ `pg-boss` sobe e conecta | interno |
+| `jobs` | — | ✅ ciclo real, retry, saída pública do Research e cancelamento validados | `GET /jobs/filas`, `GET /jobs/:nome/:id`, `GET /jobs/:nome/:id/estado`, `DELETE /jobs/:nome/:id` |
 | `exercicios-avaliacoes` | `evaluator` | ✅ geração + correção + avaliações compostas + simulados multi-módulo + revisão espaçada SM-2 | `POST /exercicios-avaliacoes/exercicios/gerar`, `POST /exercicios-avaliacoes/exercicios/:id/tentativas`, `GET /exercicios-avaliacoes/exercicios?moduloId=`, `GET /exercicios-avaliacoes/exercicios/:id/estatisticas`, `POST /exercicios-avaliacoes/avaliacoes`, `POST /exercicios-avaliacoes/avaliacoes/submeter`, `GET /exercicios-avaliacoes/avaliacoes/:id`, `GET /exercicios-avaliacoes/revisao?data=` |
 | `projetos` | `evaluator` | ✅ projetos práticos gerados por IA com entregas e feedback iterativo | `POST /projetos`, `POST /projetos/gerar`, `GET /projetos?moduloId=`, `GET /projetos/:id`, `POST /projetos/:id/entregas`, `POST /projetos/:id/concluir` |
 | `tutor` | `teacher` | ✅ implementado: `teacher` + `agent-kb` + contexto contínuo | `POST /tutor/duvidas`, `POST /tutor/duvidas/:id/avaliar`, `GET /tutor/perfis/:perfilId/historico` |
@@ -74,14 +83,14 @@ Implementado em `../mindforge-web/`:
 | `/objetivos/[id]` | Visualizar objetivo, gerar/regenerar trilha e listar módulos |
 | `/modulos/[id]` | Estudar conteúdo, gerar conteúdo/exercícios e submeter respostas |
 | `/tutor` | Conversar com o tutor IA (RAG) |
-| `/revisao` | Revisões pendentes e agendadas |
+| `/revisao` | Agenda, consulta do material, autoavaliação de lembrança e reagendamento SM-2 |
 | `/knowledge-graph` | Competências e próximos passos do perfil |
 
 Stack: Next.js 16 + React 19 + Tailwind CSS v4 + shadcn/ui + TanStack Query + Zustand.
 
 ## Próximo passo recomendado
 
-Ver [13-roadmap.md](13-roadmap.md): backend completo e frontend do loop mínimo implementados. Visualização React Flow do grafo, simulados multi-módulo e projetos inteligentes já implementados. Próximos: sandbox de código e autenticação (se necessário).
+Publicar e ativar o check de [CI do backend](19-ci-backend.md), agora com testes reais de sandbox, e validar os fluxos com os provedores configurados no ambiente pessoal. O [sandbox local](20-sandbox.md) foi concluído; novas linguagens, casos de teste automáticos e ambiente multiusuário exigem planejamento próprio. Autenticação permanece adiada para o uso pessoal local.
 
 ## Infra local
 

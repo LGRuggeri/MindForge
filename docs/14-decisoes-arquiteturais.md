@@ -20,6 +20,8 @@ Registro consolidado. Novas decisões entram **no momento em que forem tomadas**
 **Status implementação:** fila sobe e conecta; handlers de domínio registrados para Synthesizer (`synthesizer.gerar-conteudo`), Exercícios (`exercicios.gerar`, `exercicios.corrigir-tentativa`), Biblioteca Viva (`biblioteca-viva.indexar`) e Research (`research.pesquisar`). Execução assíncrona é opt-in via `async: true` nos DTOs.  
 **Alternativas:** BullMQ, RabbitMQ/SQS.
 
+**Validação em 14/09/2026:** ciclo de execução, retry, falha definitiva, cancelamento e saída pública de Research testados com pg-boss real em schema descartável. Workers executam um job por chamada para preservar o retorno; a API de inspeção aplica projeção explícita dos campos públicos. O Nest controla os hooks de inicialização/encerramento sem repeti-los no módulo. Contrato em [Jobs e erros HTTP](16-jobs.md).
+
 ---
 
 ### ADR-003 — `TEXT` + `CHECK` em vez de ENUM nativo
@@ -149,3 +151,13 @@ Registro consolidado. Novas decisões entram **no momento em que forem tomadas**
 **Decisão:** `EmbeddingService` aceita `EMBEDDING_API_KEY`/`EMBEDDING_BASE_URL` opcionais, com fallback para `LLM_API_KEY`/`OPENAI_BASE_URL` se omitidos. Em desenvolvimento local, configurado para usar **Ollama local** (`http://localhost:11434/v1`) com o modelo `nomic-embed-text`.  
 **Alternativas consideradas:** forçar um único provedor para chat e embeddings (bloqueava completamente a Biblioteca Viva); usar a OpenAI oficial (exigiria chave paga adicional).  
 **Consequências:** dimensão do vetor mudou de 1536 (`text-embedding-3-small`) para **768** (`nomic-embed-text`) — migration `0002_daily_jane_foster.sql` recriou a coluna `conteudo_chunks.embedding`. Pipeline de chunking + indexação + busca semântica validado ponta a ponta sem depender do provedor de chat.
+
+### ADR-020 — Sandbox local em containers efêmeros
+
+**Contexto:** exercícios de código precisavam de execução experimental antes da correção por IA. O produto é pessoal e local, sem autenticação.
+
+**Decisão:** executor Docker de Python/JavaScript, ativação explícita, conexão/Host/Origin locais, escopo por perfil e sem persistência na execução. Containers sem rede/volumes/segredos, raiz imutável, recursos e saída limitados. Watchdog em UID separado; código do aluno roda como 65534 sem capacidades. Executar e submeter resposta são ações independentes.
+
+**Alternativas:** processo da API/VM de JavaScript não oferece isolamento de sistema; serviço remoto exigiria nova dependência e envio de código a terceiros.
+
+**Consequências:** requer Docker Linux e imagens preparadas. Adequado ao escopo pessoal; serviço público multiusuário requer autenticação e executor dedicado. Operação, limitações e testes em [20-sandbox.md](20-sandbox.md).

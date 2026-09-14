@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { BibliotecaVivaRepository } from './biblioteca-viva.repository';
 import { EmbeddingService } from './embedding.service';
 import { BuscarSemanticaDto } from './dto/buscar-semantica.dto';
@@ -27,12 +33,16 @@ export class BibliotecaVivaService {
    * Origem: exatamente um de `conteudoId` ou `fonteId` (CHECK do schema).
    */
   async indexarTexto(params: IndexarTextoDto) {
+    if (Boolean(params.conteudoId) === Boolean(params.fonteId)) {
+      throw new BadRequestException('Informe exatamente um de conteudoId ou fonteId');
+    }
     if (params.async) {
       const jobId = await this.queue.send(
         'biblioteca-viva.indexar',
         params as unknown as Record<string, unknown>,
         { retryLimit: 2 },
       );
+      if (!jobId) throw new ServiceUnavailableException('Falha ao enfileirar indexação');
       this.logger.log(`Job de indexação enfileirado: ${jobId}`);
       return { jobId, status: 'enfileirado' };
     }
@@ -46,10 +56,6 @@ export class BibliotecaVivaService {
     fonteId?: string;
   }) {
     const { texto, conteudoId, fonteId } = params;
-
-    if (Boolean(conteudoId) === Boolean(fonteId)) {
-      throw new Error('Informe exatamente um de conteudoId ou fonteId');
-    }
 
     const pedacos = chunkTexto(texto);
     if (pedacos.length === 0) {

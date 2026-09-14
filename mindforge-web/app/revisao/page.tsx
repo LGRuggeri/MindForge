@@ -1,71 +1,158 @@
-'use client';
+"use client";
 
-import { useRevisoes } from '@/lib/hooks/useRevisao';
-import { useAppStore } from '@/lib/store';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Repeat } from 'lucide-react';
-import { format, isBefore, parseISO, startOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useState } from "react";
+import Link from "next/link";
+import { useRevisoes } from "@/lib/hooks/useRevisao";
+import { useAppStore } from "@/lib/store";
+import { SessaoRevisao } from "@/components/sessao-revisao";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RevisaoItem } from "@/types/api";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function RevisaoPage() {
-  const perfilSelecionado = useAppStore((state) => state.perfilSelecionado);
-  const { data: revisoes, isLoading } = useRevisoes(perfilSelecionado?.id ?? null);
+  const perfil = useAppStore((state) => state.perfilSelecionado);
+  return perfil ? (
+    <AgendaRevisao key={perfil.id} perfilId={perfil.id} />
+  ) : (
+    <p>
+      Selecione um perfil para consultar suas revisões.{" "}
+      <Link href="/perfis" className="underline">
+        Ir para perfis
+      </Link>
+    </p>
+  );
+}
 
-  // Comparação por dia: revisão "de hoje" só vira pendente a partir de amanhã,
-  // senão qualquer horário após a meia-noite a classificaria como atrasada.
-  const hoje = startOfDay(new Date());
-  const pendentes =
-    revisoes?.filter((r) => isBefore(startOfDay(parseISO(r.proximaRevisao)), hoje)) ?? [];
-  const futuras =
-    revisoes?.filter((r) => !isBefore(startOfDay(parseISO(r.proximaRevisao)), hoje)) ?? [];
+function AgendaRevisao({ perfilId }: { perfilId: string }) {
+  const {
+    data: revisoes = [],
+    isLoading,
+    error,
+    refetch,
+  } = useRevisoes(perfilId);
+  const [ativa, setAtiva] = useState<string | null>(null);
+  const [mensagem, setMensagem] = useState("");
+  const hoje = format(new Date(), "yyyy-MM-dd");
+  const pendentes = revisoes.filter((r) => r.proximaRevisao <= hoje);
+  const futuras = revisoes.filter((r) => r.proximaRevisao > hoje);
+
+  function listar(itens: RevisaoItem[], disponivel: boolean) {
+    return itens.map((revisao) => (
+      <div
+        key={revisao.id}
+        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
+      >
+        <div>
+          <p className="font-medium capitalize">
+            {revisao.itemTipo === "exercicio"
+              ? "Exercício"
+              : revisao.itemTipo === "conteudo"
+                ? "Conteúdo"
+                : "Competência"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {format(
+              parseISO(revisao.proximaRevisao),
+              "dd 'de' MMMM 'de' yyyy",
+              { locale: ptBR },
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge
+            variant={revisao.proximaRevisao < hoje ? "destructive" : "outline"}
+          >
+            {revisao.proximaRevisao < hoje
+              ? "Atrasada"
+              : revisao.proximaRevisao === hoje
+                ? "Hoje"
+                : "Agendada"}
+          </Badge>
+          {disponivel && (
+            <Button
+              variant="outline"
+              disabled={!!ativa}
+              onClick={() => {
+                setMensagem("");
+                setAtiva(revisao.id);
+              }}
+            >
+              Revisar
+            </Button>
+          )}
+        </div>
+      </div>
+    ));
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Revisão espaçada</h1>
-        <p className="text-muted-foreground">Itens agendados para revisão com SM-2.</p>
+        <p className="text-muted-foreground">
+          Relembre o que estudou e acompanhe sua próxima revisão.
+        </p>
       </div>
-
+      {mensagem && (
+        <p role="status" className="rounded-lg border p-4">
+          {mensagem}
+        </p>
+      )}
+      {error ? (
+        <div role="alert">
+          <p>Não foi possível carregar a agenda.</p>
+          <Button onClick={() => void refetch()}>Tentar novamente</Button>
+        </div>
+      ) : null}
+      {ativa && (
+        <SessaoRevisao
+          key={ativa}
+          id={ativa}
+          perfilId={perfilId}
+          aoFechar={() => {
+            setAtiva(null);
+            void refetch();
+          }}
+          aoConcluir={(data) => {
+            setAtiva(null);
+            setMensagem(
+              `Revisão registrada. Próxima revisão: ${format(parseISO(data), "dd/MM/yyyy")}.`,
+            );
+          }}
+        />
+      )}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Repeat className="h-5 w-5" />
-            Revisões pendentes
-          </CardTitle>
+          <CardTitle>Revisões de hoje e atrasadas</CardTitle>
           <CardDescription>
-            {pendentes.length} item{pendentes.length !== 1 ? 's' : ''} atrasado
-            {pendentes.length !== 1 ? 's' : ''}
+            {pendentes.length} item(ns) para revisar
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? (
             <Skeleton className="h-20 w-full" />
-          ) : pendentes.length > 0 ? (
-            pendentes.map((revisao) => (
-              <div
-                key={revisao.id}
-                className="flex items-center justify-between rounded-lg border p-4"
-              >
-                <div>
-                  <p className="font-medium capitalize">{revisao.itemTipo}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Próxima revisão:{' '}
-                    {format(parseISO(revisao.proximaRevisao), "dd 'de' MMMM 'de' yyyy", {
-                      locale: ptBR,
-                    })}
-                  </p>
-                </div>
-                <Badge variant="destructive">Atrasada</Badge>
-              </div>
-            ))
           ) : (
-            <p className="text-sm text-muted-foreground">Nenhuma revisão pendente. Bom trabalho!</p>
+            !error &&
+            (pendentes.length ? (
+              listar(pendentes, true)
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma revisão pendente.
+              </p>
+            ))
           )}
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>Próximas revisões</CardTitle>
@@ -73,25 +160,15 @@ export default function RevisaoPage() {
         <CardContent className="space-y-3">
           {isLoading ? (
             <Skeleton className="h-20 w-full" />
-          ) : futuras.length > 0 ? (
-            futuras.map((revisao) => (
-              <div
-                key={revisao.id}
-                className="flex items-center justify-between rounded-lg border p-4"
-              >
-                <div>
-                  <p className="font-medium capitalize">{revisao.itemTipo}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(parseISO(revisao.proximaRevisao), "dd 'de' MMMM 'de' yyyy", {
-                      locale: ptBR,
-                    })}
-                  </p>
-                </div>
-                <Badge variant="outline">Agendada</Badge>
-              </div>
-            ))
           ) : (
-            <p className="text-sm text-muted-foreground">Nenhuma revisão futura agendada.</p>
+            !error &&
+            (futuras.length ? (
+              listar(futuras, false)
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma revisão futura agendada.
+              </p>
+            ))
           )}
         </CardContent>
       </Card>

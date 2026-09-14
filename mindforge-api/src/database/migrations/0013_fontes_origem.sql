@@ -1,0 +1,2 @@
+ALTER TABLE "fontes_pesquisa" ADD COLUMN "origem" text DEFAULT 'legado' NOT NULL;--> statement-breakpoint
+ALTER TABLE "fontes_pesquisa" ADD CONSTRAINT "fontes_origem_check" CHECK ("fontes_pesquisa"."origem" IN ('busca_web','sugestao_ia','legado'));

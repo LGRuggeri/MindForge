@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'node:crypto';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve, sep } from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
+import { lstat, mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { z } from 'zod';
 
 export interface MidiaArmazenada {
   arquivo: string;
@@ -10,11 +11,13 @@ export interface MidiaArmazenada {
   buffer: Buffer;
 }
 
-interface SidecarMetadados {
-  mime: string;
-  origem: string;
-  criadoEm: string;
-}
+const metadadosSchema = z.object({
+  mime: z.string(),
+  origem: z.string(),
+  criadoEm: z.string().datetime(),
+});
+type SidecarMetadados = z.infer<typeof metadadosSchema>;
+const NOME_MIDIA = /^(imagem|audio)-[a-f0-9]{32}\.(png|jpg|mp3|wav|ogg|bin)$/;
 
 /**
  * Cache de mídias geradas (imagens e áudios) em disco.
@@ -36,15 +39,34 @@ export class MidiaStorageService {
     this.diretorio = resolve(process.cwd(), configurado);
   }
 
-  async salvar(tipo: 'imagem' | 'audio', chave: string, buffer: Buffer, mime: string, origem: string): Promise<string> {
+  async salvar(
+    tipo: 'imagem' | 'audio',
+    chave: string,
+    buffer: Buffer,
+    mime: string,
+    origem: string,
+  ): Promise<string> {
     const hash = createHash('sha256').update(chave).digest('hex').slice(0, 32);
     const extensao = this.extensaoPorMime(mime);
     const arquivo = `${tipo}-${hash}.${extensao}`;
 
     await mkdir(this.diretorio, { recursive: true });
-    await writeFile(join(this.diretorio, arquivo), buffer);
     const metadados: SidecarMetadados = { mime, origem, criadoEm: new Date().toISOString() };
-    await writeFile(join(this.diretorio, `${arquivo}.json`), JSON.stringify(metadados), 'utf-8');
+    const temporario = join(this.diretorio, `${arquivo}.${randomUUID()}.tmp`);
+    const temporarioJson = `${temporario}.json`;
+    try {
+      await writeFile(temporario, buffer, { flag: 'wx' });
+      await writeFile(temporarioJson, JSON.stringify(metadados), { encoding: 'utf-8', flag: 'wx' });
+      // O arquivo de mídia só fica visível depois das escritas completas.
+      await rename(temporarioJson, join(this.diretorio, `${arquivo}.json`));
+      await rename(temporario, join(this.diretorio, arquivo));
+    } finally {
+      await Promise.all(
+        [temporario, temporarioJson].map(async (caminho) => {
+          await unlink(caminho).catch(() => undefined);
+        }),
+      );
+    }
 
     this.logger.debug(`Mídia salva em cache: ${arquivo} (${buffer.length} bytes)`);
     return arquivo;
@@ -61,29 +83,21 @@ export class MidiaStorageService {
       return null;
     }
 
-    const arquivo = nomes.find((n) => n.startsWith(prefixo) && !n.endsWith('.json'));
+    const arquivo = nomes.find((n) => n.startsWith(prefixo) && NOME_MIDIA.test(n));
     if (!arquivo) {
       return null;
     }
 
-    const metadados = await this.lerMetadados(arquivo);
-    const buffer = await readFile(join(this.diretorio, arquivo));
-    return { arquivo, mime: metadados?.mime ?? this.mimePorExtensao(arquivo), buffer };
+    return this.obterPorNome(arquivo);
   }
 
   async obterPorNome(arquivo: string): Promise<MidiaArmazenada | null> {
-    // Bloqueia path traversal: o nome deve ser um arquivo simples, sem separadores
-    // nem referências de diretório.
-    if (arquivo.includes('/') || arquivo.includes('\\') || arquivo.includes('..')) {
-      return null;
-    }
-
+    // Aceita somente arquivos gerados; sidecars, temporários e caminhos são recusados.
+    if (!NOME_MIDIA.test(arquivo)) return null;
     const caminho = join(this.diretorio, arquivo);
-    if (resolve(caminho) !== join(this.diretorio, arquivo) || !caminho.startsWith(this.diretorio + sep)) {
-      return null;
-    }
-
     try {
+      const info = await lstat(caminho);
+      if (info.isSymbolicLink() || !info.isFile()) return null;
       const buffer = await readFile(caminho);
       const metadados = await this.lerMetadados(arquivo);
       return { arquivo, mime: metadados?.mime ?? this.mimePorExtensao(arquivo), buffer };
@@ -95,7 +109,10 @@ export class MidiaStorageService {
   private async lerMetadados(arquivo: string): Promise<SidecarMetadados | null> {
     try {
       const raw = await readFile(join(this.diretorio, `${arquivo}.json`), 'utf-8');
-      return JSON.parse(raw) as SidecarMetadados;
+      const resultado = metadadosSchema.safeParse(JSON.parse(raw));
+      return resultado.success && resultado.data.mime === this.mimePorExtensao(arquivo)
+        ? resultado.data
+        : null;
     } catch {
       return null;
     }

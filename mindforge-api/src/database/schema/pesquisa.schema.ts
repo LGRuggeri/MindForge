@@ -10,12 +10,17 @@ export const fontesPesquisa = pgTable(
     tipo: text('tipo').notNull(),
     titulo: text('titulo').notNull(),
     url: text('url'),
+    origem: text('origem')
+      .$type<'busca_web' | 'sugestao_ia' | 'legado'>()
+      .notNull()
+      .default('legado'),
     autor: text('autor'),
     confiabilidadeScore: numeric('confiabilidade_score', { precision: 3, scale: 2 }),
     resumo: text('resumo'),
     coletadoEm: timestamp('coletado_em', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    check('fontes_origem_check', sql`${table.origem} IN ('busca_web','sugestao_ia','legado')`),
     check(
       'fontes_tipo_check',
       sql`${table.tipo} IN ('documentacao_oficial','livro','artigo','video','outro')`,

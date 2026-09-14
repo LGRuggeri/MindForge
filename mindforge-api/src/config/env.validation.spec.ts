@@ -5,6 +5,38 @@ const base = {
   LLM_API_KEY: 'chate-key',
 };
 
+describe('validateEnv — sandbox local', () => {
+  const valido = { ...base, IMAGE_API_KEY: 'imagem-teste' };
+  it('fica desativado por padrão com cinco segundos de limite', () => {
+    expect(validateEnv(valido)).toMatchObject({ SANDBOX_ENABLED: 'false', SANDBOX_TEMPO_MS: 5000 });
+    expect(
+      validateEnv({ ...valido, SANDBOX_ENABLED: 'true', SANDBOX_TEMPO_MS: '2000' }),
+    ).toMatchObject({ SANDBOX_ENABLED: 'true', SANDBOX_TEMPO_MS: 2000 });
+  });
+  it.each([0, 499, 10001, 1.5, 'inválido'])('recusa timeout %s', (tempo) => {
+    expect(() => validateEnv({ ...valido, SANDBOX_TEMPO_MS: tempo })).toThrow('SANDBOX_TEMPO_MS');
+  });
+  it.each(['--privileged', 'imagem; comando', ' imagem', ''])(
+    'recusa referência de imagem inválida %s',
+    (imagem) => {
+      expect(() => validateEnv({ ...valido, SANDBOX_PYTHON_IMAGE: imagem })).toThrow(
+        'SANDBOX_PYTHON_IMAGE',
+      );
+    },
+  );
+});
+
+describe('validateEnv — timeout de busca', () => {
+  const valido = { ...base, IMAGE_API_KEY: 'imagem-teste' };
+  it('usa dez segundos por padrão e aceita valores configurados', () => {
+    expect(validateEnv(valido).SEARCH_TIMEOUT_MS).toBe(10000);
+    expect(validateEnv({ ...valido, SEARCH_TIMEOUT_MS: '2500' }).SEARCH_TIMEOUT_MS).toBe(2500);
+  });
+  it.each([0, -1, 60001, 1.5, 'inválido'])('rejeita timeout inválido %s', (tempo) => {
+    expect(() => validateEnv({ ...valido, SEARCH_TIMEOUT_MS: tempo })).toThrow('SEARCH_TIMEOUT_MS');
+  });
+});
+
 describe('validateEnv — regra de IMAGE_API_KEY', () => {
   it('aceita IMAGE_API_KEY ausente quando o provedor de chat é o Gemini', () => {
     const env = validateEnv({

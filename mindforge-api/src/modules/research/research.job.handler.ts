@@ -3,6 +3,7 @@ import { Job } from 'pg-boss';
 import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
 import { PesquisarDto } from './dto/pesquisar.dto';
+import { resultadoPublico } from '../../jobs/resultado-publico';
 
 export const RESEARCH_JOB = 'research.pesquisar';
 export const RESEARCH_SERVICE = Symbol('RESEARCH_SERVICE');
@@ -21,9 +22,11 @@ export class ResearchJobHandler implements OnModuleInit {
 
   async onModuleInit() {
     await this.queue.work(RESEARCH_JOB, async (jobs: Job<Record<string, unknown>>[]) => {
+      let resultado: unknown;
       for (const job of jobs) {
-        await this.processar(job);
+        resultado = await this.processar(job);
       }
+      return resultadoPublico(RESEARCH_JOB, resultado);
     });
     this.logger.log(`Handler registrado: ${RESEARCH_JOB}`);
   }
@@ -35,11 +38,7 @@ export class ResearchJobHandler implements OnModuleInit {
       // Força execução síncrona dentro do worker para evitar re-enfileiramento.
       return await this.researchService.pesquisar({ ...dados, async: false });
     } catch (erro) {
-      const mensagem = erro instanceof Error ? erro.message : String(erro);
-      this.logger.error(
-        `Falha no job ${RESEARCH_JOB} para módulo ${dados.moduloId}: ${mensagem}`,
-        erro instanceof Error ? erro.stack : undefined,
-      );
+      this.logger.error(`Falha no job ${RESEARCH_JOB} para módulo ${dados.moduloId}`);
       throw erro;
     }
   }

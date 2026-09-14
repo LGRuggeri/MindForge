@@ -1,0 +1,74 @@
+name: Backend CI
+
+on:
+  push:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-sql:
+    name: Backend / SQL e cobertura
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mindforge-api
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/mindforge_ci
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mindforge_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mindforge_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mindforge-api/package-lock.json
+      - name: Instalar dependências fixadas
+        run: npm ci
+      - name: Compilar API
+        run: npm run build
+      - name: Verificar lint
+        run: npm run lint
+      - name: Migrar banco vazio e executar suíte completa
+        run: npm run test:ci
+      - name: Preparar imagens do sandbox
+        run: |
+          docker pull python:3.13-slim-bookworm
+          docker pull node:22-bookworm-slim
+      - name: Validar isolamento do sandbox no Docker
+        run: npm run test:sandbox
+      - name: Publicar relatórios
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-cobertura-${{ github.run_attempt }}
+          path: |
+            mindforge-api/coverage/resultado-ci.json
+            mindforge-api/coverage/coverage-summary.json
+            mindforge-api/coverage/lcov.info
+            mindforge-api/coverage/lcov-report/
+          if-no-files-found: warn
+          retention-days: 14

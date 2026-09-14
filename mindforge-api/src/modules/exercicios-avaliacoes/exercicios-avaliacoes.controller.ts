@@ -15,6 +15,7 @@ import { SubmeterAvaliacaoDto } from './dto/submeter-avaliacao.dto';
 import { SubmeterTentativaDto } from './dto/submeter-tentativa.dto';
 import { ExerciciosAvaliacoesService } from './exercicios-avaliacoes.service';
 import { RevisaoEspacadaService } from './revisao-espacada.service';
+import { ConcluirRevisaoDto } from './dto/concluir-revisao.dto';
 
 @Controller('exercicios-avaliacoes')
 export class ExerciciosAvaliacoesController {
@@ -41,6 +42,14 @@ export class ExerciciosAvaliacoesController {
     return this.avaliacoesService.buscarPorId(id);
   }
 
+  @Get('avaliacoes/:id/resultado')
+  buscarResultadoAvaliacao(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('perfilId', ParseUUIDPipe) perfilId: string,
+  ) {
+    return this.avaliacoesService.buscarResultado(id, perfilId);
+  }
+
   @Get('revisao')
   async listarRevisoes(@Query('perfilId') perfilId: string, @Query('data') data?: string) {
     if (!perfilId) {
@@ -52,6 +61,19 @@ export class ExerciciosAvaliacoesController {
   @Post('exercicios/gerar')
   async gerarExercicio(@Body(new ValidationPipe({ transform: true })) dto: GerarExercicioDto) {
     return this.service.gerarExercicio(dto);
+  }
+
+  @Get('revisao/:id')
+  buscarRevisao(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('perfilId', ParseUUIDPipe) perfilId: string,
+  ) {
+    return this.revisaoService.buscarDetalhe(id, perfilId);
+  }
+
+  @Post('revisao/:id/concluir')
+  concluirRevisao(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConcluirRevisaoDto) {
+    return this.revisaoService.concluir(id, dto);
   }
 
   @Post('exercicios/:id/tentativas')

@@ -9,7 +9,7 @@ interface AdrEntry {
 
 /**
  * Bootstrap que sincroniza os ADRs do MindForge com o agent_kb.
- * Executa uma única vez na inicialização, sem bloquear o app.
+ * Aguarda a sincronização na inicialização; falhas não abortam o startup.
  */
 @Injectable()
 export class AgentKbAdrBootstrap implements OnModuleInit {
@@ -45,10 +45,8 @@ export class AgentKbAdrBootstrap implements OnModuleInit {
       }
 
       this.logger.log(`${this.adrs().length} ADRs sincronizados com o agent_kb`);
-    } catch (erro) {
-      const mensagem = erro instanceof Error ? erro.message : String(erro);
-      this.logger.error(`Falha ao sincronizar ADRs com agent_kb: ${mensagem}`);
-      // Não bloqueia o startup do app.
+    } catch {
+      this.logger.error('Falha ao sincronizar ADRs com agent_kb.');
     }
   }
 

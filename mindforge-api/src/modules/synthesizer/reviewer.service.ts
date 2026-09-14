@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { validarRespostaIa } from '../../common/ia/json-ia';
+import { avaliacaoReviewerSchema } from '../../common/ia/contratos-ia';
 import { AgentesService } from '../agentes/agentes.service';
 import { ConteudoGerado } from './synthesizer.service';
 
@@ -11,8 +13,6 @@ export interface AvaliacaoReviewer {
 
 @Injectable()
 export class ReviewerService {
-  private readonly logger = new Logger(ReviewerService.name);
-
   constructor(private readonly agentes: AgentesService) {}
 
   async revisar(conteudo: ConteudoGerado, contexto: string): Promise<AvaliacaoReviewer> {
@@ -21,7 +21,7 @@ export class ReviewerService {
       system: this.montarSystemPrompt(),
       user: this.montarUserPrompt(conteudo, contexto),
       entrada: { titulo: conteudo.titulo },
-      parser: (raw) => this.parseJsonSeguro<AvaliacaoReviewer>(raw),
+      parser: (raw) => validarRespostaIa(raw, avaliacaoReviewerSchema, 'Reviewer'),
       temperature: 0.4,
     });
   }
@@ -62,15 +62,5 @@ ${conteudo.corpoMarkdown}
 ---
 
 Avalie o conteúdo no formato JSON especificado.`;
-  }
-
-  private parseJsonSeguro<T>(raw: string): T {
-    const limpo = raw.replace(/```json|```/g, '').trim();
-    try {
-      return JSON.parse(limpo) as T;
-    } catch {
-      this.logger.error('Falha ao parsear JSON do Reviewer', raw);
-      throw new Error('O agente Reviewer retornou uma resposta inválida');
-    }
   }
 }

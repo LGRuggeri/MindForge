@@ -81,3 +81,9 @@ Implementada em `mindforge-web/app/knowledge-graph/page.tsx` com React Flow (`@x
 - Layout automático por profundidade topológica: competências sem pré-requisitos à esquerda, dependentes à direita.
 - A página oferece duas abas: **Grafo** (visualização interativa) e **Lista** (visualização anterior em cards).
 - Endpoint consumido: `GET /knowledge-graph/perfis/:perfilId/grafo`.
+
+## 7. Persistência concorrente
+
+Em 14/09/2026, `atualizarProgresso` passou a usar UPSERT na chave `(competencia_id, perfil_id)`. A consulta seguida de inserção podia causar violação de unicidade quando duas conexões registravam o primeiro progresso; o teste reproduziu a disputa e verificou a correção. A atualização continua aceitando o nível informado, sem nova regra geral de avanço monotônico.
+
+Testes PostgreSQL também confirmam escopo do progresso por perfil, relações/vínculos idempotentes, recomendações após dominar pré-requisitos e ausência de nós de outro perfil no grafo. Ver [testes de persistência](18-persistencia-testes.md).

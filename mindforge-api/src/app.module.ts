@@ -16,10 +16,15 @@ import { MidiaModule } from './modules/midia/midia.module';
 import { AgentesModule } from './modules/agentes/agentes.module';
 import { AgentKbModule } from './modules/agent-kb/agent-kb.module';
 import { ProjetosModule } from './modules/projetos/projetos.module';
+import { SandboxModule } from './modules/sandbox/sandbox.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+      ignoreEnvFile: process.env.NODE_ENV === 'test',
+    }),
     DatabaseModule,
     JobsModule,
     PerfilModule,
@@ -35,6 +40,7 @@ import { ProjetosModule } from './modules/projetos/projetos.module';
     AgentesModule,
     AgentKbModule,
     ProjetosModule,
+    SandboxModule,
   ],
 })
 export class AppModule {}

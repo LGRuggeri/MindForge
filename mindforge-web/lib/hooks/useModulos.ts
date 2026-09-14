@@ -1,13 +1,18 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { Modulo, Objetivo, CriarProgressoModuloInput } from '@/types/api';
-import { useObjetivos } from './useObjetivos';
+import { useMemo } from "react";
+import {
+  useQuery,
+  useQueries,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { Modulo, Objetivo, CriarProgressoModuloInput } from "@/types/api";
+import { useObjetivos } from "./useObjetivos";
 
-const MODULOS_KEY = 'modulos';
-const OBJETIVOS_KEY = 'objetivos';
+const MODULOS_KEY = "modulos";
+const OBJETIVOS_KEY = "objetivos";
 
 export interface ModuloComObjetivo {
   modulo: Modulo;
@@ -22,19 +27,23 @@ export interface GrupoTrilha {
 }
 
 export function useModulosDoPerfil(perfilId: string | null) {
-  const { data: objetivos, isLoading: objetivosLoading } = useObjetivos(perfilId);
+  const { data: objetivos, isLoading: objetivosLoading } =
+    useObjetivos(perfilId);
   const detalhes = useQueries({
     queries: (objetivos ?? []).map((objetivo) => ({
       queryKey: [OBJETIVOS_KEY, objetivo.id],
       queryFn: async () => {
-        const { data } = await api.get<Objetivo>(`/planner/objetivos/${objetivo.id}`);
+        const { data } = await api.get<Objetivo>(
+          `/planner/objetivos/${objetivo.id}`,
+        );
         return data;
       },
       enabled: !!perfilId,
     })),
   });
 
-  const isLoading = objetivosLoading || detalhes.some((query) => query.isLoading);
+  const isLoading =
+    objetivosLoading || detalhes.some((query) => query.isLoading);
 
   const { data, grupos } = useMemo<{
     data: ModuloComObjetivo[];
@@ -49,11 +58,14 @@ export function useModulosDoPerfil(perfilId: string | null) {
       for (const trilha of objetivo.trilhas ?? []) {
         // Trilhas substituídas (replanejamento) não oferecem módulos —
         // versões antigas ficam no histórico do objetivo, não no seletor.
-        if (trilha.status === 'substituida') continue;
+        if (trilha.status === "substituida") continue;
         const modulos = trilha.modulos ?? [];
         gruposPorTrilha.set(trilha.id, {
           trilhaId: trilha.id,
-          titulo: trilha.versao > 1 ? `${objetivo.titulo} · v${trilha.versao}` : objetivo.titulo,
+          titulo:
+            trilha.versao > 1
+              ? `${objetivo.titulo} · v${trilha.versao}`
+              : objetivo.titulo,
           objetivoTitulo: objetivo.titulo,
           modulos,
         });
@@ -86,12 +98,18 @@ export function useMarcarProgressoModulo() {
 
   return useMutation({
     mutationFn: async (input: CriarProgressoModuloInput) => {
-      const { data } = await api.post('/knowledge-graph/progresso/modulo', input);
+      const { data } = await api.post<Modulo>(
+        `/planner/modulos/${input.moduloId}/concluir`,
+        { perfilId: input.perfilId },
+      );
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: [MODULOS_KEY, variables.moduloId] });
-      queryClient.invalidateQueries({ queryKey: ['knowledge-graph'] });
+      queryClient.invalidateQueries({
+        queryKey: [MODULOS_KEY, variables.moduloId],
+      });
+      queryClient.invalidateQueries({ queryKey: [OBJETIVOS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ["knowledge-graph"] });
     },
   });
 }

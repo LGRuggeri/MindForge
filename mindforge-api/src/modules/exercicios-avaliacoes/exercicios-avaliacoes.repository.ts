@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ConflictException, NotFoundException, Inject, Injectable } from '@nestjs/common';
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import {
@@ -6,6 +6,7 @@ import {
   avaliacaoExercicios,
   exercicios,
   modulosTrilha,
+  trilhasEstudo,
   NovaAvaliacao,
   NovoExercicio,
   NovaTentativaExercicio,
@@ -16,6 +17,20 @@ import {
 @Injectable()
 export class ExerciciosAvaliacoesRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+
+  async buscarModuloDaAvaliacao(id: string) {
+    return this.db.query.modulosTrilha.findFirst({
+      where: eq(modulosTrilha.id, id),
+      with: { trilha: { with: { objetivo: true } } },
+    });
+  }
+
+  async buscarTrilhaDaAvaliacao(id: string) {
+    return this.db.query.trilhasEstudo.findFirst({
+      where: eq(trilhasEstudo.id, id),
+      with: { objetivo: true },
+    });
+  }
 
   async criarExercicio(dados: NovoExercicio) {
     const [registro] = await this.db.insert(exercicios).values(dados).returning();
@@ -94,8 +109,29 @@ export class ExerciciosAvaliacoesRepository {
   }
 
   async salvarTentativa(dados: NovaTentativaExercicio) {
-    const [registro] = await this.db.insert(tentativasExercicio).values(dados).returning();
-    return registro;
+    if (!dados.avaliacaoId) {
+      const [registro] = await this.db.insert(tentativasExercicio).values(dados).returning();
+      return registro;
+    }
+    const avaliacaoId = dados.avaliacaoId;
+    return this.db.transaction(async (tx) => {
+      await this.bloquearAvaliacao(avaliacaoId, tx);
+      if (await this.buscarResultadoPorAvaliacaoEPerfil(avaliacaoId, dados.perfilId, tx)) {
+        throw new ConflictException('Avaliação já finalizada');
+      }
+      const [registro] = await tx.insert(tentativasExercicio).values(dados).returning();
+      return registro;
+    });
+  }
+
+  private async bloquearAvaliacao(id: string, tx: DrizzleDb) {
+    // Tentativa e finalização disputam a mesma linha, sem manter lock durante a IA.
+    const [avaliacao] = await tx
+      .select({ id: avaliacoes.id })
+      .from(avaliacoes)
+      .where(eq(avaliacoes.id, id))
+      .for('update');
+    if (!avaliacao) throw new NotFoundException('Avaliação não encontrada');
   }
 
   async listarTentativasPorExercicio(exercicioId: string) {
@@ -175,8 +211,15 @@ export class ExerciciosAvaliacoesRepository {
     });
   }
 
-  async salvarResultadoAvaliacao(dados: typeof resultadosAvaliacao.$inferInsert, tx?: DrizzleDb) {
-    const client = tx ?? this.db;
+  async salvarResultadoAvaliacao(
+    dados: typeof resultadosAvaliacao.$inferInsert,
+    tx?: DrizzleDb,
+  ): Promise<typeof resultadosAvaliacao.$inferSelect | undefined> {
+    if (!tx) {
+      return this.db.transaction((transacao) => this.salvarResultadoAvaliacao(dados, transacao));
+    }
+    await this.bloquearAvaliacao(dados.avaliacaoId, tx);
+    const client = tx;
     const [registro] = await client
       .insert(resultadosAvaliacao)
       .values(dados)

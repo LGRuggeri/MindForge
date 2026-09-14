@@ -24,6 +24,13 @@ describe('ExerciciosAvaliacoesService', () => {
 
   beforeEach(async () => {
     const repoMock = {
+      buscarAvaliacaoPorId: jest
+        .fn()
+        .mockResolvedValue({
+          modulo: { trilha: { objetivo: { perfilId } } },
+          exercicios: [{ exercicioId }],
+        }),
+      buscarResultadoPorAvaliacaoEPerfil: jest.fn(),
       criarExercicio: jest.fn(),
       buscarExercicioPorId: jest.fn(),
       listarExerciciosPorModulo: jest.fn(),
@@ -71,6 +78,7 @@ describe('ExerciciosAvaliacoesService', () => {
 
     planner.buscarModuloPorId.mockResolvedValue({
       id: moduloId,
+      trilha: { objetivo: { perfilId } },
       titulo: 'Módulo de teste',
       objetivoAprendizagem: 'Aprender conceitos básicos',
     } as never);

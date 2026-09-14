@@ -155,26 +155,9 @@ export class KnowledgeGraphRepository {
     evidencia?: string,
   ) {
     const agora = new Date();
-    const [existente] = await this.db
-      .select()
-      .from(competenciaProgresso)
-      .where(
-        and(
-          eq(competenciaProgresso.competenciaId, competenciaId),
-          eq(competenciaProgresso.perfilId, perfilId),
-        ),
-      );
-
-    if (existente) {
-      const [atualizado] = await this.db
-        .update(competenciaProgresso)
-        .set({ nivelAtual: nivel, evidencia, atualizadoEm: agora })
-        .where(eq(competenciaProgresso.id, existente.id))
-        .returning();
-      return atualizado;
-    }
-
-    const [novo] = await this.db
+    // A decisão entre inserir e atualizar é atômica, inclusive no primeiro
+    // progresso concorrente do mesmo perfil e competência.
+    const [registro] = await this.db
       .insert(competenciaProgresso)
       .values({
         competenciaId,
@@ -183,8 +166,12 @@ export class KnowledgeGraphRepository {
         evidencia,
         atualizadoEm: agora,
       })
+      .onConflictDoUpdate({
+        target: [competenciaProgresso.competenciaId, competenciaProgresso.perfilId],
+        set: { nivelAtual: nivel, evidencia, atualizadoEm: agora },
+      })
       .returning();
-    return novo;
+    return registro;
   }
 
   async buscarProgressoDoPerfil(perfilId: string, competenciaId: string) {

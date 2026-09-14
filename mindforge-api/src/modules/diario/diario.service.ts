@@ -1,3 +1,4 @@
+import { lerJsonIa } from '../../common/ia/json-ia';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { AgentesService } from '../agentes/agentes.service';
 import { RegistrarDiarioDto } from './dto/registrar-diario.dto';
@@ -25,9 +26,7 @@ export class DiarioService {
     if (moduloIds.length > 0) {
       const modulosDoPerfil = await this.repo.contarModulosDoPerfil(dto.perfilId, moduloIds);
       if (modulosDoPerfil !== moduloIds.length) {
-        throw new BadRequestException(
-          'Um ou mais módulos não pertencem ao perfil informado',
-        );
+        throw new BadRequestException('Um ou mais módulos não pertencem ao perfil informado');
       }
     }
 
@@ -110,11 +109,10 @@ Gere recomendações no formato JSON especificado.`;
   }
 
   private parseJsonSeguro(raw: string): unknown {
-    const limpo = raw.replace(/```json|```/g, '').trim();
     try {
-      return JSON.parse(limpo);
+      return lerJsonIa(raw);
     } catch {
-      this.logger.error('Falha ao parsear JSON do Teacher (diário)', raw);
+      this.logger.error('Falha ao parsear JSON do Teacher (diário)');
       throw new Error('O agente Teacher retornou uma resposta inválida');
     }
   }

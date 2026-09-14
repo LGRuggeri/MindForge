@@ -1,6 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { z } from 'zod';
+import { EMBEDDING_DIMENSIONS } from '../../config/embedding';
+
+const respostaSchema = z.object({
+  data: z.tuple([
+    z.object({
+      index: z.literal(0),
+      embedding: z
+        .array(z.number())
+        .length(EMBEDDING_DIMENSIONS)
+        .refine((vetor) => vetor.some((valor) => valor !== 0)),
+    }),
+  ]),
+});
 
 /**
  * Ponto único de acoplamento com o provedor de embeddings. O restante do
@@ -37,15 +51,19 @@ export class EmbeddingService {
   async gerar(texto: string): Promise<number[]> {
     const model = this.config.get<string>('EMBEDDING_MODEL', 'text-embedding-3-small');
 
-    const resposta = await this.client.embeddings.create({
-      model,
-      input: texto,
-    });
-
-    const embedding = resposta.data[0]?.embedding;
-    if (!embedding) {
-      throw new Error('Resposta do provedor de embeddings não contém vetor');
+    let resposta: unknown;
+    try {
+      resposta = await this.client.embeddings.create({ model, input: texto });
+    } catch {
+      throw new BadGatewayException('Não foi possível gerar o embedding');
     }
+    const validado = respostaSchema.safeParse(resposta);
+    if (!validado.success) {
+      throw new BadGatewayException(
+        `O provedor deve retornar exatamente um vetor válido de ${EMBEDDING_DIMENSIONS} dimensões`,
+      );
+    }
+    const embedding = validado.data.data[0].embedding;
 
     this.logger.debug(`Embedding gerado: modelo=${model}, dimensões=${embedding.length}`);
     return embedding;

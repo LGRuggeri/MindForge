@@ -41,7 +41,21 @@ export class AvaliacoesService {
   }
 
   async criar(dto: CriarAvaliacaoDto) {
+    await this.validarEscopo(dto);
     const exerciciosIds = await this.resolverExerciciosParaAvaliacao(dto);
+    if (exerciciosIds.length === 0) {
+      throw new BadRequestException('Avaliação deve conter pelo menos um exercício');
+    }
+    if (new Set(exerciciosIds).size !== exerciciosIds.length) {
+      throw new BadRequestException('Avaliação não aceita exercícios duplicados');
+    }
+    const candidatos = dto.moduloId
+      ? await this.repo.listarExerciciosPorModulo(dto.moduloId)
+      : await this.repo.listarExerciciosPorTrilha(dto.trilhaId!);
+    const permitidos = new Set(candidatos.map((exercicio) => exercicio.id));
+    if (exerciciosIds.some((id) => !permitidos.has(id))) {
+      throw new BadRequestException('Exercício não pertence ao módulo ou trilha da avaliação');
+    }
 
     const { avaliacaoId } = await this.repo.criarAvaliacaoComExercicios(
       {
@@ -55,6 +69,28 @@ export class AvaliacoesService {
 
     this.logger.log(`Avaliação criada: ${avaliacaoId} (${dto.tipo})`);
     return this.repo.buscarAvaliacaoPorId(avaliacaoId);
+  }
+
+  private async validarEscopo(dto: CriarAvaliacaoDto) {
+    if (!dto.moduloId && !dto.trilhaId) {
+      throw new BadRequestException('Avaliação deve estar vinculada a um módulo ou trilha');
+    }
+    if (dto.moduloId) {
+      const modulo = await this.repo.buscarModuloDaAvaliacao(dto.moduloId);
+      if (!modulo) throw new NotFoundException('Módulo da avaliação não encontrado');
+      if (!modulo.trilha?.objetivo?.perfilId) {
+        throw new BadRequestException('Módulo não possui perfil proprietário');
+      }
+      if (dto.trilhaId && dto.trilhaId !== modulo.trilhaId) {
+        throw new BadRequestException('Módulo não pertence à trilha informada');
+      }
+    } else {
+      const trilha = await this.repo.buscarTrilhaDaAvaliacao(dto.trilhaId!);
+      if (!trilha) throw new NotFoundException('Trilha da avaliação não encontrada');
+      if (!trilha.objetivo?.perfilId) {
+        throw new BadRequestException('Trilha não possui perfil proprietário');
+      }
+    }
   }
 
   private async resolverExerciciosParaAvaliacao(dto: CriarAvaliacaoDto): Promise<string[]> {
@@ -85,20 +121,27 @@ export class AvaliacoesService {
     return embaralhados.slice(0, Math.min(quantidade, candidatos.length)).map((e) => e.id);
   }
 
-  async submeter(dto: SubmeterAvaliacaoDto) {
-    const avaliacao = await this.repo.buscarAvaliacaoPorId(dto.avaliacaoId);
-    if (!avaliacao) {
-      throw new NotFoundException(`Avaliação ${dto.avaliacaoId} não encontrada`);
-    }
-
+  private async buscarDoPerfil(id: string, perfilId: string) {
+    const avaliacao = await this.buscarPorId(id);
     const donoId =
       avaliacao.modulo?.trilha?.objetivo?.perfilId ?? avaliacao.trilha?.objetivo?.perfilId;
     if (!donoId) {
       throw new BadRequestException('Avaliação não possui perfil proprietário');
     }
-    if (donoId !== dto.perfilId) {
+    if (donoId !== perfilId) {
       throw new ForbiddenException('Avaliação não pertence ao perfil informado');
     }
+    return avaliacao;
+  }
+
+  async buscarResultado(id: string, perfilId: string) {
+    await this.buscarDoPerfil(id, perfilId);
+    const resultado = await this.repo.buscarResultadoPorAvaliacaoEPerfil(id, perfilId);
+    return { resultado: resultado ? this.normalizarResultadoExistente(resultado) : null };
+  }
+
+  async submeter(dto: SubmeterAvaliacaoDto) {
+    const avaliacao = await this.buscarDoPerfil(dto.avaliacaoId, dto.perfilId);
 
     const resultadoExistente = await this.repo.buscarResultadoPorAvaliacaoEPerfil(
       dto.avaliacaoId,
@@ -111,6 +154,12 @@ export class AvaliacoesService {
       return this.normalizarResultadoExistente(resultadoExistente);
     }
 
+    if (avaliacao.exercicios.length === 0) {
+      throw new BadRequestException('Avaliação deve conter pelo menos um exercício');
+    }
+    if (new Set(dto.respostas.map((r) => r.exercicioId)).size !== dto.respostas.length) {
+      throw new BadRequestException('Respostas duplicadas para o mesmo exercício');
+    }
     const respostasPorExercicio = new Map(dto.respostas.map((r) => [r.exercicioId, r]));
     const exerciciosIdsValidos = new Set(
       avaliacao.exercicios.map((relacao) => relacao.exercicioId),
@@ -120,9 +169,7 @@ export class AvaliacoesService {
       (r) => !exerciciosIdsValidos.has(r.exercicioId),
     );
     if (respostasInvalidas.length > 0) {
-      this.logger.warn(
-        `Avaliação ${dto.avaliacaoId} recebeu ${respostasInvalidas.length} resposta(s) com exercício(s) não vinculado(s)`,
-      );
+      throw new BadRequestException('Resposta contém exercício não vinculado à avaliação');
     }
 
     // Busca tentativas apenas dos exercícios com resposta; exercício sem
@@ -136,14 +183,17 @@ export class AvaliacoesService {
           dto.avaliacaoId,
           dto.perfilId,
         );
-        return tentativas.find((t) => t.id === resposta.tentativaId);
+        const tentativa = tentativas.find((t) => t.id === resposta.tentativaId);
+        if (!tentativa) {
+          throw new BadRequestException(
+            'Tentativa não pertence ao exercício, avaliação e perfil informados',
+          );
+        }
+        return tentativa;
       }),
     );
 
-    const mapaTentativas = new Map<
-      string,
-      NonNullable<(typeof tentativasPorExercicio)[number]>
-    >();
+    const mapaTentativas = new Map<string, NonNullable<(typeof tentativasPorExercicio)[number]>>();
     avaliacao.exercicios.forEach((relacao, indice) => {
       const tentativa = tentativasPorExercicio[indice];
       if (tentativa) {

@@ -41,10 +41,7 @@ export class EmbeddingsJobHandler implements OnModuleInit {
     try {
       return await this.bibliotecaService.indexarTexto({ ...dados, async: false });
     } catch (erro) {
-      this.logger.error(
-        `Falha no job ${INDEXAR_EMBEDDING_JOB} para origem ${origem}`,
-        erro instanceof Error ? erro.stack : String(erro),
-      );
+      this.logger.error(`Falha no job ${INDEXAR_EMBEDDING_JOB} para origem ${origem}`);
       throw erro;
     }
   }

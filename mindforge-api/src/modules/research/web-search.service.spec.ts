@@ -23,6 +23,23 @@ describe('WebSearchService', () => {
     serper = { buscar: jest.fn() } as unknown as SerperSearchProvider;
   });
 
+  it.each([undefined, 'desconhecido', 'constructor'])(
+    'usa fallback para provider %s',
+    async (nome) => {
+      const service = new WebSearchService(
+        new ConfigService({ SEARCH_PROVIDER: nome }),
+        duckduckgo,
+        api,
+        serper,
+      );
+      (duckduckgo.buscar as jest.Mock).mockResolvedValue([]);
+      expect(await service.buscar('teste')).toEqual([]);
+      expect(duckduckgo.buscar).toHaveBeenCalledWith('teste', undefined);
+      expect(api.buscar).not.toHaveBeenCalled();
+      expect(serper.buscar).not.toHaveBeenCalled();
+    },
+  );
+
   it('deve usar DuckDuckGo por padrão', async () => {
     const config = criarConfigService('duckduckgo');
     const service = new WebSearchService(config, duckduckgo, api, serper);

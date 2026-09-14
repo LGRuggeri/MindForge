@@ -30,20 +30,20 @@ const ORIGIN = 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold';
 // Vozes padrão por idioma (BCP-47), quando o chamador não escolhe uma voz.
 const VOZES_PADRAO: Record<string, string> = {
   'pt-br': 'pt-BR-FranciscaNeural',
-  'pt': 'pt-BR-FranciscaNeural',
-  'en': 'en-US-AriaNeural',
+  pt: 'pt-BR-FranciscaNeural',
+  en: 'en-US-AriaNeural',
   'en-us': 'en-US-AriaNeural',
   'en-gb': 'en-GB-LibbyNeural',
-  'es': 'es-ES-ElviraNeural',
+  es: 'es-ES-ElviraNeural',
   'es-es': 'es-ES-ElviraNeural',
   'es-mx': 'es-MX-DaliaNeural',
-  'fr': 'fr-FR-DeniseNeural',
-  'de': 'de-DE-KatjaNeural',
-  'it': 'it-IT-ElsaNeural',
-  'ja': 'ja-JP-NanamiNeural',
-  'ko': 'ko-KR-SunHiNeural',
-  'zh': 'zh-CN-XiaoxiaoNeural',
-  'hi': 'hi-IN-SwaraNeural',
+  fr: 'fr-FR-DeniseNeural',
+  de: 'de-DE-KatjaNeural',
+  it: 'it-IT-ElsaNeural',
+  ja: 'ja-JP-NanamiNeural',
+  ko: 'ko-KR-SunHiNeural',
+  zh: 'zh-CN-XiaoxiaoNeural',
+  hi: 'hi-IN-SwaraNeural',
 };
 
 @Injectable()
@@ -80,120 +80,107 @@ export class EdgeTtsProvider implements AudioProvider {
     return new Promise((resolve, reject) => {
       const pedacos: Buffer[] = [];
       let finalizado = false;
-
-      const finalizar = () => {
-        if (finalizado) {
-          return;
-        }
-        finalizado = true;
-        clearTimeout(timeout);
-        try {
-          ws.close();
-        } catch {
-          // conexão já fechada
-        }
-        resolve(Buffer.concat(pedacos));
-      };
-
-      const rejeitar = (erro: Error) => {
-        if (finalizado) {
-          return;
-        }
-        finalizado = true;
-        clearTimeout(timeout);
-        try {
-          ws.terminate();
-        } catch {
-          // conexão já fechada
-        }
-        reject(erro);
-      };
-
       const connectionId = this.gerarHex(16);
       const url =
-        `${BASE_URL}?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}` +
-        `&ConnectionId=${connectionId}` +
-        `&Sec-MS-GEC=${this.gerarSecMsGec()}` +
-        `&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
+        BASE_URL +
+        '?TrustedClientToken=' +
+        TRUSTED_CLIENT_TOKEN +
+        '&ConnectionId=' +
+        connectionId +
+        '&Sec-MS-GEC=' +
+        this.gerarSecMsGec() +
+        '&Sec-MS-GEC-Version=' +
+        SEC_MS_GEC_VERSION;
       const ws = new WebSocket(url, {
         headers: {
           Origin: ORIGIN,
-          'User-Agent': `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0`,
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
           Pragma: 'no-cache',
           'Cache-Control': 'no-cache',
         },
       });
 
-      // Timeout proporcional ao texto: ~1s por 100 caracteres (síntese é mais
-      // rápida que isso na prática), com piso de 30s para textos curtos.
-      const timeoutMs = Math.max(30_000, texto.length * 10);
-      const timeout = setTimeout(() => {
-        ws.terminate();
-        reject(new Error('Timeout ao sintetizar áudio com Edge-TTS'));
-      }, timeoutMs);
-
-      ws.on('open', () => {
-        ws.send(this.mensagemConfig());
-        ws.send(this.mensagemSsml(texto, voz, idioma));
-      });
-
-      ws.on('message', (dados: WebSocket.RawData, isBinary: boolean) => {
-        if (!isBinary) {
-          const textoMensagem = dados.toString('utf-8');
-          if (textoMensagem.includes('Path:turn.end')) {
-            finalizar();
-          } else if (textoMensagem.includes('Path:turn.error')) {
-            rejeitar(new Error(`Edge-TTS rejeitou a síntese: ${textoMensagem.slice(0, 200)}`));
+      const encerrar = (erro?: Error) => {
+        if (finalizado) return;
+        finalizado = true;
+        clearTimeout(timeout);
+        ws.off('open', abrir);
+        ws.off('message', receber);
+        ws.off('error', falhar);
+        ws.off('close', fechar);
+        if (ws.readyState !== WebSocket.CLOSED) {
+          // terminate durante o handshake pode emitir error antes de close.
+          const ignorarErroTardio = () => undefined;
+          const limparFechamento = () => ws.off('error', ignorarErroTardio);
+          ws.on('error', ignorarErroTardio);
+          ws.once('close', limparFechamento);
+          try {
+            if (erro) ws.terminate();
+            else ws.close();
+          } catch {
+            ws.off('error', ignorarErroTardio);
+            ws.off('close', limparFechamento);
           }
-          return;
         }
+        if (erro) reject(erro);
+        else resolve(Buffer.concat(pedacos));
+      };
+      const abrir = () => {
+        if (finalizado) return;
+        try {
+          ws.send(this.mensagemConfig());
+          ws.send(this.mensagemSsml(texto, voz, idioma));
+        } catch {
+          encerrar(new Error('Falha ao enviar solicitação ao Edge-TTS'));
+        }
+      };
+      const receber = (dados: WebSocket.RawData, isBinary: boolean) => {
+        if (finalizado) return;
         const buffer = Buffer.isBuffer(dados)
           ? dados
-          : Buffer.concat(
-              (Array.isArray(dados) ? dados : [dados as ArrayBuffer]).map((p) =>
-                Buffer.isBuffer(p) ? p : Buffer.from(p),
-              ),
-            );
-        const payload = this.extrairPayloadAudio(buffer);
-        if (payload && payload.length > 0) {
-          pedacos.push(payload);
+          : Array.isArray(dados)
+            ? Buffer.concat(dados)
+            : Buffer.from(dados);
+        if (!isBinary) {
+          const path = this.pathMensagem(buffer.toString('utf-8').split('\r\n\r\n')[0]);
+          if (path === 'turn.end') encerrar();
+          else if (path === 'turn.error') encerrar(new Error('Edge-TTS rejeitou a síntese'));
+          return;
         }
-      });
-
-      ws.on('error', (erro) => {
-        rejeitar(new Error(`Erro no WebSocket do Edge-TTS: ${erro.message}`));
-      });
-
-      ws.on('close', () => {
-        // Fechar sem turn.end significa stream interrompido — áudio parcial
-        // não pode ser cacheado como se estivesse completo.
-        if (!finalizado) {
-          rejeitar(new Error('Conexão com Edge-TTS fechada antes do fim da síntese'));
+        try {
+          const payload = this.extrairPayloadAudio(buffer);
+          if (payload && payload.length > 0) pedacos.push(payload);
+        } catch {
+          encerrar(new Error('Frame de áudio inválido recebido do Edge-TTS'));
         }
-      });
+      };
+      const falhar = () => encerrar(new Error('Erro no WebSocket do Edge-TTS'));
+      const fechar = () =>
+        encerrar(new Error('Conexão com Edge-TTS fechada antes do fim da síntese'));
+      // Piso de 30s; textos longos recebem 10 ms por caractere.
+      const timeout = setTimeout(
+        () => encerrar(new Error('Timeout ao sintetizar áudio com Edge-TTS')),
+        Math.max(30_000, texto.length * 10),
+      );
+      ws.on('open', abrir);
+      ws.on('message', receber);
+      ws.on('error', falhar);
+      ws.on('close', fechar);
     });
   }
 
-  /**
-   * Mensagens binárias do serviço seguem o formato:
-   * 2 bytes (big-endian) com o tamanho do cabeçalho ASCII, depois o cabeçalho
-   * (termos separados por \r\n) e, ao final, o payload de áudio.
-   */
+  private pathMensagem(cabecalho: string): string | undefined {
+    return /(?:^|\r\n)Path:([^\r\n]+)(?:\r\n|$)/.exec(cabecalho)?.[1];
+  }
+
+  /** Dois bytes big-endian de tamanho, cabeçalho ASCII e payload de áudio. */
   private extrairPayloadAudio(buffer: Buffer): Buffer | null {
-    if (buffer.length < 2) {
-      return null;
-    }
-    const tamanhoCabecalho = buffer.readUInt16BE(0);
-    const inicioPayload = 2 + tamanhoCabecalho;
-    if (buffer.length <= inicioPayload) {
-      return null;
-    }
+    if (buffer.length < 2) throw new Error('Frame incompleto');
+    const inicioPayload = 2 + buffer.readUInt16BE(0);
+    if (buffer.length < inicioPayload) throw new Error('Cabeçalho incompleto');
     const cabecalho = buffer.subarray(2, inicioPayload).toString('ascii');
-    // Matcher exato com \r\n: 'Path:audio.metadata' também contém 'Path:audio'
-    // e seria anexado ao stream como se fosse áudio.
-    if (!cabecalho.includes('Path:audio\r\n')) {
-      return null;
-    }
+    if (this.pathMensagem(cabecalho) !== 'audio') return null;
     return buffer.subarray(inicioPayload);
   }
 
@@ -243,7 +230,11 @@ export class EdgeTtsProvider implements AudioProvider {
   }
 
   private gerarHex(bytes: number): string {
-    return Array.from({ length: bytes }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
+    return Array.from({ length: bytes }, () =>
+      Math.floor(Math.random() * 256)
+        .toString(16)
+        .padStart(2, '0'),
+    ).join('');
   }
 
   private escaparXml(texto: string): string {

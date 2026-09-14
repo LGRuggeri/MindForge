@@ -70,7 +70,7 @@ Se a versão do seu Postgres for diferente, troque o `16` pela sua versão
 
 | Tabela | Papel no fluxo |
 |---|---|
-| `fontes_pesquisa` | O que o Research Engine encontrou online: docs oficiais, artigos, livros, vídeos. |
+| `fontes_pesquisa` | Indicações do Research Engine: docs, artigos, livros e vídeos. `origem` distingue `busca_web`, `sugestao_ia` e `legado`; URL sem correspondência fica nula e score é estimativa. |
 | `conteudos` | O material didático gerado pelo Synthesizer a partir das fontes. Versionado (`versao`), com status de revisão. |
 | `conteudo_fontes` | Tabela associativa N:N — um conteúdo pode citar várias fontes, uma fonte pode alimentar vários conteúdos. |
 

@@ -1,15 +1,31 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MidiaStorageService } from './midia-storage.service';
+import { z } from 'zod';
 
 export interface GerarImagemParams {
   prompt: string;
   tamanho?: '1K' | '2K' | '4K';
 }
 
-interface GeminiContent {
-  parts?: { inlineData?: { mimeType?: string; data?: string } }[];
-}
+const respostaImagemSchema = z.object({
+  candidates: z.array(
+    z.object({
+      content: z.object({
+        parts: z.array(
+          z.object({
+            inlineData: z
+              .object({
+                mimeType: z.enum(['image/png', 'image/jpeg']),
+                data: z.string().min(1).base64(),
+              })
+              .optional(),
+          }),
+        ),
+      }),
+    }),
+  ),
+});
 
 /**
  * Provedor de geração de imagens via API Gemini (família de imagem, ex.:
@@ -89,29 +105,26 @@ export class ImageService {
           }),
         },
       );
-    } catch (erro) {
+    } catch {
       // Timeout ou falha de transporte (DNS, socket reset): mesmo contrato
       // do erro HTTP — provedor indisponível, nunca 500 genérico.
-      this.logger.error(
-        'Falha de transporte na geração de imagem',
-        erro instanceof Error ? erro.stack : String(erro),
-      );
+      this.logger.error('Falha de transporte na geração de imagem');
       throw new ServiceUnavailableException('Provedor de imagem indisponível. Tente novamente.');
     }
 
     if (!resposta.ok) {
-      const corpo = await resposta.text().catch(() => '');
-      this.logger.error(
-        `Falha na geração de imagem (${resposta.status}): ${corpo.slice(0, 300)}`,
-      );
+      await resposta.body?.cancel().catch(() => undefined);
+      this.logger.error(`Falha na geração de imagem (HTTP ${resposta.status})`);
       throw new ServiceUnavailableException(
         `Provedor de imagem indisponível (HTTP ${resposta.status}). ` +
           'Verifique IMAGE_MODEL — a Google renomeia modelos de imagem com frequência.',
       );
     }
 
-    const dados = (await resposta.json()) as { candidates?: { content?: GeminiContent }[] };
-    const parte = dados.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+    const dados = respostaImagemSchema.safeParse(await resposta.json().catch(() => null));
+    const parte = dados.success
+      ? dados.data.candidates[0]?.content.parts.find((p) => p.inlineData)
+      : undefined;
     const inline = parte?.inlineData;
     if (!inline?.data || !inline.mimeType) {
       throw new ServiceUnavailableException(

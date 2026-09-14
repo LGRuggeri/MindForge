@@ -5,6 +5,9 @@ jest.mock('ws', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
     on: jest.fn(),
+    off: jest.fn(),
+    once: jest.fn(),
+    readyState: 1,
     terminate: jest.fn(),
   })),
 }));

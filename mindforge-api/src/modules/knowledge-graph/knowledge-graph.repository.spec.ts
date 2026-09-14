@@ -10,6 +10,7 @@ const createMockDb = () => ({
   values: jest.fn().mockReturnThis(),
   returning: jest.fn().mockResolvedValue([]),
   onConflictDoNothing: jest.fn().mockReturnThis(),
+  onConflictDoUpdate: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
   from: jest.fn().mockReturnThis(),
   innerJoin: jest.fn().mockReturnThis(),
@@ -24,10 +25,6 @@ const createMockDb = () => ({
   },
   execute: jest.fn().mockResolvedValue({ rows: [] }),
 });
-
-function mockSelectWhere(db: ReturnType<typeof createMockDb>, rows: unknown[]) {
-  db.where.mockReturnValueOnce(Promise.resolve(rows));
-}
 
 function mockInsertReturning(db: ReturnType<typeof createMockDb>, rows: unknown[]) {
   db.returning.mockResolvedValueOnce(rows);
@@ -112,7 +109,6 @@ describe('KnowledgeGraphRepository', () => {
       perfilId: 'perfil1',
       nivelAtual: 'nao_iniciado',
     };
-    mockSelectWhere(mockDb, [existente]);
     mockUpdateReturning(mockDb, [{ ...existente, nivelAtual: 'dominado' }]);
 
     const result = await repo.atualizarProgresso('c1', 'perfil1', 'dominado');
@@ -121,7 +117,6 @@ describe('KnowledgeGraphRepository', () => {
   });
 
   it('deve criar progresso inexistente', async () => {
-    mockSelectWhere(mockDb, []);
     mockInsertReturning(mockDb, [
       { id: 'p1', competenciaId: 'c1', perfilId: 'perfil1', nivelAtual: 'aprendendo' },
     ]);

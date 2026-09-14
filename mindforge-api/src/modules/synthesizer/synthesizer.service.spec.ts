@@ -82,7 +82,10 @@ describe('SynthesizerService', () => {
         { provide: ReviewerService, useValue: reviewerMock },
         { provide: KnowledgeGraphService, useValue: knowledgeGraphMock },
         { provide: ImageService, useValue: imageServiceMock },
-        { provide: ConfigService, useValue: { get: jest.fn((_key: string, fallback?: string) => fallback) } },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((_key: string, fallback?: string) => fallback) },
+        },
         { provide: JOB_QUEUE, useValue: { send: jest.fn() } },
       ],
     }).compile();
@@ -137,6 +140,7 @@ describe('SynthesizerService', () => {
     expect(conteudo.status).toBe('revisado');
     expect(conteudo.avaliacaoReviewer.nota).toBe(4);
     expect(agentes.executar).toHaveBeenCalledTimes(1);
+    expect(agentes.executar.mock.calls[0][0].user).toContain('origem não verificada');
     expect(knowledgeGraph.vincularCompetenciasAoModulo).toHaveBeenCalledWith(
       moduloId,
       expect.arrayContaining([expect.objectContaining({ categoria: 'synthesizer' })]),
@@ -253,8 +257,16 @@ describe('SynthesizerService', () => {
       palavrasChave: ['água'],
       ilustracoes: [{ prompt: 'Water cycle diagram with labels' }],
     });
-    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
-    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-abc.png', prompt: 'Water cycle diagram with labels' });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
+    imageService.gerarImagem.mockResolvedValue({
+      arquivo: 'imagem-abc.png',
+      prompt: 'Water cycle diagram with labels',
+    });
     repo.criarConteudo.mockResolvedValue({
       id: 'cont-img',
       moduloId,
@@ -265,11 +277,16 @@ describe('SynthesizerService', () => {
       criadoEm: new Date(),
     } as never);
     biblioteca.indexarTexto.mockResolvedValue([] as never);
-    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
 
     await service.gerar({ moduloId, topico: 'Ciclo da água' });
 
-    expect(imageService.gerarImagem).toHaveBeenCalledWith({ prompt: 'Water cycle diagram with labels' });
+    expect(imageService.gerarImagem).toHaveBeenCalledWith({
+      prompt: 'Water cycle diagram with labels',
+    });
     const salvo = repo.criarConteudo.mock.calls[0][0] as { corpoMarkdown: string };
     expect(salvo.corpoMarkdown).toContain('![Water cycle diagram with labels]');
     expect(salvo.corpoMarkdown).toContain('http://localhost:3000/midia/imagem/imagem-abc.png');
@@ -286,7 +303,12 @@ describe('SynthesizerService', () => {
       palavrasChave: ['água'],
       ilustracoes: [{ prompt: 'Water cycle diagram' }],
     });
-    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
     imageService.gerarImagem.mockRejectedValue(new Error('provedor fora do ar'));
     repo.criarConteudo.mockResolvedValue({
       id: 'cont-sem-img',
@@ -298,7 +320,10 @@ describe('SynthesizerService', () => {
       criadoEm: new Date(),
     } as never);
     biblioteca.indexarTexto.mockResolvedValue([] as never);
-    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
 
     const resultado = await service.gerar({ moduloId, topico: 'Ciclo da água' });
 
@@ -320,13 +345,14 @@ describe('SynthesizerService', () => {
       palavrasChave: ['água'],
       // Índice 1 inválido: o prompt do índice 2 precisa continuar casando com
       // [[imagem:2]], não ser deslocado para [[imagem:1]].
-      ilustracoes: [
-        { prompt: 'Diagrama 1' },
-        { prompt: '  ' },
-        { prompt: 'Diagrama 2' },
-      ] as never,
+      ilustracoes: [{ prompt: 'Diagrama 1' }, { prompt: '  ' }, { prompt: 'Diagrama 2' }] as never,
     });
-    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
     imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-x.png', prompt: 'p' });
     repo.criarConteudo.mockResolvedValue({
       id: 'cont-limite',
@@ -338,7 +364,10 @@ describe('SynthesizerService', () => {
       criadoEm: new Date(),
     } as never);
     biblioteca.indexarTexto.mockResolvedValue([] as never);
-    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
 
     await service.gerar({ moduloId, topico: 'Ciclo da água' });
 
@@ -365,7 +394,12 @@ describe('SynthesizerService', () => {
         { prompt: 'Diagrama 4' },
       ],
     });
-    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
     imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-x.png', prompt: 'p' });
     repo.criarConteudo.mockResolvedValue({
       id: 'cont-cap',
@@ -377,7 +411,10 @@ describe('SynthesizerService', () => {
       criadoEm: new Date(),
     } as never);
     biblioteca.indexarTexto.mockResolvedValue([] as never);
-    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
 
     await service.gerar({ moduloId, topico: 'Ciclo da água' });
 
@@ -398,7 +435,12 @@ describe('SynthesizerService', () => {
       // parseJsonSeguro faz cast — o LLM pode devolver objeto/string aqui.
       ilustracoes: { prompt: 'shape errado' } as never,
     });
-    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
     repo.criarConteudo.mockResolvedValue({
       id: 'cont-shape',
       moduloId,
@@ -409,7 +451,10 @@ describe('SynthesizerService', () => {
       criadoEm: new Date(),
     } as never);
     biblioteca.indexarTexto.mockResolvedValue([] as never);
-    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
 
     const resultado = await service.gerar({ moduloId, topico: 'Ciclo da água' });
 
@@ -429,8 +474,16 @@ describe('SynthesizerService', () => {
       palavrasChave: ['água'],
       ilustracoes: [{ prompt: 'Water cycle diagram' }],
     });
-    reviewer.revisar.mockResolvedValue({ nota: 4, pontosFortes: [], pontosFracos: [], sugestoes: [] });
-    imageService.gerarImagem.mockResolvedValue({ arquivo: 'imagem-dup.png', prompt: 'Water cycle diagram' });
+    reviewer.revisar.mockResolvedValue({
+      nota: 4,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
+    imageService.gerarImagem.mockResolvedValue({
+      arquivo: 'imagem-dup.png',
+      prompt: 'Water cycle diagram',
+    });
     repo.criarConteudo.mockResolvedValue({
       id: 'cont-dup',
       moduloId,
@@ -441,7 +494,10 @@ describe('SynthesizerService', () => {
       criadoEm: new Date(),
     } as never);
     biblioteca.indexarTexto.mockResolvedValue([] as never);
-    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({ vinculados: 0, competenciaIds: [] });
+    knowledgeGraph.vincularCompetenciasAoModulo.mockResolvedValue({
+      vinculados: 0,
+      competenciaIds: [],
+    });
 
     await service.gerar({ moduloId, topico: 'Ciclo da água' });
 

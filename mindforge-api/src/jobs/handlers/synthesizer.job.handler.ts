@@ -41,10 +41,7 @@ export class SynthesizerJobHandler implements OnModuleInit {
     try {
       await this.synthesizerService.gerar({ ...dados, async: false });
     } catch (erro) {
-      this.logger.error(
-        `Falha no job ${GERAR_CONTEUDO_JOB} para módulo ${dados.moduloId}`,
-        erro instanceof Error ? erro.stack : String(erro),
-      );
+      this.logger.error(`Falha no job ${GERAR_CONTEUDO_JOB} para módulo ${dados.moduloId}`);
       throw erro;
     }
   }

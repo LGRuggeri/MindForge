@@ -27,6 +27,22 @@ function rotuloTipo(tipo: string): string {
   return TIPOS_FONTE[tipo] ?? tipo;
 }
 
+function urlPermitida(valor?: string | null): boolean {
+  if (!valor) return false;
+  try {
+    const url = new URL(valor);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function rotuloOrigem(origem?: string) {
+  if (origem === 'busca_web') return 'URL encontrada na busca';
+  if (origem === 'sugestao_ia') return 'Sugestão da IA · sem URL confirmada';
+  return 'Registro anterior · origem não verificada';
+}
+
 export default function PesquisaPage() {
   const { perfilSelecionado } = useAppStore();
   const [trilhaId, setTrilhaId] = useState('');
@@ -191,7 +207,10 @@ export default function PesquisaPage() {
           </div>
           <p className="text-sm text-muted-foreground">
             <strong>Estratégia:</strong> {resultado.estrategia} · Tópico: {resultado.topico} ·{' '}
-            {resultado.resultadosWeb} resultados web usados
+            {resultado.resultadosWeb} endereços web disponíveis para curadoria
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Uma URL encontrada na busca não comprova a veracidade do conteúdo. Resumos e notas são gerados pela IA.
           </p>
           {resultado.fontes.map((fonte) => (
             <Card key={fonte.id}>
@@ -199,14 +218,17 @@ export default function PesquisaPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline">{rotuloTipo(fonte.tipo)}</Badge>
                   <span className="text-xs text-muted-foreground">
-                    Confiabilidade {Math.round(Number(fonte.confiabilidadeScore) * 100)}%
+                    {rotuloOrigem(fonte.origem)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {fonte.confiabilidadeScore == null ? 'Sem estimativa da IA' : `Estimativa da IA: ${Math.round(Number(fonte.confiabilidadeScore) * 100)}%`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <BookMarked className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  {fonte.url ? (
+                  {urlPermitida(fonte.url) ? (
                     <a
-                      href={fonte.url}
+                      href={fonte.url ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium hover:underline break-all"
@@ -216,7 +238,7 @@ export default function PesquisaPage() {
                   ) : (
                     <span className="font-medium">{fonte.titulo}</span>
                   )}
-                  {fonte.url && <ExternalLink className="h-3 w-3 text-muted-foreground" />}
+                  {urlPermitida(fonte.url) && <ExternalLink className="h-3 w-3 text-muted-foreground" />}
                 </div>
                 {fonte.autor && <p className="text-sm text-muted-foreground">Autor: {fonte.autor}</p>}
                 <p className="text-sm">{fonte.resumo}</p>
@@ -238,14 +260,17 @@ export default function PesquisaPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline">{rotuloTipo(fonte.tipo)}</Badge>
                     <span className="text-xs text-muted-foreground">
-                      Confiabilidade {Math.round(Number(fonte.confiabilidadeScore) * 100)}%
+                      {rotuloOrigem(fonte.origem)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {fonte.confiabilidadeScore == null ? 'Sem estimativa da IA' : `Estimativa da IA: ${Math.round(Number(fonte.confiabilidadeScore) * 100)}%`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <BookMarked className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {fonte.url ? (
+                    {urlPermitida(fonte.url) ? (
                       <a
-                        href={fonte.url}
+                        href={fonte.url ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium hover:underline break-all"

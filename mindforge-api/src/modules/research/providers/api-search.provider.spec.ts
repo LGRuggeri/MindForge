@@ -1,10 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { ApiSearchProvider } from './api-search.provider';
 
-const criarConfigService = (vals: Record<string, string | undefined>) =>
-  ({
-    get: jest.fn((key: string) => vals[key]),
-  }) as unknown as ConfigService;
+const criarConfigService = (vals: Record<string, string | undefined>) => new ConfigService(vals);
 
 describe('ApiSearchProvider', () => {
   let provider: ApiSearchProvider;

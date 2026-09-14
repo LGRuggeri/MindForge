@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { lerJsonIa } from '../../common/ia/json-ia';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { AgentesService } from '../agentes/agentes.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { BibliotecaVivaService } from '../biblioteca-viva/biblioteca-viva.service';
@@ -139,7 +146,11 @@ export class ProjetosService {
       // persistida, e um 500 aqui faria o frontend reenviar e duplicar a
       // entrega numerada (o fluxo de exercícios já trata o graph assim).
       try {
-        await this.knowledgeGraph.marcarProgressoPorModulo(projeto.moduloId, projeto.perfilId, nivel);
+        await this.knowledgeGraph.marcarProgressoPorModulo(
+          projeto.moduloId,
+          projeto.perfilId,
+          nivel,
+        );
         this.logger.log(
           `Progresso atualizado para o perfil ${projeto.perfilId} pelo projeto ${id} (nota ${correcao.pontuacao})`,
         );
@@ -306,11 +317,10 @@ Avalie no formato JSON especificado.`;
   }
 
   private parseJsonSeguro(raw: string): unknown {
-    const limpo = raw.replace(/```json|```/g, '').trim();
     try {
-      return JSON.parse(limpo);
+      return lerJsonIa(raw);
     } catch {
-      this.logger.error('Falha ao parsear JSON do Evaluator', raw);
+      this.logger.error('Falha ao parsear JSON do Evaluator');
       throw new Error('O agente Evaluator retornou uma resposta inválida');
     }
   }
