@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException, Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
 import {
   avaliacoes,
@@ -168,6 +168,39 @@ export class ExerciciosAvaliacoesRepository {
     return { total, corretas, incorretas: total - corretas, pontuacaoMedia };
   }
 
+  async listarHistoricoDaAvaliacao(avaliacaoId: string, perfilId: string) {
+    return this.db
+      .select({
+        exercicioId: tentativasExercicio.exercicioId,
+        tentativaId: tentativasExercicio.id,
+        enunciado: exercicios.enunciado,
+        respostaUsuario: tentativasExercicio.respostaUsuario,
+        correta: tentativasExercicio.correta,
+        pontuacao: tentativasExercicio.pontuacao,
+        feedbackIa: tentativasExercicio.feedbackIa,
+      })
+      .from(tentativasExercicio)
+      .innerJoin(exercicios, eq(exercicios.id, tentativasExercicio.exercicioId))
+      .innerJoin(
+        avaliacaoExercicios,
+        and(
+          eq(avaliacaoExercicios.avaliacaoId, tentativasExercicio.avaliacaoId),
+          eq(avaliacaoExercicios.exercicioId, tentativasExercicio.exercicioId),
+        ),
+      )
+      .where(
+        and(
+          eq(tentativasExercicio.avaliacaoId, avaliacaoId),
+          eq(tentativasExercicio.perfilId, perfilId),
+        ),
+      )
+      .orderBy(
+        asc(avaliacaoExercicios.ordem),
+        asc(tentativasExercicio.respondidoEm),
+        asc(tentativasExercicio.id),
+      );
+  }
+
   async criarAvaliacao(dados: NovaAvaliacao, tx?: DrizzleDb) {
     const client = tx ?? this.db;
     const [registro] = await client.insert(avaliacoes).values(dados).returning();
@@ -245,6 +278,7 @@ export class ExerciciosAvaliacoesRepository {
         modulo: { with: { trilha: { with: { objetivo: true } } } },
         trilha: { with: { objetivo: true } },
         exercicios: {
+          orderBy: [asc(avaliacaoExercicios.ordem), asc(avaliacaoExercicios.exercicioId)],
           with: {
             exercicio: {
               columns: {

@@ -277,11 +277,23 @@ export interface SubmeterAvaliacaoInput {
   respostas: RespostaAvaliacaoInput[];
 }
 
+export interface FeedbackExercicio {
+  exercicioId: string;
+  tentativaId: string | null;
+  enunciado: string;
+  respostaUsuario: string | null;
+  correta: boolean | null;
+  pontuacao: string | null;
+  feedbackIa: string | null;
+}
+
 export interface ResultadoAvaliacao {
   pontuacaoTotal: string | number;
   pontosFortes: string[];
   pontosFracos: string[];
   recomendacoes: string[];
+  feedbackExercicios?: FeedbackExercicio[] | null;
+  historicoTentativas?: FeedbackExercicio[];
 }
 
 export interface ConsultaResultadoAvaliacao {
@@ -411,13 +423,14 @@ export interface RegistroDiarioComRecomendacoes extends RegistroDiario {
 export interface ExecutarCodigoInput {
   exercicioId: string;
   perfilId: string;
-  linguagem: 'python' | 'javascript';
+  linguagem: "python" | "javascript";
   codigo: string;
   entrada: string;
 }
 
 export interface ResultadoExecucaoCodigo {
-  status: 'concluido' | 'erro' | 'limite_tempo' | 'limite_saida' | 'limite_memoria';
+  status:
+    "concluido" | "erro" | "limite_tempo" | "limite_saida" | "limite_memoria";
   stdout: string;
   stderr: string;
   codigoSaida: number | null;

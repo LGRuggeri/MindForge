@@ -36,6 +36,17 @@ describe("Resultado persistido do simulado", () => {
     pontosFortes: ["**Somas** corretas"],
     pontosFracos: ["Revisar frações"],
     recomendacoes: ["Praticar divisões"],
+    feedbackExercicios: [
+      {
+        exercicioId: "e",
+        tentativaId: "t",
+        enunciado: "Quanto é 2 + 2?",
+        respostaUsuario: "4",
+        correta: true,
+        pontuacao: "7.50",
+        feedbackIa: "A soma está correta; justifique o raciocínio.",
+      },
+    ],
   };
   let salvo: typeof resultado | null;
   beforeEach(() => {
@@ -120,6 +131,9 @@ describe("Resultado persistido do simulado", () => {
     const tela = renderComQuery(<SimuladoPage />);
     const user = await responder();
     expect(screen.queryByText("Praticar divisões")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("A soma está correta; justifique o raciocínio."),
+    ).not.toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "Finalizar simulado" }),
     );
@@ -130,6 +144,9 @@ describe("Resultado persistido do simulado", () => {
     expect(screen.getByText("Somas")).toBeVisible();
     expect(screen.getByText("Revisar frações")).toBeVisible();
     expect(screen.getByText("Praticar divisões")).toBeVisible();
+    expect(
+      screen.getByText("A soma está correta; justifique o raciocínio."),
+    ).toBeVisible();
     expect(navegacao.push).not.toHaveBeenCalled();
     expect(api.post).toHaveBeenLastCalledWith(
       "/exercicios-avaliacoes/avaliacoes/submeter",
@@ -148,6 +165,9 @@ describe("Resultado persistido do simulado", () => {
       screen.queryByRole("button", { name: "Finalizar simulado" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("A soma está correta; justifique o raciocínio."),
+    ).toBeVisible();
     expect(api.post).toHaveBeenCalledTimes(2);
     expect(api.get).toHaveBeenCalledWith(
       "/exercicios-avaliacoes/avaliacoes/a/resultado",
@@ -161,6 +181,7 @@ describe("Resultado persistido do simulado", () => {
       pontosFortes: [],
       pontosFracos: [],
       recomendacoes: [],
+      feedbackExercicios: [],
     };
     renderComQuery(<SimuladoPage />);
     expect(await screen.findByText("0,00")).toBeVisible();

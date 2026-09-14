@@ -1,0 +1,1 @@
+ALTER TABLE "resultados_avaliacao" ADD COLUMN "feedback_exercicios" jsonb;

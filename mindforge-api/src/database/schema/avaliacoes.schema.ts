@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -13,6 +14,16 @@ import {
 import { modulosTrilha, trilhasEstudo } from './trilhas.schema';
 import { exercicios } from './exercicios.schema';
 import { perfilAprendizagem } from './perfil.schema';
+
+export interface FeedbackExercicio {
+  exercicioId: string;
+  tentativaId: string | null;
+  enunciado: string;
+  respostaUsuario: string | null;
+  correta: boolean | null;
+  pontuacao: string | null;
+  feedbackIa: string | null;
+}
 
 export const avaliacoes = pgTable(
   'avaliacoes',
@@ -60,6 +71,8 @@ export const resultadosAvaliacao = pgTable(
     pontosFortes: text('pontos_fortes'),
     pontosFracos: text('pontos_fracos'),
     recomendacoes: text('recomendacoes'),
+    // Cópia das respostas usadas na nota; null identifica resultados legados.
+    feedbackExercicios: jsonb('feedback_exercicios').$type<FeedbackExercicio[]>(),
     realizadaEm: timestamp('realizada_em', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

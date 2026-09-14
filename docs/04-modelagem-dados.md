@@ -107,7 +107,9 @@ contexto suficiente sem diluir demais a relevância da busca por similaridade.
 | `tentativas_exercicio` | Cada resposta sua, com correção e feedback gerado pela IA — é aqui que fica o histórico de "erros e acertos" que você pediu. |
 | `avaliacoes` | Agrupamentos de exercícios (prova, simulado, diagnóstico). |
 | `avaliacao_exercicios` | Associativa N:N entre avaliação e exercícios, com ordem. |
-| `resultados_avaliacao` | Resultado consolidado: pontuação, pontos fortes/fracos, recomendações — a análise que o agente Evaluator produz ao final de uma prova. |
+| `resultados_avaliacao` | Resultado consolidado: pontuação, pontos fortes/fracos, recomendações e cópia JSONB (`feedback_exercicios`) da resposta, pontuação e feedback de cada tentativa usada na nota. |
+
+Desde a migration `0014_feedback_resultado`, a finalização preserva os detalhes das tentativas selecionadas na mesma transação do resultado. O GET por avaliação/perfil só os disponibiliza após finalizar. Registros anteriores mantêm a coluna nula: a API apresenta suas tentativas como histórico, sem inferir quais compuseram a nota. Ver [feedback do simulado](plano-feedback-simulado-2026-09-14.md).
 
 ### 3.6 Revisão espaçada
 

@@ -20,7 +20,7 @@ O workflow usa permissão de leitura do repositório e não precisa de chaves de
 
 O script não carrega `.env`. Verifica PostgreSQL 17, cria a extensão `vector` e aplica as migrations versionadas pelo migrator do Drizzle. Repete a aplicação para verificar o controle de reaplicação, confere o total registrado contra o journal e exige `conteudo_chunks.embedding` com tipo `vector(768)`.
 
-No serviço novo do CI, as migrations partem de um banco vazio. A validação local confirmou as **14 migrations, de 0000 a 0013**, sem alterações nesses arquivos neste lote. O comando também pode ser repetido no banco de CI já preparado; isso não equivale a uma nova validação partindo do zero.
+No serviço novo do CI, as migrations partem de um banco vazio. A validação local após o feedback do simulado confirmou as **15 migrations, de 0000 a 0014**. A migration 0014 acrescenta somente a coluna JSONB anulável `feedback_exercicios`. O comando também pode ser repetido no banco de CI já preparado; isso não equivale a uma nova validação partindo do zero.
 
 Os testes preservam seu isolamento: tabelas temporárias ou schemas exclusivos para persistência e pg-boss. O banco pessoal na porta 5433 não é alvo do comando de CI.
 

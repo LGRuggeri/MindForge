@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MarkdownViewer } from "@/components/markdown-viewer";
 import type { ResultadoAvaliacao } from "@/types/api";
+import { FeedbackSimulado } from "@/components/feedback-simulado";
 
 export function ResultadoSimulado({
   resultado,
@@ -66,6 +67,7 @@ export function ResultadoSimulado({
           </CardContent>
         </Card>
       ))}
+      <FeedbackSimulado resultado={resultado} />
       <Button asChild variant="outline">
         <Link href="/revisao">Consultar revisões</Link>
       </Button>

@@ -49,6 +49,20 @@ comSql('Avaliações — concorrência e rollback em conexões distintas', () =>
   const dto = () => ({ perfilId: ciclo.perfil.id, avaliacaoId, respostas: [] });
 
   it('duas finalizações simultâneas retornam o mesmo resultado e agendam revisão uma única vez', async () => {
+    const repo = new ExerciciosAvaliacoesRepository(banco.bancos[0]);
+    const tentativas = await Promise.all(
+      ['0', '10'].map((pontuacao) =>
+        repo.salvarTentativa({
+          perfilId: ciclo.perfil.id,
+          avaliacaoId,
+          exercicioId,
+          respostaUsuario: pontuacao,
+          pontuacao,
+          correta: pontuacao === '10',
+          feedbackIa: `Correção ${pontuacao}`,
+        }),
+      ),
+    );
     const a = criarService(0);
     const b = criarService(1);
     const processarA = jest.spyOn(a.revisao, 'processarRevisao');
@@ -60,7 +74,14 @@ comSql('Avaliações — concorrência e rollback em conexões distintas', () =>
     );
     await banco.admin.query('BEGIN');
     await banco.admin.query('SELECT id FROM avaliacoes WHERE id = $1 FOR UPDATE', [avaliacaoId]);
-    const resultados = Promise.all([a.service.submeter(dto()), b.service.submeter(dto())]);
+    const resultados = Promise.all(
+      [a, b].map(({ service }, indice) =>
+        service.submeter({
+          ...dto(),
+          respostas: [{ exercicioId, tentativaId: tentativas[indice].id }],
+        }),
+      ),
+    );
     void resultados.catch(() => undefined);
     try {
       await Promise.all(pids.map((pid) => banco.aguardarBloqueio(pid)));
@@ -69,6 +90,12 @@ comSql('Avaliações — concorrência e rollback em conexões distintas', () =>
     }
     const [primeiro, segundo] = await resultados;
     expect(primeiro).toEqual(segundo);
+    expect(primeiro.feedbackExercicios).toEqual([
+      expect.objectContaining({
+        pontuacao: primeiro.pontuacaoTotal,
+        feedbackIa: `Correção ${Number(primeiro.pontuacaoTotal)}`,
+      }),
+    ]);
     expect(processarA.mock.calls.length + processarB.mock.calls.length).toBe(1);
     expect(await banco.bancos[0].select().from(schema.resultadosAvaliacao)).toHaveLength(1);
     expect(await banco.bancos[0].select().from(schema.revisaoEspacada)).toEqual([

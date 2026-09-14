@@ -11,6 +11,7 @@ import { CriarAvaliacaoDto, SubmeterAvaliacaoDto, TipoAvaliacao } from './dto';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { RevisaoEspacadaService } from './revisao-espacada.service';
 import { DRIZZLE, DrizzleDb } from '../../database/database.module';
+import type { FeedbackExercicio } from '../../database/schema/avaliacoes.schema';
 
 export interface ResultadoAvaliacaoCalculado {
   pontuacaoTotal: number;
@@ -137,7 +138,11 @@ export class AvaliacoesService {
   async buscarResultado(id: string, perfilId: string) {
     await this.buscarDoPerfil(id, perfilId);
     const resultado = await this.repo.buscarResultadoPorAvaliacaoEPerfil(id, perfilId);
-    return { resultado: resultado ? this.normalizarResultadoExistente(resultado) : null };
+    return {
+      resultado: resultado
+        ? await this.normalizarResultadoExistente(resultado, id, perfilId)
+        : null,
+    };
   }
 
   async submeter(dto: SubmeterAvaliacaoDto) {
@@ -151,7 +156,7 @@ export class AvaliacoesService {
       this.logger.warn(
         `Avaliação ${dto.avaliacaoId} já foi submetida pelo perfil ${dto.perfilId}; retornando resultado existente`,
       );
-      return this.normalizarResultadoExistente(resultadoExistente);
+      return this.normalizarResultadoExistente(resultadoExistente, dto.avaliacaoId, dto.perfilId);
     }
 
     if (avaliacao.exercicios.length === 0) {
@@ -201,6 +206,19 @@ export class AvaliacoesService {
       }
     });
 
+    const feedbackExercicios: FeedbackExercicio[] = avaliacao.exercicios.map((relacao) => {
+      const tentativa = mapaTentativas.get(relacao.exercicioId);
+      return {
+        exercicioId: relacao.exercicioId,
+        tentativaId: tentativa?.id ?? null,
+        enunciado: relacao.exercicio.enunciado,
+        respostaUsuario: tentativa?.respostaUsuario ?? null,
+        correta: tentativa?.correta ?? null,
+        pontuacao: tentativa?.pontuacao ?? '0',
+        feedbackIa: tentativa?.feedbackIa ?? null,
+      };
+    });
+
     let somaPontuacoes = 0;
     const pontosFortes: string[] = [];
     const pontosFracos: string[] = [];
@@ -240,6 +258,7 @@ export class AvaliacoesService {
           pontosFortes: this.serializarLista(pontosFortes),
           pontosFracos: this.serializarLista(pontosFracos),
           recomendacoes: this.serializarLista(recomendacoes),
+          feedbackExercicios,
         },
         tx,
       );
@@ -279,7 +298,7 @@ export class AvaliacoesService {
       if (!resultado) {
         throw new Error('Resultado da avaliação não encontrado após conflito de inserção');
       }
-      return this.normalizarResultadoExistente(resultado);
+      return this.normalizarResultadoExistente(resultado, dto.avaliacaoId, dto.perfilId);
     }
 
     this.logger.log(`Avaliação submetida: ${dto.avaliacaoId} — nota ${pontuacaoTotal}`);
@@ -288,7 +307,7 @@ export class AvaliacoesService {
       await this.atualizarProgressoPorAvaliacao(avaliacao, dto.perfilId, pontuacaoTotal);
     }
 
-    return { ...resultado, pontosFortes, pontosFracos, recomendacoes };
+    return { ...resultado, pontosFortes, pontosFracos, recomendacoes, feedbackExercicios };
   }
 
   private async atualizarProgressoPorAvaliacao(
@@ -332,14 +351,26 @@ export class AvaliacoesService {
     }
   }
 
-  private normalizarResultadoExistente(resultado: {
-    pontuacaoTotal: string | number;
-    pontosFortes: string | null;
-    pontosFracos: string | null;
-    recomendacoes: string | null;
-  }) {
+  private async normalizarResultadoExistente(
+    resultado: {
+      pontuacaoTotal: string | number;
+      pontosFortes: string | null;
+      pontosFracos: string | null;
+      recomendacoes: string | null;
+      feedbackExercicios?: FeedbackExercicio[] | null;
+    },
+    avaliacaoId: string,
+    perfilId: string,
+  ) {
+    // O legado não preservou a seleção usada na nota. Expor o histórico sem
+    // escolher arbitrariamente a última tentativa ou alterar o resultado.
+    const historico =
+      resultado.feedbackExercicios === null
+        ? { historicoTentativas: await this.repo.listarHistoricoDaAvaliacao(avaliacaoId, perfilId) }
+        : {};
     return {
       ...resultado,
+      ...historico,
       pontosFortes: this.desserializarLista(resultado.pontosFortes),
       pontosFracos: this.desserializarLista(resultado.pontosFracos),
       recomendacoes: this.desserializarLista(resultado.recomendacoes),

@@ -90,6 +90,33 @@ describe('Resultado de avaliação — consulta HTTP por perfil', () => {
     expect(await res.json()).toEqual({ resultado: null });
   });
 
+  it('devolve o feedback salvo somente ao perfil dono do resultado finalizado', async () => {
+    const feedbackExercicios = [
+      {
+        exercicioId: outroId,
+        tentativaId: id,
+        enunciado: 'Soma',
+        respostaUsuario: '3',
+        correta: false,
+        pontuacao: '0',
+        feedbackIa: 'Resposta incorreta. 4',
+      },
+    ];
+    repo.buscarResultadoPorAvaliacaoEPerfil.mockResolvedValue({
+      pontuacaoTotal: '0',
+      pontosFortes: null,
+      pontosFracos: null,
+      recomendacoes: null,
+      feedbackExercicios,
+    });
+    const permitido = await fetch(`${url}/${id}/resultado?perfilId=${perfilId}`);
+    expect(await permitido.json()).toMatchObject({ resultado: { feedbackExercicios } });
+    const negado = await fetch(`${url}/${id}/resultado?perfilId=${outroId}`);
+    expect(negado.status).toBe(403);
+    expect(await negado.text()).not.toContain('Resposta incorreta. 4');
+    expect(repo.buscarResultadoPorAvaliacaoEPerfil).toHaveBeenCalledTimes(1);
+  });
+
   it('recusa outro perfil antes de consultar o resultado', async () => {
     const res = await fetch(`${url}/${id}/resultado?perfilId=${outroId}`);
     expect(res.status).toBe(403);
