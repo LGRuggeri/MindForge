@@ -2,6 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownViewer } from "@/components/markdown-viewer";
 import type { ResultadoAvaliacao } from "@/types/api";
+import {
+  extrairAlternativas,
+  extrairGabarito,
+} from "@/lib/alternativas-questao";
+import { CorrecaoAlternativas } from "@/components/alternativas-questao";
 
 export function FeedbackSimulado({
   resultado,
@@ -30,6 +35,8 @@ export function FeedbackSimulado({
       )}
       {itens.map((item, indice) => {
         const respondida = item.tentativaId !== null;
+        const alternativas = extrairAlternativas(item.enunciado);
+        const gabarito = extrairGabarito(item.feedbackIa);
         const pontuacao =
           item.pontuacao === null ? null : Number(item.pontuacao);
         const estado = !respondida
@@ -62,9 +69,18 @@ export function FeedbackSimulado({
             </CardHeader>
             <CardContent className="min-w-0 space-y-4">
               <div className="prose prose-sm min-w-0 max-w-none break-words dark:prose-invert">
-                <MarkdownViewer>{item.enunciado}</MarkdownViewer>
+                <MarkdownViewer>
+                  {alternativas?.pergunta ?? item.enunciado}
+                </MarkdownViewer>
               </div>
-              {respondida && (
+              {alternativas && (
+                <CorrecaoAlternativas
+                  alternativas={alternativas.alternativas}
+                  selecionada={item.respostaUsuario}
+                  gabarito={gabarito}
+                />
+              )}
+              {respondida && !alternativas && (
                 <div>
                   <p className="mb-2 text-sm font-medium">Sua resposta</p>
                   <pre className="whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-sm [overflow-wrap:anywhere]">

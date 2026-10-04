@@ -22,14 +22,31 @@ describe('ExerciciosAvaliacoesService', () => {
   const perfilId = '323e4567-e89b-12d3-a456-426614174000';
   const avaliacaoId = '423e4567-e89b-12d3-a456-426614174000';
 
+  it('alinha o exercício aos tópicos da grade do módulo escolhido pelo perfil', async () => {
+    planner.buscarModuloPorId.mockResolvedValue({
+      id: moduloId,
+      titulo: 'LDB',
+      objetivoAprendizagem: 'Comparar modalidades',
+      escopoEstudo: {
+        programaCodigo: 'LIBRAS',
+        programaNome: 'Concurso',
+        modoEstudoPadrao: 'concurso',
+        topicosObrigatorios: ['Capítulos V e V-A'],
+      },
+    } as never);
+    biblioteca.buscar.mockResolvedValue([]);
+    agentes.executar.mockResolvedValue({ enunciado: 'Pergunta', gabarito: 'A', criterios: [] });
+    repo.criarExercicio.mockResolvedValue({ id: exercicioId } as never);
+    await service.gerarExercicio({ moduloId, tipo: TipoExercicio.QUESTAO_OBJETIVA });
+    expect(agentes.executar.mock.calls[0][0].user).toContain('Capítulos V e V-A');
+  });
+
   beforeEach(async () => {
     const repoMock = {
-      buscarAvaliacaoPorId: jest
-        .fn()
-        .mockResolvedValue({
-          modulo: { trilha: { objetivo: { perfilId } } },
-          exercicios: [{ exercicioId }],
-        }),
+      buscarAvaliacaoPorId: jest.fn().mockResolvedValue({
+        modulo: { trilha: { objetivo: { perfilId } } },
+        exercicios: [{ exercicioId }],
+      }),
       buscarResultadoPorAvaliacaoEPerfil: jest.fn(),
       criarExercicio: jest.fn(),
       buscarExercicioPorId: jest.fn(),

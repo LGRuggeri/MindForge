@@ -2,12 +2,16 @@ import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Job } from 'pg-boss';
 import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
+import type { ModoEstudo } from '../../modules/synthesizer/dto/gerar-conteudo.dto';
 
 export interface GerarConteudoJob {
   moduloId: string;
   topico: string;
+  modoEstudo?: ModoEstudo;
+  topicosObrigatorios?: string[];
   nivelAlvo?: string;
   instrucoesExtras?: string;
+  atualizarFontes?: boolean;
   async?: boolean;
 }
 

@@ -1,0 +1,2 @@
+ALTER TABLE "exercicios" ADD COLUMN "finalidade" text DEFAULT 'treino' NOT NULL;--> statement-breakpoint
+ALTER TABLE "exercicios" ADD CONSTRAINT "exercicios_finalidade_check" CHECK ("exercicios"."finalidade" IN ('treino','avaliacao'));

@@ -14,6 +14,7 @@ const tabelas = [
   'modulos_trilha',
   'fontes_pesquisa',
   'conteudos',
+  'respostas_atividades',
   'conteudo_fontes',
   'conteudo_chunks',
   'exercicios',

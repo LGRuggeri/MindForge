@@ -1,0 +1,111 @@
+{
+  "status": "verificacao somente leitura; integracao ao MindForge ainda proposta",
+  "endpoint": "https://mcp.pciconcursos.com.br/mcp",
+  "consultadoEm": "2026-10-03T21:46:56.549Z",
+  "protocolo": "2025-06-18",
+  "servidor": {
+    "name": "Concursos Públicos Brasil",
+    "version": "1.0.0"
+  },
+  "ferramentas": [
+    {
+      "nome": "listar_concursos",
+      "campos": [
+        "regiao",
+        "professores"
+      ],
+      "obrigatorios": []
+    },
+    {
+      "nome": "pesquisar_concursos",
+      "campos": [
+        "termo",
+        "uf"
+      ],
+      "obrigatorios": [
+        "termo"
+      ]
+    },
+    {
+      "nome": "buscar_por_cargo",
+      "campos": [
+        "cargo",
+        "uf"
+      ],
+      "obrigatorios": [
+        "cargo"
+      ]
+    },
+    {
+      "nome": "buscar_por_cidade",
+      "campos": [
+        "uf",
+        "cidade"
+      ],
+      "obrigatorios": [
+        "uf",
+        "cidade"
+      ]
+    },
+    {
+      "nome": "buscar_apostilas",
+      "campos": [
+        "termo"
+      ],
+      "obrigatorios": [
+        "termo"
+      ]
+    }
+  ],
+  "teste": {
+    "ferramenta": "buscar_por_cargo",
+    "argumentos": {
+      "cargo": "intérprete de libras",
+      "uf": "sc"
+    },
+    "isError": false,
+    "total": 2,
+    "concursos": [
+      {
+        "id": 295320,
+        "orgao": "Prefeitura de Guaramirim",
+        "uf": "SC",
+        "noticia": "https://www.pciconcursos.com.br/noticias/prefeitura-de-guaramirim-sc-abre-processo-seletivo-com-salarios-de-ate-6522",
+        "camposRecebidos": [
+          "id",
+          "titulo",
+          "cargos_resumo",
+          "cargos",
+          "vagas_salario",
+          "formacao",
+          "regiao",
+          "uf",
+          "datas",
+          "noticia",
+          "apostila"
+        ]
+      },
+      {
+        "id": 295326,
+        "orgao": "Prefeitura de Caçador",
+        "uf": "SC",
+        "noticia": "https://www.pciconcursos.com.br/noticias/prefeitura-de-cacador-sc-abre-selecao-para-cadastro-de-reserva-na-educacao",
+        "camposRecebidos": [
+          "id",
+          "titulo",
+          "cargos_resumo",
+          "cargos",
+          "vagas_salario",
+          "formacao",
+          "regiao",
+          "uf",
+          "datas",
+          "noticia",
+          "apostila"
+        ]
+      }
+    ],
+    "programaDoEditalRecebido": false,
+    "questoesRecebidas": false
+  }
+}

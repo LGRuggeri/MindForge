@@ -43,6 +43,24 @@ describe('ResearchService — fontes e procedência', () => {
     service = new ResearchService(repo as never, agentes as never, busca as never, queue as never);
   });
   const pesquisar = { moduloId: 'm', webSearch: true };
+  it('exige busca real na atualização, sem chamar IA ou persistir quando indisponível', async () => {
+    busca.buscar.mockRejectedValue(new Error('offline'));
+    await expect(service.pesquisarAtualizado({ moduloId: 'm' })).rejects.toThrow('pesquisa web');
+    expect(agentes.executar).not.toHaveBeenCalled();
+    expect(repo.criarFontes).not.toHaveBeenCalled();
+  });
+  it('recusa atualização quando a curadoria só traz URLs inventadas', async () => {
+    resposta = { fontes: [{ ...fonte, url: 'https://inventada.org' }] };
+    await expect(service.pesquisarAtualizado({ moduloId: 'm' })).rejects.toThrow('pesquisa web');
+    expect(repo.criarFontes).not.toHaveBeenCalled();
+  });
+  it('guarda o trecho da busca sem alegar leitura da página', async () => {
+    await service.pesquisarAtualizado({ moduloId: 'm' });
+    expect(repo.criarFontes).toHaveBeenCalledWith([
+      expect.objectContaining({ resumo: expect.stringContaining('Resumo da busca') }),
+    ]);
+    expect(repo.criarFontes.mock.calls[0][0][0].consultadoEm).toBeUndefined();
+  });
   it.each([
     [-0.5, '0'],
     [0.956, '0.96'],

@@ -12,6 +12,12 @@ vi.mock("@/lib/api", () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 describe("Geração em módulo com materiais existentes", () => {
+  it('não mostra os materiais nem ações do módulo de outro perfil', async () => {
+    vi.mocked(api.get).mockImplementation(async (url) => ({ data: url === '/planner/modulos/mod-1' ? { id: 'mod-1', titulo: 'Módulo privado', trilha: { objetivo: { perfilId: 'outro-perfil' } } } : [] }));
+    renderComQuery(<ModuloPage />);
+    expect(await screen.findByText('Este módulo pertence a outro perfil')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Pesquisar e gerar conteúdo' })).not.toBeInTheDocument();
+  });
   let conteudos: {
     id: string;
     titulo: string;
@@ -64,16 +70,18 @@ describe("Geração em módulo com materiais existentes", () => {
     renderComQuery(<ModuloPage />);
     await screen.findByText("Material anterior");
     await user.type(screen.getByLabelText("Tópico"), "  Equações  ");
-    await user.click(screen.getByRole("button", { name: "Gerar conteúdo" }));
+    await user.click(screen.getByRole("button", { name: "Pesquisar e gerar conteúdo" }));
     expect(await screen.findByText("Novo material")).toBeVisible();
     expect(screen.getByText("Material anterior")).toBeVisible();
     expect(api.post).toHaveBeenCalledWith("/synthesizer/conteudos", {
       moduloId: "mod-1",
       topico: "Equações",
+      modoEstudo: "completo",
+      atualizarFontes: true,
     });
     expect(screen.getByLabelText("Tópico")).toHaveValue("");
     expect(
-      screen.getByRole("button", { name: "Gerar conteúdo" }),
+      screen.getByRole("button", { name: "Pesquisar e gerar conteúdo" }),
     ).toBeEnabled();
   });
 
@@ -133,7 +141,7 @@ describe("Geração em módulo com materiais existentes", () => {
     renderComQuery(<ModuloPage />);
     await screen.findByText("Material anterior");
     await user.type(screen.getByLabelText("Tópico"), "Tópico importante");
-    await user.dblClick(screen.getByRole("button", { name: "Gerar conteúdo" }));
+    await user.dblClick(screen.getByRole("button", { name: "Pesquisar e gerar conteúdo" }));
     expect(api.post).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Gerando..." })).toBeDisabled();
     expect(screen.getByLabelText("Tópico")).toBeDisabled();
@@ -144,7 +152,7 @@ describe("Geração em módulo com materiais existentes", () => {
     expect(screen.getByLabelText("Tópico")).toHaveValue("Tópico importante");
     expect(screen.getByText("Material anterior")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Gerar conteúdo" }),
+      screen.getByRole("button", { name: "Pesquisar e gerar conteúdo" }),
     ).toBeEnabled();
   });
 });

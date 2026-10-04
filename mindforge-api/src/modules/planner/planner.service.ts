@@ -1,10 +1,20 @@
+import type { DrizzleDb } from '../../database/database.module';
+import { resolverEscopoModulo, selecionarIndices } from './trilhas-guiadas/escopo-modulo';
 import { lerJsonIa } from '../../common/ia/json-ia';
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { z } from 'zod';
 import { AgentesService } from '../agentes/agentes.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { CriarObjetivoDto } from './dto/criar-objetivo.dto';
 import { PlannerRepository } from './planner.repository';
+import { buscarPrograma, listarCertificacoes, listarProgramas } from './trilhas-guiadas/catalogo';
+import { ProgramaTrilha } from './trilhas-guiadas/types';
 
 export interface ModuloSugerido {
   ordem: number;
@@ -43,13 +53,35 @@ export class PlannerService {
   ) {}
 
   async criarObjetivo(dto: CriarObjetivoDto) {
-    return this.repo.criarObjetivo({
+    const dados = {
       perfilId: dto.perfilId,
       titulo: dto.titulo,
       descricao: dto.descricao,
       nivelDesejado: dto.nivelDesejado,
       prazoEstimado: dto.prazoEstimado,
+    };
+    if (!dto.programaCodigo) {
+      if (dto.modulosIndices) throw new BadRequestException('Informe o programa da seleção.');
+      return this.repo.criarObjetivo(dados);
+    }
+    const programa = buscarPrograma(dto.programaCodigo);
+    if (!programa) throw new BadRequestException('Programa não disponível');
+    const indices = selecionarIndices(programa.modulos.length, dto.modulosIndices);
+    if (!(await this.repo.buscarPerfilPorId(dto.perfilId)))
+      throw new NotFoundException('Perfil não encontrado');
+    const resultado = await this.repo.executarEmTransacao(async (tx) => {
+      const objetivo = await this.repo.criarObjetivo(dados, tx);
+      const trilha = await this.persistirPlano(
+        objetivo.id,
+        this.montarPlanoPrograma(programa, indices),
+        programa,
+        indices,
+        tx,
+      );
+      return { ...objetivo, trilhas: [trilha] };
     });
+    await this.atualizarGrafo(resultado.trilhas[0].modulos);
+    return resultado;
   }
 
   async listarObjetivosDoPerfil(perfilId: string) {
@@ -61,7 +93,7 @@ export class PlannerService {
     if (!modulo) {
       throw new NotFoundException(`Módulo ${id} não encontrado`);
     }
-    return modulo;
+    return { ...modulo, escopoEstudo: resolverEscopoModulo(modulo) };
   }
 
   async concluirModulo(id: string, perfilId: string) {
@@ -87,6 +119,14 @@ export class PlannerService {
     return objetivo;
   }
 
+  listarCertificacoes() {
+    return listarCertificacoes();
+  }
+
+  listarProgramas() {
+    return listarProgramas();
+  }
+
   async removerObjetivo(id: string) {
     // 404 se não existir antes de tentar remover.
     await this.buscarObjetivoPorId(id);
@@ -98,53 +138,118 @@ export class PlannerService {
     this.logger.log(`Objetivo removido: ${id} (${orfasRemovidas} competências órfãs removidas)`);
   }
 
-  async gerarTrilha(objetivoId: string) {
+  async gerarTrilha(objetivoId: string, programaCodigo?: string, modulosIndices?: number[]) {
     const objetivo = await this.buscarObjetivoPorId(objetivoId);
 
-    const plano = await this.agentes.executar<PlanoSugerido>({
-      agente: 'planner',
-      system: this.montarSystemPrompt(),
-      user: this.montarUserPrompt(objetivo),
-      entrada: { objetivoId, titulo: objetivo.titulo },
-      parser: (raw) => this.parsePlanoSugerido(raw),
-      temperature: 0.7,
-    });
+    const programa = programaCodigo ? buscarPrograma(programaCodigo) : undefined;
+    if (programaCodigo && !programa) {
+      throw new BadRequestException(`Trilha guiada ${programaCodigo} não disponível`);
+    }
 
-    const { trilha, modulos } = await this.repo.executarEmTransacao(async (tx) => {
-      const trilha = await this.repo.criarTrilha(
-        {
-          objetivoId,
-          versao: plano.versao || 1,
-          status: 'ativa',
-          geradoPorAgente: 'planner',
-          metadata: { tituloTrilha: plano.tituloTrilha },
+    if (!programa && modulosIndices)
+      throw new BadRequestException('Informe o programa da seleção.');
+    const indices = programa
+      ? selecionarIndices(programa.modulos.length, modulosIndices)
+      : undefined;
+    const plano = programa
+      ? this.montarPlanoPrograma(programa, indices)
+      : await this.agentes.executar<PlanoSugerido>({
+          agente: 'planner',
+          system: this.montarSystemPrompt(),
+          user: this.montarUserPrompt(objetivo),
+          entrada: { objetivoId, titulo: objetivo.titulo },
+          parser: (raw) => this.parsePlanoSugerido(raw),
+          temperature: 0.7,
+        });
+
+    const trilha = await this.repo.executarEmTransacao((tx) =>
+      this.persistirPlano(objetivoId, plano, programa, indices, tx),
+    );
+    await this.atualizarGrafo(trilha.modulos);
+    this.logger.log(`Trilha gerada: ${trilha.id} com ${trilha.modulos.length} módulos`);
+    return trilha;
+  }
+
+  private async persistirPlano(
+    objetivoId: string,
+    plano: PlanoSugerido,
+    programa: ProgramaTrilha | undefined,
+    indices: number[] | undefined,
+    tx: DrizzleDb,
+  ) {
+    const trilha = await this.repo.criarTrilha(
+      {
+        objetivoId,
+        versao: plano.versao || 1,
+        status: 'ativa',
+        geradoPorAgente: programa
+          ? programa.tipo === 'certificacao'
+            ? 'catalogo-certificacoes'
+            : 'catalogo-trilhas'
+          : 'planner',
+        metadata: {
+          tituloTrilha: plano.tituloTrilha,
+          ...(programa
+            ? {
+                programa,
+                modulosIndices: indices,
+                ...(programa.tipo === 'certificacao' ? { certificacao: programa } : {}),
+              }
+            : {}),
         },
+      },
+      tx,
+    );
+    await this.repo.substituirTrilhasAnteriores(objetivoId, trilha.id, tx);
+    const modulos = await this.repo.criarModulos(
+      plano.modulos.map((m) => ({ ...m, trilhaId: trilha.id })),
+      tx,
+    );
+    if (programa && indices && programa.modulos.some((m) => m.fontes?.length)) {
+      await this.repo.criarFontesPrograma(
+        modulos.flatMap((modulo) =>
+          (programa.modulos[indices[modulo.ordem - 1] - 1].fontes ?? []).map((fonte) => ({
+            moduloId: modulo.id,
+            titulo: fonte.titulo,
+            url: fonte.url,
+            tipo: 'documentacao_oficial',
+            origem: 'busca_web' as const,
+            resumo: 'Referência da grade escolhida; consulta indicada no trecho registrado.',
+            trechoConsultado: fonte.trechoConsultado,
+            localizador: fonte.localizador,
+            consultadoEm: new Date(fonte.consultadoEm),
+          })),
+        ),
         tx,
       );
+    }
+    return { ...trilha, modulos };
+  }
 
-      await this.repo.substituirTrilhasAnteriores(objetivoId, trilha.id, tx);
+  private async atualizarGrafo(modulos: Parameters<PlannerService['popularKnowledgeGraph']>[0]) {
+    try {
+      await this.popularKnowledgeGraph(modulos);
+    } catch {
+      this.logger.warn('Estudo salvo; não foi possível atualizar as competências.');
+    }
+  }
 
-      const modulos = await this.repo.criarModulos(
-        plano.modulos.map((m) => ({
-          trilhaId: trilha.id,
-          ordem: m.ordem,
-          titulo: m.titulo,
-          objetivoAprendizagem: m.objetivoAprendizagem,
-          tempoEstimadoMin: m.tempoEstimadoMin,
-        })),
-        tx,
-      );
-
-      return { trilha, modulos };
-    });
-
-    await this.popularKnowledgeGraph(modulos);
-
-    this.logger.log(`Trilha gerada: ${trilha.id} com ${modulos.length} módulos`);
-
+  private montarPlanoPrograma(
+    programa: ProgramaTrilha,
+    indices = selecionarIndices(programa.modulos.length),
+  ): PlanoSugerido {
     return {
-      ...trilha,
-      modulos,
+      tituloTrilha: `${programa.codigo} — ${programa.nome}`,
+      versao: 1,
+      modulos: indices.map((selecionado, indice) => {
+        const modulo = programa.modulos[selecionado - 1];
+        return {
+          ordem: indice + 1,
+          titulo: modulo.titulo,
+          objetivoAprendizagem: modulo.objetivoAprendizagem,
+          tempoEstimadoMin: modulo.tempoEstimadoMin,
+        };
+      }),
     };
   }
 

@@ -21,7 +21,9 @@ Define **o quê** estudar e **em que ordem**; não gera o material (isso é o Sy
 | `POST` | `/planner/objetivos` | Cria objetivo |
 | `GET` | `/planner/objetivos/:id` | Busca objetivo (+ trilhas/módulos) |
 | `GET` | `/planner/perfis/:perfilId/objetivos` | Lista objetivos do perfil |
-| `POST` | `/planner/trilhas` | Gera trilha via LLM |
+| `GET` | `/planner/certificacoes` | Lista os programas de certificação disponíveis |
+| `GET` | `/planner/programas` | Lista as trilhas guiadas por assunto e certificação |
+| `POST` | `/planner/trilhas` | Gera trilha via LLM ou pelo programa guiado selecionado |
 
 ### Criar objetivo
 
@@ -41,6 +43,14 @@ Define **o quê** estudar e **em que ordem**; não gera o material (isso é o Sy
 { "objetivoId": "uuid" }
 ```
 
+Para usar uma trilha guiada:
+
+```json
+{ "objetivoId": "uuid", "programaCodigo": "KALI-LINUX" }
+```
+
+O catálogo contém assuntos, concursos e certificações com fontes revisadas. Em Objetivos, o usuário pode escolher um programa e seus módulos para criar a trilha diretamente, sem escrever o objetivo. A trilha guarda o programa usado em `metadata.programa` e a seleção em `metadata.modulosIndices`; certificações também o guardam em `metadata.certificacao` para compatibilidade com o piloto AZ-900. A geração por IA continua quando nenhum código é informado. O campo anterior `certificacaoCodigo` segue aceito para certificações. Consulte [21-certificacoes.md](21-certificacoes.md) para fontes e [24-programas-por-perfil.md](24-programas-por-perfil.md) para seleção, histórico e limites.
+
 Saída: trilha + lista de módulos (`ordem`, `titulo`, `objetivoAprendizagem`, `tempoEstimadoMin`).
 
 ---
@@ -54,11 +64,11 @@ Saída: trilha + lista de módulos (`ordem`, `titulo`, `objetivoAprendizagem`, `
 
 ---
 
-## 4. Versionamento (design + parcialmente no código)
+## 4. Histórico de trilhas
 
 - `trilhas_estudo.versao` e `status` (`ativa | concluida | substituida`) existem no schema.
-- Implementação atual sempre cria trilha `ativa` versão 1 (ou a retornada pelo modelo).
-- Replanejamento formal (marcar antiga como `substituida`) ainda é TODO.
+- Uma nova trilha é criada em transação e as trilhas ativas anteriores do mesmo objetivo são marcadas como `substituida`; os registros antigos permanecem consultáveis.
+- O campo numérico `versao` ainda recebe 1 (ou o valor retornado pelo modelo), mesmo após uma regeneração. A versão e a data de conferência do programa ficam registradas no retrato de `metadata.programa`.
 
 ---
 

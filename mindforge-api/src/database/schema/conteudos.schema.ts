@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -13,6 +14,13 @@ import {
 } from 'drizzle-orm/pg-core';
 import { modulosTrilha } from './trilhas.schema';
 import { fontesPesquisa } from './pesquisa.schema';
+
+export interface AtualizacaoFontes {
+  tipo: 'busca_web' | 'fontes_salvas';
+  realizadaEm: string | null;
+  resultadosWeb: number;
+  fontesEncontradas: number;
+}
 
 /**
  * Dimensão do vetor: 768, compatível com nomic-embed-text (Ollama local).
@@ -32,6 +40,7 @@ export const conteudos = pgTable(
     corpoMarkdown: text('corpo_markdown').notNull(),
     versao: integer('versao').notNull().default(1),
     status: text('status').notNull().default('rascunho'),
+    atualizacaoFontes: jsonb('atualizacao_fontes').$type<AtualizacaoFontes>(),
     criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

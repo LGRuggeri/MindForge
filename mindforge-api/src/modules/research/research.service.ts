@@ -6,6 +6,7 @@ import { AgentesService } from '../agentes/agentes.service';
 import { PesquisarDto } from './dto/pesquisar.dto';
 import { ResearchRepository } from './research.repository';
 import { WebSearchResultado, WebSearchService } from './web-search.service';
+import { PesquisaIndisponivelException } from '../../common/filters/pesquisa-indisponivel.exception';
 
 interface ModuloContexto {
   titulo: string;
@@ -63,7 +64,12 @@ export class ResearchService {
     return this.pesquisarSincrono(dto);
   }
 
-  private async pesquisarSincrono(dto: PesquisarDto) {
+  /** Atualização de aulas exige resultados web; não usa o fallback de sugestões da IA. */
+  async pesquisarAtualizado(dto: PesquisarDto) {
+    return this.pesquisarSincrono({ ...dto, webSearch: true, async: false }, true);
+  }
+
+  private async pesquisarSincrono(dto: PesquisarDto, exigirBuscaWeb = false) {
     const modulo = await this.repo.buscarModuloPorId(dto.moduloId);
     if (!modulo) {
       throw new NotFoundException(`Módulo ${dto.moduloId} não encontrado`);
@@ -77,8 +83,12 @@ export class ResearchService {
       try {
         resultadosWeb = validarResultadosWeb(await this.webSearch.buscar(topico, 10));
       } catch {
-        this.logger.warn('Busca web indisponível; continuando com sugestões da IA sem URLs');
+        this.logger.warn('Busca web indisponível');
       }
+    }
+
+    if (exigirBuscaWeb && resultadosWeb.length === 0) {
+      throw new PesquisaIndisponivelException();
     }
 
     const resultado = await this.agentes.executar<ReturnType<typeof interpretarFontes>>({
@@ -90,8 +100,14 @@ export class ResearchService {
       temperature: 0.4,
     });
 
+    const selecionadas = exigirBuscaWeb
+      ? resultado.fontes.filter((f) => f.origem === 'busca_web')
+      : resultado.fontes;
+    if (exigirBuscaWeb && selecionadas.length === 0) {
+      throw new PesquisaIndisponivelException();
+    }
     const fontes = await this.repo.criarFontes(
-      resultado.fontes.map((f) => ({
+      selecionadas.map((f) => ({
         moduloId: dto.moduloId,
         tipo: f.tipo,
         titulo: f.titulo,
@@ -99,7 +115,9 @@ export class ResearchService {
         autor: f.autor ?? null,
         origem: f.origem,
         confiabilidadeScore: f.confiabilidadeScore == null ? null : String(f.confiabilidadeScore),
-        resumo: f.resumo,
+        resumo: exigirBuscaWeb
+          ? `${f.resumo}\nTrecho retornado pelo buscador (página não lida): ${resultadosWeb.find((r) => r.url === f.url)?.resumo ?? ''}`
+          : f.resumo,
       })),
     );
 

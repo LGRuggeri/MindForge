@@ -4,7 +4,7 @@ Atualizado em **2026-09-14**, incluindo revisão, conclusão de módulos, contra
 
 **Marcos de 14/09/2026:** conclusão de módulos transacional, Tutor com RAG por módulo, preservação e validação de respostas de IA, vínculos de tentativas/avaliações e proteção contra feedback antecipado e procedência das fontes web. Revisão, RAG, avaliações e fontes validados no PostgreSQL real. Detalhes em [plano de consolidação](plano-consolidacao-2026-09-13.md).
 
-**Cobertura atual, após feedback do simulado:** linhas **93,66%**, instruções **93,50%**, funções **86,17%** e ramificações **82,99%**. Execução com SQL: **719 testes em 89 suítes**, sem skips, com gate global de 80% ativo. Frontend: **84 testes em 18 arquivos**. Integração Docker separada: **15 cenários aprovados**. Workflow publicado pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), aberta para revisão; consultar os checks para a execução do último commit. **O check obrigatório está bloqueado pelo plano da conta para este repositório privado.** Detalhes no [plano de cobertura](plano-cobertura-80-2026-09-14.md), em [CI do backend](19-ci-backend.md) e no [sandbox](20-sandbox.md).
+**Cobertura atual, após feedback do simulado:** linhas **93,66%**, instruções **93,50%**, funções **86,17%** e ramificações **82,99%**. Execução com SQL: **719 testes em 89 suítes**, sem skips, com gate global de 80% ativo. Frontend: **84 testes em 18 arquivos**. Integração Docker separada: **15 cenários aprovados**. Workflow integrado à `main` pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), com [CI aprovado após o merge](https://github.com/LGRuggeri/Mindforge/actions/runs/34891633277). **O check obrigatório está bloqueado pelo plano da conta para este repositório privado.** Detalhes no [plano de cobertura](plano-cobertura-80-2026-09-14.md), em [CI do backend](19-ci-backend.md) e no [sandbox](20-sandbox.md).
 
 **Feedback do simulado:** correção individual disponível após finalizar e reabrir, com preservação das tentativas usadas na nota. Simulados anteriores apresentam histórico identificado como legado; ver [plano e validação](plano-feedback-simulado-2026-09-14.md).
 
@@ -70,7 +70,7 @@ loop completo pesquisa → síntese → estudo → exercício → feedback → r
 
 ## Ordem sugerida agora
 
-**Consolidação de 13–14/09/2026:** revisão, conclusão de módulos, escopo do Tutor, contratos de IA, avaliações, fontes, ações de geração, resultados e sandbox local foram tratados e validados nos marcos registrados. CI publicado e aprovado; próxima etapa é revisar/integrar a PR #11 e resolver a limitação do plano GitHub para exigir o check. Depois, validar fluxos com os provedores do ambiente pessoal. Ver [plano de consolidação](plano-consolidacao-2026-09-13.md). A existência dos módulos não equivale à validação integral de todos os fluxos e provedores reais.
+**Consolidação de 13–14/09/2026:** revisão, conclusão de módulos, escopo do Tutor, contratos de IA, avaliações, fontes, ações de geração, resultados com feedback e sandbox local foram tratados e validados nos marcos registrados. A PR #11 já foi integrada à `main` e o CI passou após o merge. Próximos passos sugeridos: validar fluxos com os provedores do ambiente pessoal, reduzir as consultas de módulos por perfil e incluir testes/build/lint do frontend no CI. Tornar o check obrigatório depende do plano GitHub. Ver [plano de consolidação](plano-consolidacao-2026-09-13.md). A existência dos módulos não equivale à validação integral de todos os fluxos e provedores reais.
 
 Dado o que **já funciona**, a sequência de maior valor é:
 

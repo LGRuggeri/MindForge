@@ -46,14 +46,14 @@ export class ExerciciosAvaliacoesRepository {
 
   async listarExerciciosPorModulo(moduloId: string) {
     return this.db.query.exercicios.findMany({
-      where: eq(exercicios.moduloId, moduloId),
+      where: and(eq(exercicios.moduloId, moduloId), eq(exercicios.finalidade, 'treino')),
       orderBy: [desc(exercicios.criadoEm)],
     });
   }
 
   async listarExerciciosPublicosPorModulo(moduloId: string) {
     return this.db.query.exercicios.findMany({
-      where: eq(exercicios.moduloId, moduloId),
+      where: and(eq(exercicios.moduloId, moduloId), eq(exercicios.finalidade, 'treino')),
       orderBy: [desc(exercicios.criadoEm)],
       columns: {
         id: true,
@@ -71,7 +71,7 @@ export class ExerciciosAvaliacoesRepository {
       return [];
     }
     return this.db.query.exercicios.findMany({
-      where: inArray(exercicios.moduloId, moduloIds),
+      where: and(inArray(exercicios.moduloId, moduloIds), eq(exercicios.finalidade, 'treino')),
       orderBy: [desc(exercicios.criadoEm)],
     });
   }
@@ -85,9 +85,12 @@ export class ExerciciosAvaliacoesRepository {
       return [];
     }
     return this.db.query.exercicios.findMany({
-      where: inArray(
-        exercicios.moduloId,
-        modulos.map((m) => m.id),
+      where: and(
+        eq(exercicios.finalidade, 'treino'),
+        inArray(
+          exercicios.moduloId,
+          modulos.map((m) => m.id),
+        ),
       ),
       orderBy: [desc(exercicios.criadoEm)],
     });

@@ -17,6 +17,10 @@ export const fontesPesquisa = pgTable(
     autor: text('autor'),
     confiabilidadeScore: numeric('confiabilidade_score', { precision: 3, scale: 2 }),
     resumo: text('resumo'),
+    // Null preserva a distinção entre referências legadas e trechos consultados.
+    trechoConsultado: text('trecho_consultado'),
+    localizador: text('localizador'),
+    consultadoEm: timestamp('consultado_em', { withTimezone: true }),
     coletadoEm: timestamp('coletado_em', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

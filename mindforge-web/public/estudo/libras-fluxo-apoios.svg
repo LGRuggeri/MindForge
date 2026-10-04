@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 650" role="img" aria-labelledby="titulo descricao">
+  <title id="titulo">Do contexto ao acompanhamento dos apoios</title>
+  <desc id="descricao">Esquema didático com quatro etapas: observar a tarefa e as barreiras; conhecer potencialidades e necessidades; planejar e usar apoios; verificar participação e aprendizagem. Uma seta de retorno indica revisão do planejamento.</desc>
+  <defs><marker id="seta" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#475569"/></marker></defs>
+  <rect width="440" height="650" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial, sans-serif" text-anchor="middle" fill="#0f172a">
+    <text x="220" y="38" font-size="20" font-weight="bold">Planejar apoios e conferir resultados</text>
+    <text x="220" y="61" font-size="13">Esquema autoral de estudo · não é formulário oficial</text>
+    <rect x="50" y="85" width="340" height="92" rx="12" fill="#e0e7ff" stroke="#6366f1"/>
+    <text x="220" y="113" font-size="17" font-weight="bold">1. Observar o contexto</text>
+    <text x="220" y="139" font-size="15">Qual tarefa? Que barreiras aparecem?</text>
+    <text x="220" y="161" font-size="14">Registre situações, não apenas diagnósticos.</text>
+    <rect x="50" y="220" width="340" height="92" rx="12" fill="#dbeafe" stroke="#3b82f6"/>
+    <text x="220" y="248" font-size="17" font-weight="bold">2. Conhecer o estudante</text>
+    <text x="220" y="274" font-size="15">Repertório, potencialidades e necessidades</text>
+    <text x="220" y="296" font-size="14">Ouça o estudante e envolva a equipe.</text>
+    <rect x="50" y="355" width="340" height="92" rx="12" fill="#d1fae5" stroke="#059669"/>
+    <text x="220" y="383" font-size="17" font-weight="bold">3. Planejar e usar apoios</text>
+    <text x="220" y="409" font-size="15">Função, recurso e condições de uso</text>
+    <text x="220" y="431" font-size="14">Relacione acesso e objetivo da atividade.</text>
+    <rect x="50" y="490" width="340" height="92" rx="12" fill="#fef3c7" stroke="#d97706"/>
+    <text x="220" y="518" font-size="17" font-weight="bold">4. Verificar e ajustar</text>
+    <text x="220" y="544" font-size="15">Participação e aprendizagem observáveis</text>
+    <text x="220" y="566" font-size="14">A existência de um recurso não basta.</text>
+    <text x="220" y="620" font-size="14">Acompanhamento → revisão dos apoios</text>
+  </g>
+  <g stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#seta)">
+    <path d="M220 181V212"/><path d="M220 316V347"/><path d="M220 451V482"/>
+    <path d="M394 536H414V132H398" stroke-dasharray="5 5"/>
+  </g>
+</svg>

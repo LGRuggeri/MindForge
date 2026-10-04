@@ -44,9 +44,19 @@ comSql('Synthesizer — conteúdo e vínculos SQL', () => {
       titulo: 'Atual',
       corpoMarkdown: 'V2',
       versao: 2,
+      atualizacaoFontes: {
+        tipo: 'busca_web',
+        realizadaEm: '2026-09-02T10:00:00.000Z',
+        resultadosWeb: 3,
+        fontesEncontradas: 1,
+      },
       criadoEm: new Date('2026-09-02'),
     });
     await repo.criarConteudo({ moduloId: b.modulo.id, titulo: 'Outro', corpoMarkdown: 'Outro' });
+    expect(antigo.atualizacaoFontes).toBeNull();
+    expect((await repo.listarConteudosPorModulo(a.modulo.id))[0].atualizacaoFontes).toEqual(
+      atual.atualizacaoFontes,
+    );
     expect((await repo.listarConteudosPorModulo(a.modulo.id)).map((c) => c.id)).toEqual([
       atual.id,
       antigo.id,

@@ -13,6 +13,7 @@ import {
 import { avaliacoes } from './avaliacoes.schema';
 import { perfilAprendizagem } from './perfil.schema';
 import { modulosTrilha } from './trilhas.schema';
+import type { ComentarioQuestao } from '../../modules/exercicios-avaliacoes/comentario-questao';
 
 export const exercicios = pgTable(
   'exercicios',
@@ -24,8 +25,10 @@ export const exercicios = pgTable(
     tipo: text('tipo').notNull(),
     enunciado: text('enunciado').notNull(),
     gabarito: text('gabarito'),
+    comentario: jsonb('comentario').$type<ComentarioQuestao>(),
     criterios: jsonb('criterios').$type<string[]>(),
     dificuldade: text('dificuldade').notNull().default('medio'),
+    finalidade: text('finalidade').notNull().default('treino'),
     criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -34,6 +37,7 @@ export const exercicios = pgTable(
       sql`${table.tipo} IN ('questao_objetiva','dissertativa','codigo','projeto')`,
     ),
     check('exercicios_dificuldade_check', sql`${table.dificuldade} IN ('facil','medio','dificil')`),
+    check('exercicios_finalidade_check', sql`${table.finalidade} IN ('treino','avaliacao')`),
   ],
 );
 

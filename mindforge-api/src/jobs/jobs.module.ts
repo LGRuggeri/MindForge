@@ -6,6 +6,7 @@ import { ExerciciosAvaliacoesModule } from '../modules/exercicios-avaliacoes/exe
 import { ExerciciosAvaliacoesService } from '../modules/exercicios-avaliacoes/exercicios-avaliacoes.service';
 import { SynthesizerModule } from '../modules/synthesizer/synthesizer.module';
 import { SynthesizerService } from '../modules/synthesizer/synthesizer.service';
+import type { GerarConteudoDto } from '../modules/synthesizer/dto/gerar-conteudo.dto';
 import {
   BIBLIOTECA_VIVA_SERVICE,
   EmbeddingsJobHandler,
@@ -39,13 +40,7 @@ import { JOB_QUEUE } from './job-queue.token';
       provide: SYNTHESIZER_SERVICE,
       inject: [SynthesizerService],
       useFactory: (service: SynthesizerService) => ({
-        gerar: (dto: {
-          moduloId: string;
-          topico: string;
-          nivelAlvo?: string;
-          instrucoesExtras?: string;
-          async?: boolean;
-        }) => service.gerar(dto),
+        gerar: (dto: GerarConteudoDto) => service.gerar(dto),
       }),
     },
     {

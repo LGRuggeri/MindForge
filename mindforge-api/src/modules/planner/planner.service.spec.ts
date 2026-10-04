@@ -4,6 +4,8 @@ import { AgentesService } from '../agentes/agentes.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 import { PlannerService } from './planner.service';
 import { PlannerRepository } from './planner.repository';
+import { programaAz900 } from './trilhas-guiadas/az-900';
+import { programaKaliLinux } from './trilhas-guiadas/kali-linux';
 
 describe('PlannerService', () => {
   let service: PlannerService;
@@ -36,6 +38,8 @@ describe('PlannerService', () => {
   beforeEach(async () => {
     const repoMock = {
       criarObjetivo: jest.fn(),
+      buscarPerfilPorId: jest.fn(async () => ({ id: 'perfil-a' })),
+      criarFontesPrograma: jest.fn(),
       listarObjetivosDoPerfil: jest.fn(),
       buscarModuloPorId: jest.fn(),
       buscarObjetivoPorId: jest.fn(),
@@ -92,6 +96,48 @@ describe('PlannerService', () => {
     );
   });
 
+  describe('objetivo pronto do perfil', () => {
+    it('cria objetivo e apenas os módulos escolhidos numa transação, sem chamar a IA', async () => {
+      repo.criarObjetivo.mockResolvedValue({ id: objetivoId, perfilId: 'perfil-a' } as never);
+      const criado = await service.criarObjetivo({
+        perfilId: 'perfil-a',
+        titulo: 'Meu estudo',
+        programaCodigo: 'CONCURSO-LIBRAS-IBAM-2026',
+        modulosIndices: [5, 2],
+      });
+      expect(repo.executarEmTransacao).toHaveBeenCalledTimes(1);
+      expect(repo.criarObjetivo).toHaveBeenCalledWith(
+        expect.objectContaining({ perfilId: 'perfil-a' }),
+        expect.anything(),
+      );
+      expect(repo.criarModulos.mock.calls[0][0]).toHaveLength(2);
+      expect(repo.criarTrilha.mock.calls[0][0].metadata).toEqual(
+        expect.objectContaining({ modulosIndices: [2, 5] }),
+      );
+      expect(repo.criarFontesPrograma).toHaveBeenCalled();
+      expect(criado).toHaveProperty('trilhas');
+      expect(agentes.executar).not.toHaveBeenCalled();
+    });
+    it('rejeita perfil inexistente e seleção inválida antes de gravar o estudo', async () => {
+      repo.buscarPerfilPorId.mockResolvedValue(undefined);
+      await expect(
+        service.criarObjetivo({ perfilId: 'ausente', titulo: 'Teste', programaCodigo: 'AZ-900' }),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.criarObjetivo({
+          perfilId: 'a',
+          titulo: 'Teste',
+          programaCodigo: 'AZ-900',
+          modulosIndices: [99],
+        }),
+      ).rejects.toThrow();
+      await expect(
+        service.criarObjetivo({ perfilId: 'a', titulo: 'Teste', modulosIndices: [1] }),
+      ).rejects.toThrow();
+      expect(repo.criarObjetivo).not.toHaveBeenCalled();
+    });
+  });
+
   describe('gerarTrilha — validação do plano retornado pelo LLM', () => {
     it('aceita um plano válido com 3 módulos', async () => {
       mockAgentesComRaw(JSON.stringify(planoValido(3)));
@@ -139,6 +185,75 @@ describe('PlannerService', () => {
 
       await expect(service.gerarTrilha(objetivoId)).rejects.toThrow(/resposta inválida/);
       expect(repo.criarTrilha).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('trilha de certificação AZ-900', () => {
+    it('cobre os três domínios oficiais sem depender da resposta do LLM', async () => {
+      const resultado = await service.gerarTrilha(objetivoId, 'AZ-900');
+
+      expect(agentes.executar).not.toHaveBeenCalled();
+      expect(resultado.modulos).toHaveLength(8);
+      expect(repo.criarModulos).toHaveBeenCalledWith(
+        programaAz900.modulos.map((modulo, indice) =>
+          expect.objectContaining({
+            ordem: indice + 1,
+            titulo: modulo.titulo,
+            objetivoAprendizagem: modulo.objetivoAprendizagem,
+          }),
+        ),
+        expect.anything(),
+      );
+      expect(repo.criarTrilha).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geradoPorAgente: 'catalogo-certificacoes',
+          metadata: expect.objectContaining({
+            tituloTrilha: 'AZ-900 — Microsoft Azure Fundamentals',
+            programa: programaAz900,
+            certificacao: programaAz900,
+          }),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('não substitui a trilha atual para um código desconhecido', async () => {
+      await expect(service.gerarTrilha(objetivoId, 'AZ-999')).rejects.toThrow(/não disponível/);
+      expect(repo.criarTrilha).not.toHaveBeenCalled();
+      expect(repo.substituirTrilhasAnteriores).not.toHaveBeenCalled();
+    });
+
+    it('cria trilha por assunto sem registrar uma certificação fictícia', async () => {
+      const resultado = await service.gerarTrilha(objetivoId, programaKaliLinux.codigo);
+
+      expect(resultado.modulos).toHaveLength(programaKaliLinux.modulos.length);
+      expect(agentes.executar).not.toHaveBeenCalled();
+      expect(repo.criarTrilha).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geradoPorAgente: 'catalogo-trilhas',
+          metadata: {
+            tituloTrilha: 'KALI-LINUX — Kali Linux em laboratório',
+            programa: programaKaliLinux,
+            modulosIndices: [1, 2, 3, 4, 5, 6, 7],
+          },
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('mantém cada domínio do catálogo representado em módulos', () => {
+      const dominios = new Set(programaAz900.dominios.map((dominio) => dominio.codigo));
+      const dominiosComModulo = new Set(
+        programaAz900.modulos.map((modulo) => modulo.dominioCodigo),
+      );
+      expect(dominiosComModulo).toEqual(dominios);
+      expect(
+        programaAz900.dominios.map((dominio) => [dominio.pesoMinimo, dominio.pesoMaximo]),
+      ).toEqual([
+        [25, 30],
+        [35, 40],
+        [30, 35],
+      ]);
     });
   });
 

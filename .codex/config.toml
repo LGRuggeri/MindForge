@@ -1,0 +1,15 @@
+# PCI Concursos: consultas públicas para este projeto MindForge.
+# A tela de Objetivos depende de uma integração própria, ainda planejada.
+[mcp_servers.pci-concursos]
+url = "https://mcp.pciconcursos.com.br/mcp"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 30
+enabled_tools = [
+  "listar_concursos",
+  "pesquisar_concursos",
+  "buscar_por_cargo",
+  "buscar_por_cidade",
+  "buscar_apostilas",
+]

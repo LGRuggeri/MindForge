@@ -1,6 +1,7 @@
 import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { SelecaoProgramaDto } from './selecao-programa.dto';
 
-export class CriarObjetivoDto {
+export class CriarObjetivoDto extends SelecaoProgramaDto {
   @IsUUID()
   perfilId!: string;
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useObjetivo } from '@/lib/hooks/useObjetivos';
-import { useGerarTrilha } from '@/lib/hooks/useTrilhas';
+import { useProgramasTrilha, useGerarTrilha } from '@/lib/hooks/useTrilhas';
 import { useCriarAvaliacao } from '@/lib/hooks/useAvaliacoes';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -32,16 +32,17 @@ export default function ObjetivoPage() {
   const id = typeof params.id === 'string' ? params.id : null;
   const { data: objetivo, isLoading } = useObjetivo(id);
   const gerar = useGerarTrilha();
+  const { data: programas } = useProgramasTrilha();
   const criarAvaliacao = useCriarAvaliacao();
   const { perfilSelecionado } = useAppStore();
 
   const [open, setOpen] = useState(false);
   const [quantidade, setQuantidade] = useState('10');
 
-  const handleGerarTrilha = async () => {
+  const handleGerarTrilha = async (programaCodigo?: string, modulosIndices?: number[]) => {
     if (!id || !perfilSelecionado) return;
     try {
-      const trilha = await gerar.mutateAsync({ objetivoId: id });
+      const trilha = await gerar.mutateAsync({ objetivoId: id, programaCodigo, ...(modulosIndices ? { modulosIndices } : {}) });
       toast.success(`Trilha "${trilha.id.slice(0, 8)}" gerada com ${trilha.modulos.length} módulos`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar trilha');
@@ -93,7 +94,17 @@ export default function ObjetivoPage() {
     );
   }
 
-  const trilha = objetivo.trilhas?.[0];
+  if (!perfilSelecionado || perfilSelecionado.id !== objetivo.perfilId) {
+    return <div className="max-w-4xl mx-auto text-center py-20 space-y-4">
+      <h1 className="text-2xl font-bold">{perfilSelecionado ? 'Este objetivo pertence a outro perfil' : 'Selecione um perfil'}</h1>
+      <p className="text-muted-foreground">Selecione o perfil responsável por este estudo ou volte aos seus objetivos.</p>
+      <Button asChild variant="outline"><Link href="/objetivos">Voltar aos objetivos</Link></Button>
+    </div>;
+  }
+
+  const trilha = objetivo.trilhas?.find((t) => t.status === 'ativa') ?? objetivo.trilhas?.[0];
+  const programaDaTrilha = trilha?.metadata?.programa ?? trilha?.metadata?.certificacao;
+  const programasExibidos = programas ?? (programaDaTrilha ? [programaDaTrilha] : []);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -136,7 +147,7 @@ export default function ObjetivoPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={handleGerarTrilha} disabled={gerar.isPending}>
+            <Button onClick={() => void handleGerarTrilha()} disabled={gerar.isPending}>
               {gerar.isPending ? 'Gerando...' : 'Gerar trilha'}
               <Play className="ml-2 h-4 w-4" />
             </Button>
@@ -188,7 +199,7 @@ export default function ObjetivoPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleGerarTrilha}
+                onClick={() => void handleGerarTrilha(programaDaTrilha?.codigo, trilha?.metadata?.modulosIndices)}
                 disabled={gerar.isPending}
               >
                 {gerar.isPending ? 'Gerando...' : 'Regenerar trilha'}
@@ -227,6 +238,75 @@ export default function ObjetivoPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {programasExibidos.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">Trilhas guiadas</h2>
+            <p className="text-sm text-muted-foreground">
+              Escolha um assunto, concurso ou certificação para organizar seus estudos.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {programasExibidos.map((programa) => {
+              const atual = programaDaTrilha?.codigo === programa.codigo;
+              const certificacao = programa.tipo === 'certificacao' || programa.tipo === undefined;
+              return (
+                <Card key={programa.codigo}>
+                  <CardHeader>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">{certificacao ? 'Certificação' : programa.tipo === 'concurso' ? 'Concurso' : 'Assunto'}</Badge>
+                      {atual && <Badge variant="secondary">Trilha atual</Badge>}
+                    </div>
+                    <CardTitle>{programa.nome}</CardTitle>
+                    <CardDescription>{programa.descricao}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      {programa.dominios.map((dominio) => (
+                        <div key={dominio.codigo} className="flex justify-between gap-3 text-sm">
+                          <span>{dominio.titulo}</span>
+                          {dominio.pesoMinimo !== undefined && dominio.pesoMaximo !== undefined && (
+                            <span className="whitespace-nowrap text-muted-foreground">
+                              {dominio.pesoMinimo === dominio.pesoMaximo
+                                ? `${dominio.pesoMinimo}%`
+                                : `${dominio.pesoMinimo}–${dominio.pesoMaximo}%`}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        variant="outline"
+                        className="h-auto whitespace-normal text-left"
+                        onClick={() => void handleGerarTrilha(programa.codigo, atual ? trilha?.metadata?.modulosIndices : undefined)}
+                        disabled={gerar.isPending}
+                      >
+                        {trilha ? `Gerar nova trilha ${programa.codigo}` : `Criar trilha ${programa.codigo}`}
+                      </Button>
+                      <a className="text-sm underline underline-offset-4" href={programa.fonteOficial} target="_blank" rel="noopener noreferrer">
+                        {certificacao ? 'Programa da prova' : 'Referência principal'}
+                      </a>
+                      {programa.avaliacaoPratica && (
+                        <a className="text-sm underline underline-offset-4" href={programa.avaliacaoPratica} target="_blank" rel="noopener noreferrer">
+                          Avaliação prática oficial
+                        </a>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Fonte conferida em {parseDateOnlyLocal(programa.revisadoEm).toLocaleDateString('pt-BR')}.
+                      {programa.vigenciaDesde && ` Programa vigente desde ${parseDateOnlyLocal(programa.vigenciaDesde).toLocaleDateString('pt-BR')}.`}
+                      {atual && programaDaTrilha && programaDaTrilha.revisadoEm !== programa.revisadoEm && ` A trilha atual usa o programa revisado em ${parseDateOnlyLocal(programaDaTrilha.revisadoEm).toLocaleDateString('pt-BR')}.`}
+                      {certificacao && ' Os simulados do MindForge ainda não reproduzem os pesos da prova.'}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );

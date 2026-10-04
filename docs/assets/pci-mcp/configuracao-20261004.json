@@ -1,0 +1,28 @@
+{
+  "consultadoEm": "2026-10-04T17:02:28.663Z",
+  "escopo": "Codex no projeto MindForge",
+  "endpoint": "https://mcp.pciconcursos.com.br/mcp",
+  "protocolo": "2025-06-18",
+  "servidor": {
+    "name": "Concursos Públicos Brasil",
+    "version": "1.0.0"
+  },
+  "ferramentas": [
+    "listar_concursos",
+    "pesquisar_concursos",
+    "buscar_por_cargo",
+    "buscar_por_cidade",
+    "buscar_apostilas"
+  ],
+  "amostra": {
+    "ferramenta": "buscar_por_cargo",
+    "argumentos": {
+      "cargo": "intérprete de libras",
+      "uf": "sc"
+    },
+    "total": 2,
+    "isError": false
+  },
+  "autenticacaoExigida": false,
+  "chamadaLlm": false
+}

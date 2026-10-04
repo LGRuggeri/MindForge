@@ -18,6 +18,7 @@ import { JOB_QUEUE } from '../../jobs/job-queue.token';
 import { JobsService } from '../../jobs/jobs.service';
 import { ExercicioGerado, GerarExercicioDto, SubmeterTentativaDto } from './dto';
 import { ExerciciosAvaliacoesRepository } from './exercicios-avaliacoes.repository';
+import { ComentarioQuestao, corrigirQuestaoObjetiva } from './comentario-questao';
 
 export interface TentativaCorrigida {
   correta: boolean;
@@ -46,7 +47,10 @@ export class ExerciciosAvaliacoesService {
 
   async gerarExercicio(dto: GerarExercicioDto): Promise<
     | { jobId: string; status: 'enfileirado'; moduloId: string }
-    | (Awaited<ReturnType<ExerciciosAvaliacoesRepository['criarExercicio']>> & {
+    | (Omit<
+        Awaited<ReturnType<ExerciciosAvaliacoesRepository['criarExercicio']>>,
+        'gabarito' | 'comentario'
+      > & {
         dica?: string;
         criterios?: string[] | null;
       })
@@ -70,7 +74,10 @@ export class ExerciciosAvaliacoesService {
   }
 
   private async gerarExercicioSincrono(dto: GerarExercicioDto): Promise<
-    Awaited<ReturnType<ExerciciosAvaliacoesRepository['criarExercicio']>> & {
+    Omit<
+      Awaited<ReturnType<ExerciciosAvaliacoesRepository['criarExercicio']>>,
+      'gabarito' | 'comentario'
+    > & {
       dica?: string;
       criterios?: string[] | null;
     }
@@ -119,11 +126,16 @@ export class ExerciciosAvaliacoesService {
       enunciado: gerado.enunciado,
       gabarito: gerado.gabarito,
       criterios: gerado.criterios,
+      ...(gerado.comentario ? { comentario: gerado.comentario } : {}),
       dificuldade: dto.dificuldade ?? 'medio',
     });
 
     this.logger.log(`Exercício gerado: ${exercicio.id} para o módulo ${dto.moduloId}`);
-    return { ...exercicio, dica: gerado.dica, criterios: gerado.criterios ?? null };
+    // Não revelar respostas nem comentários na geração; serão apresentados na correção.
+    const { gabarito: _gabarito, comentario: _comentario, ...publico } = exercicio;
+    void _gabarito;
+    void _comentario;
+    return { ...publico, dica: gerado.dica, criterios: gerado.criterios ?? null };
   }
 
   async submeterTentativa(dto: SubmeterTentativaDto): Promise<
@@ -229,7 +241,14 @@ export class ExerciciosAvaliacoesService {
     if (!dto.perfilId || modulo.trilha?.objetivo?.perfilId !== dto.perfilId) {
       throw new ForbiddenException('Exercício não pertence ao perfil informado');
     }
-    if (!dto.avaliacaoId) return;
+    if (!dto.avaliacaoId) {
+      if (exercicio.finalidade === 'avaliacao') {
+        throw new ForbiddenException(
+          'Questão reservada para avaliação; responda pela avaliação correspondente.',
+        );
+      }
+      return;
+    }
     const avaliacao = await this.repo.buscarAvaliacaoPorId(dto.avaliacaoId);
     if (!avaliacao) throw new NotFoundException('Avaliação não encontrada');
     const dono =
@@ -257,23 +276,17 @@ export class ExerciciosAvaliacoesService {
 
   private async corrigirResposta(
     tipo: string,
-    exercicio: { enunciado: string; gabarito: string | null; criterios: string[] | null },
+    exercicio: {
+      enunciado: string;
+      gabarito: string | null;
+      criterios: string[] | null;
+      comentario?: ComentarioQuestao | null;
+    },
     respostaUsuario: string,
     modulo: { titulo: string; objetivoAprendizagem: string | null },
   ): Promise<TentativaCorrigida> {
     if (tipo === 'questao_objetiva' && exercicio.gabarito) {
-      const normalizado = (s: string) =>
-        s
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .trim();
-      const correta = normalizado(respostaUsuario) === normalizado(exercicio.gabarito);
-      return {
-        correta,
-        pontuacao: correta ? 10 : 0,
-        feedback: correta ? 'Resposta correta!' : `Resposta incorreta. ${exercicio.gabarito}`,
-      };
+      return corrigirQuestaoObjetiva(respostaUsuario, exercicio.gabarito, exercicio.comentario);
     }
 
     return this.agentes.executar<TentativaCorrigida>({
@@ -315,7 +328,9 @@ export class ExerciciosAvaliacoesService {
 
 Regras:
 1. O exercício deve ser adequado ao tipo informado: ${tipo}.
-2. Para questão objetiva, forneça uma resposta curta e exata em "gabarito".
+2. Para questão objetiva, escreva a pergunta seguida de quatro alternativas A, B, C e D no "enunciado", com uma única opção correta.
+   Cada alternativa deve começar em uma nova linha no formato "A. texto", "B. texto", "C. texto" e "D. texto". Use apenas a letra correta no "gabarito".
+   Inclua comentario com explicacao do acerto, explicação de cada alternativa, fontes apenas quando disponíveis no material e topicoRevisao. Nunca misture explicação com gabarito.
 3. Para dissertação/código/projeto, forneça critérios de avaliação em "criterios".
 4. Use os materiais da Biblioteca Viva como base, mas não invente informações.
 5. Retorne APENAS um objeto JSON válido, sem markdown.
@@ -325,13 +340,17 @@ Formato obrigatório:
   "enunciado": "string",
   "gabarito": "string (opcional)",
   "dica": "string (opcional)",
-  "criterios": ["string"] (para dissertativa/código/projeto)
+  "criterios": ["string"] (para dissertativa/código/projeto),
+  "comentario": { "explicacao": "string", "alternativas": [{ "alternativa": "A", "explicacao": "string" }], "fontes": ["URL existente no material"], "topicoRevisao": "string" } (para objetiva)
 }`;
   }
 
   private montarUserPromptGeracao(
     dto: GerarExercicioDto,
-    modulo: { titulo: string; objetivoAprendizagem: string | null },
+    modulo: Pick<
+      Awaited<ReturnType<PlannerService['buscarModuloPorId']>>,
+      'titulo' | 'objetivoAprendizagem' | 'escopoEstudo'
+    >,
     chunks: Array<{ texto: string; similaridade: number }>,
   ): string {
     const chunksTexto =
@@ -345,6 +364,7 @@ Formato obrigatório:
         : 'Nenhum material relevante encontrado na Biblioteca Viva.';
 
     return `Módulo: ${modulo.titulo}
+${modulo.escopoEstudo ? `Programa escolhido: ${modulo.escopoEstudo.programaNome}\nTópicos da grade: ${modulo.escopoEstudo.topicosObrigatorios.join('; ')}\nElaborar a questão dentro deste escopo, fundamentada nos materiais disponíveis. Não inventar dispositivos legais ou referências.\n` : ''}
 Objetivo de aprendizagem: ${modulo.objetivoAprendizagem ?? 'não informado'}
 Tipo de exercício: ${dto.tipo}
 Dificuldade: ${dto.dificuldade ?? 'medio'}

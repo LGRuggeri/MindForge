@@ -8,6 +8,7 @@ import { ReviewerService } from './reviewer.service';
 import { SynthesizerRepository } from './synthesizer.repository';
 import { SynthesizerService } from './synthesizer.service';
 import { JOB_QUEUE } from '../../jobs/job-queue.token';
+import { ResearchService } from '../research/research.service';
 
 describe('SynthesizerService', () => {
   let service: SynthesizerService;
@@ -17,6 +18,7 @@ describe('SynthesizerService', () => {
   let reviewer: jest.Mocked<ReviewerService>;
   let knowledgeGraph: jest.Mocked<KnowledgeGraphService>;
   let imageService: jest.Mocked<ImageService>;
+  let research: jest.Mocked<ResearchService>;
 
   const moduloId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -83,6 +85,14 @@ describe('SynthesizerService', () => {
         { provide: KnowledgeGraphService, useValue: knowledgeGraphMock },
         { provide: ImageService, useValue: imageServiceMock },
         {
+          provide: ResearchService,
+          useValue: {
+            pesquisarAtualizado: jest
+              .fn()
+              .mockResolvedValue({ fontes: fontesMock, resultadosWeb: 1 }),
+          },
+        },
+        {
           provide: ConfigService,
           useValue: { get: jest.fn((_key: string, fallback?: string) => fallback) },
         },
@@ -97,6 +107,95 @@ describe('SynthesizerService', () => {
     reviewer = module.get(ReviewerService);
     knowledgeGraph = module.get(KnowledgeGraphService);
     imageService = module.get(ImageService);
+    research = module.get(ResearchService);
+  });
+
+  it('interrompe a geração quando a atualização falha, sem salvar nem sintetizar', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue(fontesMock as never);
+    research.pesquisarAtualizado.mockRejectedValue(new Error('offline'));
+    await expect(service.gerar({ moduloId, topico: 'Python' })).rejects.toThrow('pesquisa web');
+    expect(agentes.executar).not.toHaveBeenCalled();
+    expect(repo.criarConteudo).not.toHaveBeenCalled();
+  });
+
+  it('envia a grade salva ao gerador e ao revisor mesmo sem tópicos informados pelo cliente', async () => {
+    repo.buscarModuloPorId.mockResolvedValue({
+      ...moduloMock,
+      ordem: 1,
+      trilha: {
+        ...moduloMock.trilha,
+        metadata: {
+          programa: {
+            codigo: 'LIBRAS',
+            nome: 'Concurso',
+            modoEstudoPadrao: 'concurso',
+            modulos: [
+              {
+                titulo: 'LDB',
+                objetivoAprendizagem: 'Comparar modalidades',
+                topicosObrigatorios: ['Capítulos V e V-A'],
+              },
+            ],
+          },
+        },
+      },
+    } as never);
+    repo.listarFontesPorModulo.mockResolvedValue([]);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Aula',
+      corpoMarkdown: 'Texto',
+      resumo: '',
+      palavrasChave: [],
+    });
+    reviewer.revisar.mockResolvedValue({
+      nota: 5,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
+    repo.criarConteudo.mockResolvedValue({ id: 'rascunho', status: 'rascunho' } as never);
+    await service.gerar({ moduloId, topico: 'Meu foco' });
+    expect(agentes.executar.mock.calls[0][0].user).toContain('Capítulos V e V-A');
+    expect(reviewer.revisar.mock.calls[0][1]).toContain('Capítulos V e V-A');
+    expect(reviewer.revisar.mock.calls[0][1]).toContain('Modo de estudo: concurso');
+    expect(repo.criarConteudo).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'rascunho' }),
+    );
+  });
+
+  it('mantém aula superficial em rascunho sem indexar no tutor, mesmo com nota global alta', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([]);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Aula',
+      corpoMarkdown: '# Apenas definições',
+      resumo: '',
+      palavrasChave: ['variáveis'],
+    });
+    reviewer.revisar.mockResolvedValue({
+      nota: 5,
+      pontosFortes: [],
+      pontosFracos: ['Raso'],
+      sugestoes: ['Desenvolver'],
+      criterios: { profundidade: 1, cobertura: 4, fundamentacao: 4, aplicacao: 2 },
+      topicosPendentes: [],
+    });
+    repo.criarConteudo.mockResolvedValue({ id: 'rascunho', status: 'rascunho' } as never);
+    await service.gerar({
+      moduloId,
+      topico: 'Variáveis',
+      modoEstudo: 'concurso',
+      topicosObrigatorios: ['Escopo'],
+    });
+    expect(agentes.executar).toHaveBeenCalledTimes(3);
+    expect(repo.criarConteudo).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'rascunho' }),
+    );
+    expect(biblioteca.indexarTexto).not.toHaveBeenCalled();
+    expect(knowledgeGraph.vincularCompetenciasAoModulo).not.toHaveBeenCalled();
+    expect(reviewer.revisar.mock.calls[0][1]).toContain('Escopo');
+    expect(agentes.executar.mock.calls[0][0].user).toContain('Escopo');
   });
 
   it('deve aprovar conteudo e salvar como revisado quando reviewer der nota >= 3', async () => {
@@ -110,6 +209,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: ['claro'],
       pontosFracos: [],
       sugestoes: [],
@@ -138,6 +239,21 @@ describe('SynthesizerService', () => {
       avaliacaoReviewer: { nota: number };
     };
     expect(conteudo.status).toBe('revisado');
+    expect(research.pesquisarAtualizado).toHaveBeenCalledWith({
+      moduloId,
+      topico: 'Variáveis',
+      limite: 8,
+    });
+    expect(repo.criarConteudo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        atualizacaoFontes: {
+          tipo: 'busca_web',
+          realizadaEm: expect.any(String),
+          resultadosWeb: 1,
+          fontesEncontradas: 1,
+        },
+      }),
+    );
     expect(conteudo.avaliacaoReviewer.nota).toBe(4);
     expect(agentes.executar).toHaveBeenCalledTimes(1);
     expect(agentes.executar.mock.calls[0][0].user).toContain('origem não verificada');
@@ -145,6 +261,65 @@ describe('SynthesizerService', () => {
       moduloId,
       expect.arrayContaining([expect.objectContaining({ categoria: 'synthesizer' })]),
     );
+  });
+
+  it('usa referências salvas apenas quando solicitado, registrando ausência de busca', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue(fontesMock as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Aula',
+      corpoMarkdown: 'Texto',
+      resumo: '',
+      palavrasChave: [],
+    });
+    reviewer.revisar.mockResolvedValue({
+      nota: 5,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
+    repo.criarConteudo.mockResolvedValue({ id: 'c', status: 'rascunho' } as never);
+    await service.gerar({ moduloId, topico: 'Python', atualizarFontes: false });
+    expect(research.pesquisarAtualizado).not.toHaveBeenCalled();
+    expect(repo.criarConteudo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        atualizacaoFontes: {
+          tipo: 'fontes_salvas',
+          realizadaEm: null,
+          resultadosWeb: 0,
+          fontesEncontradas: 0,
+        },
+      }),
+    );
+    expect(repo.vincularFontes).toHaveBeenCalledWith('c', ['fonte-1']);
+  });
+
+  it('prioriza fontes desta busca e conserva referências complementares sem duplicar URLs', async () => {
+    repo.buscarModuloPorId.mockResolvedValue(moduloMock as never);
+    repo.listarFontesPorModulo.mockResolvedValue([
+      ...fontesMock,
+      { ...fontesMock[0], id: 'complemento', url: 'https://docs.python.org' },
+    ] as never);
+    research.pesquisarAtualizado.mockResolvedValue({
+      fontes: [{ ...fontesMock[0], id: 'nova', resumo: 'Trecho atual' }],
+      resultadosWeb: 1,
+    } as never);
+    agentes.executar.mockResolvedValue({
+      titulo: 'Aula',
+      corpoMarkdown: 'Texto',
+      resumo: '',
+      palavrasChave: [],
+    });
+    reviewer.revisar.mockResolvedValue({
+      nota: 5,
+      pontosFortes: [],
+      pontosFracos: [],
+      sugestoes: [],
+    });
+    repo.criarConteudo.mockResolvedValue({ id: 'c', status: 'rascunho' } as never);
+    await service.gerar({ moduloId, topico: 'Python' });
+    expect(agentes.executar.mock.calls[0][0].user).toContain('Trecho atual');
+    expect(repo.vincularFontes).toHaveBeenCalledWith('c', ['nova', 'complemento']);
   });
 
   it('deve enviar o corpo markdown completo ao reviewer, sem truncar', async () => {
@@ -159,6 +334,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: ['completo'],
       pontosFracos: [],
       sugestoes: [],
@@ -207,12 +384,16 @@ describe('SynthesizerService', () => {
     reviewer.revisar
       .mockResolvedValueOnce({
         nota: 2,
+        criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+        topicosPendentes: [],
         pontosFortes: [],
         pontosFracos: ['faltou exemplos'],
         sugestoes: ['adicione exemplos'],
       })
       .mockResolvedValueOnce({
         nota: 4,
+        criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+        topicosPendentes: [],
         pontosFortes: ['melhor'],
         pontosFracos: [],
         sugestoes: [],
@@ -259,6 +440,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: [],
       pontosFracos: [],
       sugestoes: [],
@@ -305,6 +488,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: [],
       pontosFracos: [],
       sugestoes: [],
@@ -349,6 +534,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: [],
       pontosFracos: [],
       sugestoes: [],
@@ -396,6 +583,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: [],
       pontosFracos: [],
       sugestoes: [],
@@ -437,6 +626,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: [],
       pontosFracos: [],
       sugestoes: [],
@@ -476,6 +667,8 @@ describe('SynthesizerService', () => {
     });
     reviewer.revisar.mockResolvedValue({
       nota: 4,
+      criterios: { profundidade: 4, cobertura: 4, fundamentacao: 4, aplicacao: 4 },
+      topicosPendentes: [],
       pontosFortes: [],
       pontosFracos: [],
       sugestoes: [],

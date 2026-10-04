@@ -7,8 +7,10 @@ import { FeedbackSimulado } from "@/components/feedback-simulado";
 
 export function ResultadoSimulado({
   resultado,
+  titulo = "Resultado do simulado",
 }: {
   resultado: ResultadoAvaliacao;
+  titulo?: string;
 }) {
   const nota = Number(resultado.pontuacaoTotal);
   return (
@@ -16,7 +18,7 @@ export function ResultadoSimulado({
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2 id="titulo-resultado">Resultado do simulado</h2>
+            <h2 id="titulo-resultado">{titulo}</h2>
           </CardTitle>
         </CardHeader>
         <CardContent>

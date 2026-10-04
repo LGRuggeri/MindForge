@@ -1,4 +1,5 @@
 "use client";
+import { AtualizacaoConteudo } from "@/components/atualizacao-conteudo";
 
 import { ExecutorCodigo } from "@/components/executor-codigo";
 
@@ -6,7 +7,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useModulo, useMarcarProgressoModulo } from "@/lib/hooks/useModulos";
-import { useConteudos, useGerarConteudo } from "@/lib/hooks/useConteudos";
+import { useConteudos } from "@/lib/hooks/useConteudos";
 import {
   useExercicios,
   useGerarExercicio,
@@ -26,7 +27,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+import { GerarConteudoForm } from "@/components/gerar-conteudo-form";
+import { ConteudoComAtividades } from "@/components/conteudo-com-atividades";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -38,7 +40,6 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft,
-  BookOpen,
   Dumbbell,
   FileText,
   CheckCircle,
@@ -75,33 +76,15 @@ export default function ModuloPage() {
   const { data: exercicios } = useExercicios(id);
   const { data: projetos } = useProjetos(id, null);
 
-  const gerarConteudo = useGerarConteudo();
   const gerarExercicio = useGerarExercicio();
   const gerarProjeto = useGerarProjeto();
   const marcarProgresso = useMarcarProgressoModulo();
   const submeterTentativa = useSubmeterTentativa();
 
-  const [topico, setTopico] = useState("");
   const [tipoExercicio, setTipoExercicio] =
     useState<TipoExercicio>("questao_objetiva");
   const [resposta, setResposta] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
-
-  const handleGerarConteudo = async () => {
-    if (!id || gerarConteudo.isPending) return;
-    try {
-      await gerarConteudo.mutateAsync({
-        moduloId: id,
-        topico: topico.trim() || modulo?.titulo || "",
-      });
-      toast.success("Conteúdo gerado com sucesso");
-      setTopico("");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao gerar conteúdo",
-      );
-    }
-  };
 
   const handleGerarExercicio = async () => {
     if (!id || gerarExercicio.isPending) return;
@@ -197,10 +180,19 @@ export default function ModuloPage() {
     );
   }
 
+  const perfilDono = modulo.trilha?.objetivo?.perfilId;
+  if (perfilDono && perfilDono !== perfilSelecionado?.id) {
+    return <div className="max-w-4xl mx-auto text-center py-20 space-y-4">
+      <h1 className="text-2xl font-bold">Este módulo pertence a outro perfil</h1>
+      <p className="text-muted-foreground">Selecione o perfil responsável por este estudo ou volte aos seus objetivos.</p>
+      <Button asChild variant="outline"><Link href="/objetivos">Voltar aos objetivos</Link></Button>
+    </div>;
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+        <div className="flex min-w-0 items-start gap-4">
           <Button variant="ghost" size="icon" className="mt-1" asChild>
             <Link
               href={
@@ -261,36 +253,7 @@ export default function ModuloPage() {
         </TabsList>
 
         <TabsContent value="conteudo" className="space-y-4">
-          <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Gerar conteúdo
-              </CardTitle>
-              <CardDescription>
-                Crie material didático para este módulo. Os conteúdos anteriores
-                serão mantidos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="topico">Tópico</Label>
-                <Input
-                  id="topico"
-                  disabled={gerarConteudo.isPending}
-                  value={topico}
-                  onChange={(e) => setTopico(e.target.value)}
-                  placeholder={modulo.titulo}
-                />
-              </div>
-              <Button
-                onClick={handleGerarConteudo}
-                disabled={gerarConteudo.isPending}
-              >
-                {gerarConteudo.isPending ? "Gerando..." : "Gerar conteúdo"}
-              </Button>
-            </CardContent>
-          </Card>
+          <GerarConteudoForm key={id!} moduloId={id!} titulo={modulo.titulo} escopo={modulo.escopoEstudo} />
           {conteudos?.map((conteudo) => (
             <Card key={conteudo.id}>
               <CardHeader>
@@ -307,7 +270,8 @@ export default function ModuloPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="prose prose-neutral max-w-none dark:prose-invert">
-                <MarkdownViewer>{conteudo.corpoMarkdown}</MarkdownViewer>
+                <AtualizacaoConteudo conteudo={conteudo} />
+                <ConteudoComAtividades conteudo={conteudo} perfilId={perfilSelecionado?.id ?? null} />
               </CardContent>
             </Card>
           ))}
@@ -417,7 +381,7 @@ export default function ModuloPage() {
                         : "border-rose-500/40 bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100"
                     }`}
                   >
-                    {feedback[exercicio.id]}
+                    <MarkdownViewer>{feedback[exercicio.id]}</MarkdownViewer>
                   </div>
                 )}
               </CardContent>

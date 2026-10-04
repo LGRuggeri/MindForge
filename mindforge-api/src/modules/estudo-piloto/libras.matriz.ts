@@ -1,0 +1,22 @@
+// Organização autoral dos 19 itens do Anexo III, conhecimento técnico profissional.
+export const matrizLibras = [
+  ['E01', 'Política e Rede Nacional — Decreto 12.686/2025 e alterações', 'politica-nacional'],
+  ['E02', 'Política de Educação Especial de SC (2018)', 'santa-catarina'],
+  ['E03', 'Resolução CEE/SC 100/2016', 'santa-catarina'],
+  ['E04', 'Currículo Base catarinense, subitem 1.7', 'santa-catarina'],
+  ['E05', 'LDB, capítulo V', 'ldb'],
+  ['E06', 'Lei Brasileira de Inclusão', 'direitos-historia'],
+  ['E07', 'Histórico legislativo de 1988 à atualidade', 'direitos-historia'],
+  ['E08', 'História do tradutor e intérprete de língua de sinais', 'profissao'],
+  ['E09', 'Libras: conceito, história e concepções', 'lingua-cultura'],
+  ['E10', 'Código de ética do intérprete', 'interprete-educacional'],
+  ['E11', 'Regulamentação da atuação profissional', 'profissao'],
+  ['E12', 'Intérprete educacional', 'interprete-educacional'],
+  ['E13', 'Modelos de tradução e interpretação', 'modelos'],
+  ['E14', 'Cultura e identidade surda', 'lingua-cultura'],
+  ['E15', 'Aquisição e aprendizagem de Libras', 'aquisicao-ensino'],
+  ['E16', 'Ensino de Libras para surdos e ouvintes', 'aquisicao-ensino'],
+  ['E17', 'Língua portuguesa para surdos', 'portugues-pnebs'],
+  ['E18', 'Tecnologia assistiva para deficientes auditivos', 'tecnologia'],
+  ['E19', 'Portaria MEC 588/2026 — PNEBS', 'portugues-pnebs'],
+].map(([id, assunto, aulaCodigo]) => ({ id, assunto, aulaCodigo }));

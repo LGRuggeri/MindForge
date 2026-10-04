@@ -7,6 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import {
+  MENSAGEM_PESQUISA_INDISPONIVEL,
+  PesquisaIndisponivelException,
+} from './pesquisa-indisponivel.exception';
 
 /**
  * Formato de erro único para toda a API, seguindo RFC 7807 (Problem Details
@@ -34,17 +38,24 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const status = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const erroInterno = status >= 500;
-    const title = erroInterno ? 'Erro interno' : (exception as HttpException).message;
+    const avisoPesquisa = exception instanceof PesquisaIndisponivelException;
+    const title = avisoPesquisa
+      ? 'Pesquisa indisponível'
+      : erroInterno
+        ? 'Erro interno'
+        : (exception as HttpException).message;
     const corpo = isHttpException ? exception.getResponse() : undefined;
     const mensagem =
       corpo && typeof corpo === 'object' ? (corpo as Record<string, unknown>).message : undefined;
-    const detail = erroInterno
-      ? undefined
-      : typeof mensagem === 'string'
-        ? mensagem
-        : Array.isArray(mensagem) && mensagem.every((item) => typeof item === 'string')
-          ? mensagem.join('; ')
-          : undefined;
+    const detail = avisoPesquisa
+      ? MENSAGEM_PESQUISA_INDISPONIVEL
+      : erroInterno
+        ? undefined
+        : typeof mensagem === 'string'
+          ? mensagem
+          : Array.isArray(mensagem) && mensagem.every((item) => typeof item === 'string')
+            ? mensagem.join('; ')
+            : undefined;
 
     const problem: ProblemDetails = {
       type: `https://mindforge.local/erros/${status}`,

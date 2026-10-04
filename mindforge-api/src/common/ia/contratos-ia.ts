@@ -28,6 +28,25 @@ export const avaliacaoReviewerSchema = z.object({
   pontosFortes: z.array(z.string()),
   pontosFracos: z.array(z.string()),
   sugestoes: z.array(z.string()),
+  criterios: z
+    .object({
+      profundidade: z.number().min(1).max(5),
+      cobertura: z.number().min(1).max(5),
+      fundamentacao: z.number().min(1).max(5),
+      aplicacao: z.number().min(1).max(5),
+    })
+    .optional(),
+  topicosPendentes: z.array(z.string()).optional(),
+});
+
+export const comentarioQuestaoSchema = z.object({
+  explicacao: textoNaoVazio,
+  alternativas: z
+    .array(z.object({ alternativa: textoNaoVazio, explicacao: textoNaoVazio }))
+    .max(8)
+    .optional(),
+  fontes: z.array(z.string().url()).max(8).optional(),
+  topicoRevisao: textoNaoVazio.optional(),
 });
 
 export const exercicioGeradoSchema = z.object({
@@ -41,4 +60,5 @@ export const exercicioGeradoSchema = z.object({
     .nullish()
     .transform((valor) => valor ?? undefined),
   dica: z.string().optional(),
+  comentario: comentarioQuestaoSchema.nullish().transform((valor) => valor ?? undefined),
 });

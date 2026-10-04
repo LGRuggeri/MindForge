@@ -1,0 +1,13 @@
+{
+  "fluxo": "busca → curadoria → síntese → revisão",
+  "pesquisa": {
+    "tipo": "busca_web",
+    "realizadaEm": "2026-10-03T22:00:51.938Z",
+    "resultadosWeb": 1,
+    "fontesEncontradas": 1
+  },
+  "falha": 503,
+  "materiaisAnterioresPreservados": 1,
+  "geracaoSemPesquisa": "fontes_salvas",
+  "ambiente": "isolado, com provedor de teste"
+}

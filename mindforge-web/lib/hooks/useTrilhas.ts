@@ -1,10 +1,22 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { TrilhaComModulos, GerarTrilhaInput } from '@/types/api';
+import { TrilhaComModulos, GerarTrilhaInput, ProgramaTrilha } from '@/types/api';
 
 const TRILHAS_KEY = 'trilhas';
+
+export function useProgramasTrilha() {
+  return useQuery({
+    queryKey: ['programas-trilha'],
+    queryFn: async () => {
+      const { data } = await api.get<ProgramaTrilha[]>('/planner/programas');
+      return data;
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
 
 export function useGerarTrilha() {
   const queryClient = useQueryClient();

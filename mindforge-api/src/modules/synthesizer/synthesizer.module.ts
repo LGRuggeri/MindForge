@@ -3,6 +3,7 @@ import { AgentesModule } from '../agentes/agentes.module';
 import { BibliotecaVivaModule } from '../biblioteca-viva/biblioteca-viva.module';
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module';
 import { MidiaModule } from '../midia/midia.module';
+import { ResearchModule } from '../research/research.module';
 import { ReviewerService } from './reviewer.service';
 import { SynthesizerController } from './synthesizer.controller';
 import { SynthesizerService } from './synthesizer.service';
@@ -16,7 +17,7 @@ import { SynthesizerRepository } from './synthesizer.repository';
  * e injetadas no Markdown (degradação graciosa se o provedor falhar).
  */
 @Module({
-  imports: [AgentesModule, BibliotecaVivaModule, KnowledgeGraphModule, MidiaModule],
+  imports: [AgentesModule, BibliotecaVivaModule, KnowledgeGraphModule, MidiaModule, ResearchModule],
   controllers: [SynthesizerController],
   providers: [SynthesizerService, ReviewerService, SynthesizerRepository],
   exports: [SynthesizerService],

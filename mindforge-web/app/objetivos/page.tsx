@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ProgramasEstudo } from '@/components/programas-estudo';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
 import { useObjetivos, useCriarObjetivo, useRemoverObjetivo } from '@/lib/hooks/useObjetivos';
@@ -107,6 +108,8 @@ export default function ObjetivosPage() {
         <h1 className="text-3xl font-bold tracking-tight">Objetivos</h1>
         <p className="text-muted-foreground">Defina o que você quer aprender.</p>
       </div>
+
+      <ProgramasEstudo key={perfilSelecionado.id} perfilId={perfilSelecionado.id} />
 
       <Card>
         <CardHeader>

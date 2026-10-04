@@ -26,10 +26,45 @@ export interface Trilha {
   versao: number;
   status: "ativa" | "concluida" | "substituida";
   criadoEm: string;
+  metadata?: {
+    tituloTrilha?: string;
+    programa?: ProgramaTrilha;
+    certificacao?: ProgramaTrilha;
+    modulosIndices?: number[];
+  };
   modulos?: Modulo[];
 }
 
+export interface ProgramaTrilha {
+  codigo: string;
+  /** Ausente apenas em retratos AZ-900 criados antes do catálogo de assuntos. */
+  tipo?: 'certificacao' | 'assunto' | 'concurso';
+  modoEstudoPadrao?: 'completo' | 'concurso';
+  nome: string;
+  descricao?: string;
+  fonteOficial: string;
+  paginaCertificacao?: string;
+  avaliacaoPratica?: string;
+  vigenciaDesde?: string;
+  revisadoEm: string;
+  dominios: Array<{
+    codigo: string;
+    titulo: string;
+    pesoMinimo?: number;
+    pesoMaximo?: number;
+    topicos: string[];
+  }>;
+  modulos: Array<{
+    dominioCodigo: string;
+    titulo: string;
+    objetivoAprendizagem: string;
+    tempoEstimadoMin: number;
+    topicosObrigatorios?: string[];
+  }>;
+}
+
 export interface Modulo {
+  escopoEstudo?: EscopoEstudo;
   status: "nao_iniciado" | "em_andamento" | "concluido";
   id: string;
   trilhaId: string;
@@ -39,6 +74,7 @@ export interface Modulo {
     objetivo?: {
       id: string;
       titulo: string;
+      perfilId?: string;
     } | null;
   } | null;
   ordem: number;
@@ -47,6 +83,14 @@ export interface Modulo {
   tempoEstimadoMin?: number | null;
   prerequisitos?: string[] | null;
   criadoEm: string;
+}
+
+export interface EscopoEstudo {
+  programaCodigo: string;
+  programaNome: string;
+  modoEstudoPadrao: 'completo' | 'concurso';
+  topicosObrigatorios: string[];
+  fonteOficial?: string;
 }
 
 export interface Fonte {
@@ -70,6 +114,25 @@ export interface Conteudo {
   versao: number;
   status: string;
   criadoEm: string;
+  atualizacaoFontes?: {
+    tipo: 'busca_web' | 'fontes_salvas';
+    realizadaEm: string | null;
+    resultadosWeb: number;
+    fontesEncontradas: number;
+  } | null;
+}
+
+export interface RespostaAtividade {
+  texto: string;
+  atualizadoEm: string;
+}
+
+export interface AtividadeConteudo {
+  chave: string;
+  numero: number;
+  enunciado: string;
+  linhaInicial: number;
+  resposta: RespostaAtividade | null;
 }
 
 export interface Exercicio {
@@ -192,6 +255,8 @@ export interface AtualizarPerfilInput {
 }
 
 export interface CriarObjetivoInput {
+  programaCodigo?: string;
+  modulosIndices?: number[];
   perfilId: string;
   titulo: string;
   descricao?: string;
@@ -200,7 +265,10 @@ export interface CriarObjetivoInput {
 }
 
 export interface GerarTrilhaInput {
+  modulosIndices?: number[];
   objetivoId: string;
+  programaCodigo?: string;
+  certificacaoCodigo?: string;
 }
 
 export interface TrilhaComModulos extends Trilha {
@@ -210,8 +278,11 @@ export interface TrilhaComModulos extends Trilha {
 export interface GerarConteudoInput {
   moduloId: string;
   topico: string;
+  modoEstudo?: 'resumo' | 'completo' | 'concurso';
+  topicosObrigatorios?: string[];
   nivelAlvo?: string;
   instrucoesExtras?: string;
+  atualizarFontes?: boolean;
   async?: boolean;
 }
 

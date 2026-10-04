@@ -45,6 +45,7 @@ describe('Contratos de IA antes da persistência', () => {
     graph as never,
     image as never,
     { get: (_key: string, valor: string) => valor } as never,
+    { pesquisarAtualizado: async () => ({ fontes: [], resultadosWeb: 1 }) } as never,
     {} as never,
   );
   const exercicios = new ExerciciosAvaliacoesService(

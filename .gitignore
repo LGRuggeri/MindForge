@@ -19,6 +19,8 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+/.playwright-cli/
+/output/
 
 # Logs
 *.log

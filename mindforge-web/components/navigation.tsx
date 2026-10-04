@@ -49,7 +49,7 @@ export function Navigation() {
           <span>MindForge</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden 2xl:flex items-center gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             // Rota ativa só após montar: em páginas pré-renderizadas o SSR não
@@ -72,7 +72,7 @@ export function Navigation() {
           })}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -112,8 +112,8 @@ export function Navigation() {
         </div>
       </div>
 
-      <nav className="md:hidden border-t">
-        <div className="container mx-auto px-4 py-2 flex items-center justify-around gap-1 overflow-x-auto">
+      <nav className="2xl:hidden border-t overflow-hidden">
+        <div className="relative container mx-auto px-4 py-2 flex items-center justify-start gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active =

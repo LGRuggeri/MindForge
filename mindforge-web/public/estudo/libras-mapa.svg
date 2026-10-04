@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="titulo descricao">
+<title id="titulo">Três perguntas para analisar a organização escolar</title><desc id="descricao">Modalidade, acessibilidade e atuação profissional exigem evidências próprias e convergem no planejamento escolar. Esquema didático, sem representação de sinais.</desc>
+<rect width="800" height="400" rx="20" fill="#f1f5f9"/>
+<g font-family="Arial,sans-serif" text-anchor="middle" fill="#0f172a">
+<text x="400" y="44" font-size="24" font-weight="bold">Que evidências sustentam a conclusão?</text>
+<g stroke="#64748b" stroke-width="3" fill="none"><path d="M150 205 L150 260 L400 260 L400 290"/><path d="M400 205 L400 290"/><path d="M650 205 L650 260 L400 260"/></g>
+<g stroke="#94a3b8" fill="#fff"><rect x="30" y="80" width="240" height="125" rx="12"/><rect x="280" y="80" width="240" height="125" rx="12"/><rect x="530" y="80" width="240" height="125" rx="12"/></g>
+<text x="150" y="114" font-size="21" font-weight="bold">Modalidade</text><text x="150" y="148" font-size="17">Organização linguística</text><text x="150" y="177" font-size="17">e trabalho pedagógico</text>
+<text x="400" y="114" font-size="21" font-weight="bold">Acessibilidade</text><text x="400" y="148" font-size="17">Barreiras, recursos</text><text x="400" y="177" font-size="17">e participação</text>
+<text x="650" y="114" font-size="21" font-weight="bold">Atuação profissional</text><text x="650" y="148" font-size="17">Atribuições, preparação</text><text x="650" y="177" font-size="17">e ética</text>
+<rect x="175" y="290" width="450" height="60" rx="12" fill="#dbeafe"/><text x="400" y="320" font-size="21" font-weight="bold">Planejamento escolar articulado</text>
+<text x="400" y="378" font-size="16">Um recurso presente não comprova todas as condições.</text>
+</g></svg>

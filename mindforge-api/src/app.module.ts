@@ -17,6 +17,8 @@ import { AgentesModule } from './modules/agentes/agentes.module';
 import { AgentKbModule } from './modules/agent-kb/agent-kb.module';
 import { ProjetosModule } from './modules/projetos/projetos.module';
 import { SandboxModule } from './modules/sandbox/sandbox.module';
+import { EstudoPilotoModule } from './modules/estudo-piloto/estudo-piloto.module';
+import { AtividadesConteudoModule } from './modules/atividades-conteudo/atividades-conteudo.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { SandboxModule } from './modules/sandbox/sandbox.module';
     AgentKbModule,
     ProjetosModule,
     SandboxModule,
+    EstudoPilotoModule,
+    AtividadesConteudoModule,
   ],
 })
 export class AppModule {}

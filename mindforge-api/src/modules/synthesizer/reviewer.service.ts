@@ -9,6 +9,8 @@ export interface AvaliacaoReviewer {
   pontosFortes: string[];
   pontosFracos: string[];
   sugestoes: string[];
+  criterios?: { profundidade: number; cobertura: number; fundamentacao: number; aplicacao: number };
+  topicosPendentes?: string[];
 }
 
 @Injectable()
@@ -31,13 +33,17 @@ export class ReviewerService {
 
 Critérios (nota 1 a 5):
 - Clareza: o texto é fácil de entender?
-- Factualidade: as informações parecem corretas e consistentes?
+- Fundamentação: distinguir evidência consultada de resumo ou URL não verificados; identificar limites e referências sem inventar consulta.
 - Adequação ao nível: respeita iniciante/intermediário/avançado?
 - Estrutura: uso bom de Markdown, títulos, listas, exemplos?
 - Autocontido: um aluno pode aprender só lendo o texto?
+- Profundidade: explica relações e motivos, com exemplos desenvolvidos, sem apenas listar definições?
+- Cobertura: desenvolve TODOS os tópicos obrigatórios do contexto? Liste omissões em topicosPendentes.
+- Aplicação: exemplos resolvidos, atividades e critérios permitem demonstrar aprendizagem?
 
 Regras:
 1. Seja exigente mas construtivo.
+   Compare com o modo solicitado e os requisitos do contexto. Aulas completas e de concurso com lacunas não podem receber cobertura >= 3. Nota global alta não compensa profundidade insuficiente. Avalie apenas a evidência fornecida; não certifica vigência jurídica.
 2. Retorne APENAS um objeto JSON válido.
 
 Formato obrigatório:
@@ -45,7 +51,9 @@ Formato obrigatório:
   "nota": number,
   "pontosFortes": ["string"],
   "pontosFracos": ["string"],
-  "sugestoes": ["string"]
+  "sugestoes": ["string"],
+  "criterios": { "profundidade": number, "cobertura": number, "fundamentacao": number, "aplicacao": number },
+  "topicosPendentes": ["string"]
 }`;
   }
 

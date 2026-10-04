@@ -1,4 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { AtualizacaoFontes } from '../../database/schema/conteudos.schema';
+import { ResearchService } from '../research/research.service';
+import { PesquisaIndisponivelException } from '../../common/filters/pesquisa-indisponivel.exception';
 import { ConfigService } from '@nestjs/config';
 import { validarRespostaIa } from '../../common/ia/json-ia';
 import { conteudoGeradoSchema } from '../../common/ia/contratos-ia';
@@ -11,6 +14,12 @@ import { JobsService } from '../../jobs/jobs.service';
 import { GerarConteudoDto } from './dto/gerar-conteudo.dto';
 import { ReviewerService } from './reviewer.service';
 import { SynthesizerRepository } from './synthesizer.repository';
+import {
+  aplicarEscopoEstudo,
+  avaliarAprovacao,
+  montarRequisitosEstudo,
+  FonteEstudo,
+} from './requisitos-estudo';
 
 export interface ConteudoGerado {
   titulo: string;
@@ -21,9 +30,11 @@ export interface ConteudoGerado {
 }
 
 interface ModuloContexto {
+  ordem?: number;
   titulo: string;
   objetivoAprendizagem: string | null;
   trilha?: {
+    metadata?: unknown;
     objetivo?: {
       titulo: string;
       descricao: string | null;
@@ -32,7 +43,7 @@ interface ModuloContexto {
   };
 }
 
-interface FonteContexto {
+interface FonteContexto extends FonteEstudo {
   origem?: string;
   id?: string;
   titulo: string;
@@ -53,6 +64,7 @@ export class SynthesizerService {
     private readonly knowledgeGraph: KnowledgeGraphService,
     private readonly imageService: ImageService,
     private readonly config: ConfigService,
+    private readonly research: ResearchService,
     @Inject(JOB_QUEUE) private readonly queue: JobsService,
   ) {}
 
@@ -96,14 +108,15 @@ export class SynthesizerService {
       throw new NotFoundException(`Módulo ${dto.moduloId} não encontrado`);
     }
 
-    const fontes = await this.repo.listarFontesPorModulo(dto.moduloId);
+    dto = aplicarEscopoEstudo(dto, modulo);
+    const { fontes, atualizacaoFontes } = await this.atualizarFontes(dto);
     const contexto = this.montarContextoReview(dto, modulo, fontes);
 
     let conteudoGerado = await this.sintetizar(dto, modulo, fontes);
     let avaliacao = await this.reviewer.revisar(conteudoGerado, contexto);
 
     let tentativasRevisao = 0;
-    while (avaliacao.nota < 3 && tentativasRevisao < 2) {
+    while (!avaliarAprovacao(avaliacao, dto.modoEstudo ?? 'completo') && tentativasRevisao < 2) {
       this.logger.warn(
         `Conteúdo ${conteudoGerado.titulo} rejeitado pelo reviewer (nota ${avaliacao.nota}). Reescrevendo...`,
       );
@@ -112,7 +125,9 @@ export class SynthesizerService {
       tentativasRevisao++;
     }
 
-    const status = avaliacao.nota >= 3 ? 'revisado' : 'rascunho';
+    const status = avaliarAprovacao(avaliacao, dto.modoEstudo ?? 'completo')
+      ? 'revisado'
+      : 'rascunho';
 
     conteudoGerado.corpoMarkdown = await this.injetarIlustracoes(conteudoGerado);
 
@@ -122,6 +137,7 @@ export class SynthesizerService {
       corpoMarkdown: conteudoGerado.corpoMarkdown,
       versao: 1,
       status,
+      atualizacaoFontes,
     });
 
     if (fontes.length > 0) {
@@ -132,25 +148,28 @@ export class SynthesizerService {
     }
 
     let chunksIndexados = 0;
-    try {
-      const chunks = await this.biblioteca.indexarTexto({
-        texto: conteudoGerado.corpoMarkdown,
-        conteudoId: conteudo.id,
-      });
-      chunksIndexados = Array.isArray(chunks) ? chunks.length : 0;
-    } catch (erro) {
-      // Conteúdo já foi salvo — indexação não deve apagar o ganho da síntese.
-      this.logger.error(
-        `Falha ao indexar conteúdo ${conteudo.id} na Biblioteca Viva`,
-        erro instanceof Error ? erro.stack : String(erro),
-      );
+    if (status === 'revisado') {
+      try {
+        const chunks = await this.biblioteca.indexarTexto({
+          texto: conteudoGerado.corpoMarkdown,
+          conteudoId: conteudo.id,
+        });
+        chunksIndexados = Array.isArray(chunks) ? chunks.length : 0;
+      } catch (erro) {
+        // Conteúdo já foi salvo — indexação não deve apagar o ganho da síntese.
+        this.logger.error(
+          `Falha ao indexar conteúdo ${conteudo.id} na Biblioteca Viva`,
+          erro instanceof Error ? erro.stack : String(erro),
+        );
+      }
     }
 
     this.logger.log(
       `Conteúdo gerado: ${conteudo.id} para o módulo ${dto.moduloId} (${chunksIndexados} chunks, nota reviewer ${avaliacao.nota})`,
     );
 
-    await this.extrairEVincularCompetencias(dto.moduloId, conteudoGerado);
+    if (status === 'revisado')
+      await this.extrairEVincularCompetencias(dto.moduloId, conteudoGerado);
 
     return {
       ...conteudo,
@@ -163,6 +182,41 @@ export class SynthesizerService {
 
   async listarPorModulo(moduloId: string) {
     return this.repo.listarConteudosPorModulo(moduloId);
+  }
+
+  private async atualizarFontes(dto: GerarConteudoDto) {
+    const salvas = await this.repo.listarFontesPorModulo(dto.moduloId);
+    let atuais: typeof salvas = [];
+    let atualizacaoFontes: AtualizacaoFontes = {
+      tipo: 'fontes_salvas',
+      realizadaEm: null,
+      resultadosWeb: 0,
+      fontesEncontradas: 0,
+    };
+    if (dto.atualizarFontes !== false) {
+      try {
+        const pesquisa = await this.research.pesquisarAtualizado({
+          moduloId: dto.moduloId,
+          topico: [dto.topico, ...(dto.topicosObrigatorios ?? []).slice(0, 2)]
+            .join(' ')
+            .slice(0, 800),
+          limite: 8,
+        });
+        atuais = pesquisa.fontes;
+        atualizacaoFontes = {
+          tipo: 'busca_web',
+          realizadaEm: new Date().toISOString(),
+          resultadosWeb: pesquisa.resultadosWeb,
+          fontesEncontradas: atuais.length,
+        };
+      } catch {
+        throw new PesquisaIndisponivelException();
+      }
+    }
+    // Resultados desta busca primeiro; referências anteriores complementam sem duplicar URLs.
+    const urlsAtuais = new Set(atuais.map((fonte) => fonte.url).filter(Boolean));
+    const complementares = salvas.filter((fonte) => !fonte.url || !urlsAtuais.has(fonte.url));
+    return { fontes: [...atuais, ...complementares].slice(0, 20), atualizacaoFontes };
   }
 
   private async extrairEVincularCompetencias(moduloId: string, conteudo: ConteudoGerado) {
@@ -298,9 +352,7 @@ export class SynthesizerService {
     modulo: ModuloContexto,
     fontes: FonteContexto[],
   ): string {
-    const tituloTrilha = modulo.trilha?.objetivo?.titulo ?? 'Trilha';
-    const nivelAluno = dto.nivelAlvo ?? modulo.trilha?.objetivo?.nivelDesejado ?? 'iniciante';
-    return `Trilha: ${tituloTrilha}\nMódulo: ${modulo.titulo}\nNível: ${nivelAluno}\nTópico: ${dto.topico}\nFontes: ${fontes.length}`;
+    return montarRequisitosEstudo(dto, modulo, fontes);
   }
 
   private montarSystemPrompt(): string {
@@ -312,7 +364,7 @@ Regras:
 2. Use Markdown semântico: títulos (#), listas, blocos de código, tabelas e negrito quando útil.
 3. Inclua exemplos concretos e, quando aplicável, um exercício mental ou pequeno desafio no final.
 4. Respeite o nível do aluno (iniciante, intermediário, avançado).
-5. Resumos de fontes são gerados pela IA; não trate sugestões ou links encontrados como fatos verificados. Não copie textos das fontes; reescreva com suas próprias palavras e organize didaticamente.
+5. Resumos de fontes são gerados pela IA; trechos do buscador não comprovam leitura da página nem vigência de normas. Use as fontes na ordem fornecida, priorizando as recém-pesquisadas. Não trate sugestões ou links encontrados como fatos verificados. Não copie textos das fontes; reescreva com suas próprias palavras e organize didaticamente.
 6. SUGIRA de 0 a 3 ilustrações didáticas quando o tema se beneficiar de figura (diagrama, esquema, mapa conceitual, fluxo, anatomia de algo). Temas abstratos sem representação visual clara NÃO devem ter ilustração. Cada ilustração tem um "prompt" descritivo em inglês (estilo didático, rótulos na língua do conteúdo) e o corpoMarkdown deve conter o placeholder [[imagem:N]] (N = índice, começando em 0) exatamente no ponto onde a imagem deve aparecer, em linha própria.
 7. Retorne APENAS um objeto JSON válido, sem markdown ao redor, sem explicações adicionais.
 
@@ -332,34 +384,11 @@ Formato obrigatório:
     fontes: FonteContexto[],
     feedbackReview?: { pontosFracos: string[]; sugestoes: string[]; nota: number },
   ): string {
-    const tituloTrilha = modulo.trilha?.objetivo?.titulo ?? 'Trilha';
-    const descricao = modulo.trilha?.objetivo?.descricao ?? 'Sem descrição';
-    const nivelAluno = dto.nivelAlvo ?? modulo.trilha?.objetivo?.nivelDesejado ?? 'iniciante';
-
-    const fontesTexto =
-      fontes.length > 0
-        ? fontes
-            .map(
-              (f) =>
-                `- ${f.titulo} (${f.tipo}; ${f.origem === 'busca_web' ? 'URL encontrada na busca, conteúdo não verificado' : 'origem não verificada'})${f.url ? ` [${f.url}]` : ''}${f.resumo ? `: ${f.resumo}` : ''}`,
-            )
-            .join('\n')
-        : 'Nenhuma fonte registrada. Gere o conteúdo com base no tópico e no objetivo de aprendizagem.';
-
     const feedbackTexto = feedbackReview
       ? `\n---\nFeedback do reviewer anterior (nota ${feedbackReview.nota}):\nPontos fracos: ${feedbackReview.pontosFracos.join('; ')}\nSugestões: ${feedbackReview.sugestoes.join('; ')}\nUse esse feedback para melhorar o conteúdo.\n---\n`
       : '';
 
-    return `Trilha: ${tituloTrilha}
-Descrição da trilha: ${descricao}
-Módulo: ${modulo.titulo}
-Objetivo de aprendizagem do módulo: ${modulo.objetivoAprendizagem ?? 'Não informado'}
-Nível do aluno: ${nivelAluno}
-Tópico solicitado: ${dto.topico}
-Instruções extras: ${dto.instrucoesExtras ?? 'Nenhuma'}${feedbackTexto}
-
-Fontes de pesquisa:
-${fontesTexto}
+    return `${montarRequisitosEstudo(dto, modulo, fontes)}${feedbackTexto}
 
 Gere o conteúdo didático no formato JSON especificado.`;
   }

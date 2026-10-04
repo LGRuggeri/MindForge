@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -34,6 +35,16 @@ export class PlannerController {
     return this.service.listarObjetivosDoPerfil(perfilId);
   }
 
+  @Get('certificacoes')
+  listarCertificacoes() {
+    return this.service.listarCertificacoes();
+  }
+
+  @Get('programas')
+  listarProgramas() {
+    return this.service.listarProgramas();
+  }
+
   @Delete('objetivos/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removerObjetivo(@Param('id') id: string) {
@@ -43,7 +54,13 @@ export class PlannerController {
   @Post('trilhas')
   @HttpCode(HttpStatus.CREATED)
   gerarTrilha(@Body() dto: GerarTrilhaDto) {
-    return this.service.gerarTrilha(dto.objetivoId);
+    if (dto.programaCodigo && dto.certificacaoCodigo) {
+      throw new BadRequestException('Informe apenas um código de trilha guiada');
+    }
+    const codigo = dto.programaCodigo ?? dto.certificacaoCodigo;
+    return dto.modulosIndices
+      ? this.service.gerarTrilha(dto.objetivoId, codigo, dto.modulosIndices)
+      : this.service.gerarTrilha(dto.objetivoId, codigo);
   }
 
   @Get('modulos/:id')

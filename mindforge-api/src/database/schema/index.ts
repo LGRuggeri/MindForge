@@ -20,6 +20,7 @@ export * from './objetivos.schema';
 export * from './trilhas.schema';
 export * from './pesquisa.schema';
 export * from './conteudos.schema';
+export * from './atividades-conteudo.schema';
 export * from './exercicios.schema';
 export * from './avaliacoes.schema';
 export * from './revisao.schema';

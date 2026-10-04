@@ -1,7 +1,7 @@
 # MindForge — Documentação
 
 **Fonte única de verdade.**  
-Atualizado em 14/09/2026: 719 testes aprovados com SQL, 84 no frontend e 15 cenários reais de Docker. Quatro métricas do backend acima de 80%. O resultado do simulado agora inclui [feedback por exercício após finalizar](plano-feedback-simulado-2026-09-14.md). CI publicado pela [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), ainda aberta para revisão; execuções e correção do diagnóstico de memória estão registradas em [CI do backend](19-ci-backend.md). O check obrigatório está bloqueado pelo plano atual da conta para este repositório privado.
+Atualizado em 14/09/2026: 719 testes aprovados com SQL, 84 no frontend e 15 cenários reais de Docker. Quatro métricas do backend acima de 80%. O resultado do simulado agora inclui [feedback por exercício após finalizar](plano-feedback-simulado-2026-09-14.md). A [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11) foi integrada à `main`, com [CI aprovado após o merge](https://github.com/LGRuggeri/Mindforge/actions/runs/34891633277). Execuções e correção do diagnóstico de memória estão registradas em [CI do backend](19-ci-backend.md). O check obrigatório está bloqueado pelo plano atual da conta para este repositório privado.
 
 ## Como usar
 
@@ -11,6 +11,16 @@ Atualizado em 14/09/2026: 719 testes aprovados com SQL, 84 no frontend e 15 cen�
 - Código: `../mindforge-api`.
 
 ## Índice
+
+Entrega inicial de 03/10/2026: [programas prontos por perfil](24-programas-por-perfil.md), com seleção de grade e módulos dentro de Objetivos. Libras integra o catálogo junto das certificações; suas aulas e exercícios são gerados na trilha do estudante. O [percurso anterior de Libras](23-percurso-libras-edital.md) e a [melhoria de profundidade e revisão por IA](22-estudo-aprofundado-libras.md) permanecem documentados. Validação daquela atualização: 768 testes da API com SQL e 102 do frontend. As ampliações posteriores estão descritas abaixo; o simulado integral continua pendente.
+
+Correção posterior em 03/10/2026: [respostas às atividades dentro da aula](25-atividades-conteudo.md), com campos abaixo das perguntas, salvamento por perfil e reabertura para edição. Migration aplicada ao banco local. Validação: 781 testes da API com SQL, 106 do frontend, builds, lint e conferência no navegador em desktop e celular.
+
+Ampliação seguinte: [núcleo comum do concurso](26-nucleo-comum-concurso.md), com Português, Legislação e Raciocínio Lógico de nível superior conforme a página 1 do Anexo III. A grade passa a 27 módulos; os específicos antigos conservam suas posições. API: 787 testes com SQL aprovados, build e lint aprovados. Estudos já criados são preservados; o documento explica como iniciar os módulos complementares.
+
+Investigação de integração: [PCI Concursos e MCP](27-pci-concursos-mcp.md), com teste real de listagem das ferramentas e uma busca por cargo. O MCP encontrado pesquisa concursos e apostilas; integração ao aplicativo, importação de editais e provas são propostas separadas, ainda não implementadas.
+
+Configuração em 04/10/2026: [PCI Concursos no Codex](29-pci-codex-configuracao.md), habilitado neste projeto com consulta real validada. O documento explica o uso, as condições de gratuidade atuais e a futura integração com Objetivos.
 
 | Doc | Tema | Status real |
 |---|---|---|
@@ -29,15 +39,16 @@ Atualizado em 14/09/2026: 719 testes aprovados com SQL, 84 no frontend e 15 cen�
 | [12-knowledge-graph.md](12-knowledge-graph.md) | Knowledge Graph | ✅ implementado |
 | [13-roadmap.md](13-roadmap.md) | Roadmap por fases | vigente |
 | [14-decisoes-arquiteturais.md](14-decisoes-arquiteturais.md) | ADRs | vigente |
-| [plano-cobertura-80-2026-09-14.md](plano-cobertura-80-2026-09-14.md) | Cobertura global ≥80%: baseline, seis lotes e critérios | seis lotes implementados e validados localmente; ativação remota do CI pendente |
+| [plano-cobertura-80-2026-09-14.md](plano-cobertura-80-2026-09-14.md) | Cobertura global ≥80%: baseline, seis lotes e critérios | seis lotes implementados; CI ativo e aprovado na `main` |
 | [15-projetos.md](15-projetos.md) | Projetos Inteligentes | ✅ implementado |
 | [16-jobs.md](16-jobs.md) | Jobs e erros HTTP | ✅ execução, retry, saída pública e cancelamento validados |
 | [17-midia-agent-kb.md](17-midia-agent-kb.md) | Mídia e integração Agent KB | ✅ frames, cache, subprocesso e contratos HTTP validados |
 | [18-persistencia-testes.md](18-persistencia-testes.md) | Persistência, transações e concorrência | ✅ rollback, escopo, cascatas e disputas em duas conexões validados |
-| [19-ci-backend.md](19-ci-backend.md) | CI, migrations em banco vazio e inicialização | ✅ local e GitHub aprovados; PR #11 aberta; check obrigatório depende do plano GitHub |
+| [19-ci-backend.md](19-ci-backend.md) | CI, migrations em banco vazio e inicialização | ✅ local e GitHub aprovados; integrado à `main`; check obrigatório depende do plano GitHub |
 | [20-sandbox.md](20-sandbox.md) | Execução local de Python/JavaScript | ✅ módulos e simulados, limites e isolamento validados em Docker real |
 | [plano-sandbox-2026-09-14.md](plano-sandbox-2026-09-14.md) | Plano e validação do sandbox | ✅ incremento local concluído |
 | [plano-geracao-resultados-2026-09-14.md](plano-geracao-resultados-2026-09-14.md) | Geração e resultados de simulados | ✅ ações persistentes, consulta por perfil e recuperação após recarregar |
+| [plano-feedback-simulado-2026-09-14.md](plano-feedback-simulado-2026-09-14.md) | Correção individual após finalizar | ✅ tentativas usadas na nota preservadas, reabertura e histórico legado |
 
 ## Matriz de implementação (backend)
 
@@ -48,6 +59,7 @@ Atualizado em 14/09/2026: 719 testes aprovados com SQL, 84 no frontend e 15 cen�
 | `planner` | `planner` | ✅ | `POST /planner/objetivos`, `GET /planner/objetivos/:id`, `GET /planner/perfis/:id/objetivos`, `POST /planner/trilhas`, `GET /planner/modulos/:id` |
 | `research` | `researcher` | ✅ implementado: curadoria por LLM + web search real (DuckDuckGo ou API) + async via `pg-boss` | `POST /research/fontes` (aceita `webSearch?: boolean`, `async?: boolean`), `GET /research/modulos/:id/fontes` |
 | `synthesizer` | `synthesizer` + `reviewer` | ✅ geração + revisão automática + `conteudo_fontes` + chunking | `POST /synthesizer/conteudos`, `GET /synthesizer/modulos/:id/conteudos` |
+| `atividades-conteudo` | — | ✅ respostas abertas dentro da aula, persistidas por conteúdo e perfil | `GET /atividades-conteudo/conteudos/:conteudoId?perfilId=`, `PUT /atividades-conteudo/conteudos/:conteudoId/:chave` |
 | `diario` | `teacher` | ✅ | `POST /diario`, `GET /diario/perfis/:id` |
 | `agentes` | orquestração | ✅ | logging em `agentes_execucoes` |
 | `jobs` | — | ✅ ciclo real, retry, saída pública do Research e cancelamento validados | `GET /jobs/filas`, `GET /jobs/:nome/:id`, `GET /jobs/:nome/:id/estado`, `DELETE /jobs/:nome/:id` |
@@ -57,6 +69,8 @@ Atualizado em 14/09/2026: 719 testes aprovados com SQL, 84 no frontend e 15 cen�
 | `knowledge-graph` | — | ✅ implementado: competências, relações, progresso, extração no Planner/Synthesizer | `GET /knowledge-graph/perfis/:perfilId`, `GET /knowledge-graph/competencias/:id/cadeia`, `POST /knowledge-graph/competencias/:id/progresso` |
 
 ## Fluxo validado de ponta a ponta
+
+Na geração de aulas, a pesquisa web agora acontece por padrão antes da síntese. O registro distingue pesquisa desta geração, uso explícito de fontes salvas e materiais antigos sem histórico de atualização. Ver [28-pesquisa-antes-da-geracao.md](28-pesquisa-antes-da-geracao.md).
 
 ```text
 POST /perfis
@@ -85,12 +99,16 @@ Implementado em `../mindforge-web/`:
 | `/tutor` | Conversar com o tutor IA (RAG) |
 | `/revisao` | Agenda, consulta do material, autoavaliação de lembrança e reagendamento SM-2 |
 | `/knowledge-graph` | Competências e próximos passos do perfil |
+| `/pesquisa` | Pesquisa de fontes por módulo com busca web opcional |
+| `/diario` | Registros e reflexões de aprendizagem |
+| `/projetos/[id]` | Entregas, feedback e conclusão de projetos |
+| `/simulados/[id]` | Resolução, execução de código e resultado com feedback após finalizar |
 
 Stack: Next.js 16 + React 19 + Tailwind CSS v4 + shadcn/ui + TanStack Query + Zustand.
 
 ## Próximo passo recomendado
 
-Revisar e integrar a [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11), cujo CI foi aprovado; resolver a disponibilidade de proteção de branch no plano da conta para tornar o check obrigatório. Depois, validar os fluxos com os provedores configurados no ambiente pessoal. O [sandbox local](20-sandbox.md) foi concluído; novas linguagens, casos de teste automáticos e ambiente multiusuário exigem planejamento próprio. Autenticação permanece adiada para o uso pessoal local.
+A [PR #11](https://github.com/LGRuggeri/Mindforge/pull/11) já está integrada à `main`. Próximos passos sugeridos: validar os fluxos com os provedores configurados no ambiente pessoal, reduzir as consultas de módulos por perfil e incluir a validação do frontend no CI. A configuração do check obrigatório depende da disponibilidade de proteção de branch no plano da conta. O [sandbox local](20-sandbox.md) foi concluído; novas linguagens, casos de teste automáticos e ambiente multiusuário exigem planejamento próprio. Autenticação permanece adiada para o uso pessoal local.
 
 ## Infra local
 

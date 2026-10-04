@@ -1,6 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { PlannerController } from './planner.controller';
 import { PlannerService } from './planner.service';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { GerarTrilhaDto } from './dto/gerar-trilha.dto';
 
 describe('PlannerController (integração)', () => {
   let controller: PlannerController;
@@ -40,6 +43,8 @@ describe('PlannerController (integração)', () => {
             listarObjetivosDoPerfil: jest.fn().mockResolvedValue([objetivoMock]),
             removerObjetivo: jest.fn().mockResolvedValue(objetivoMock),
             gerarTrilha: jest.fn().mockResolvedValue(trilhaMock),
+            listarCertificacoes: jest.fn().mockReturnValue([{ codigo: 'AZ-900' }]),
+            listarProgramas: jest.fn().mockReturnValue([{ codigo: 'KALI-LINUX' }]),
           },
         },
       ],
@@ -67,8 +72,48 @@ describe('PlannerController (integração)', () => {
     const dto = { objetivoId: objetivoMock.id };
     const resultado = await controller.gerarTrilha(dto);
 
-    expect(service.gerarTrilha).toHaveBeenCalledWith(dto.objetivoId);
+    expect(service.gerarTrilha).toHaveBeenCalledWith(dto.objetivoId, undefined);
     expect(resultado).toEqual(trilhaMock);
+  });
+
+  it('encaminha a certificação selecionada e expõe o catálogo', async () => {
+    const dto = { objetivoId: objetivoMock.id, certificacaoCodigo: 'AZ-900' as const };
+
+    await controller.gerarTrilha(dto);
+
+    expect(service.gerarTrilha).toHaveBeenCalledWith(dto.objetivoId, 'AZ-900');
+    expect(controller.listarCertificacoes()).toEqual([{ codigo: 'AZ-900' }]);
+    expect(controller.listarProgramas()).toEqual([{ codigo: 'KALI-LINUX' }]);
+  });
+
+  it('encaminha o assunto guiado e rejeita dois códigos simultâneos', async () => {
+    await controller.gerarTrilha({ objetivoId: objetivoMock.id, programaCodigo: 'KALI-LINUX' });
+
+    expect(service.gerarTrilha).toHaveBeenCalledWith(objetivoMock.id, 'KALI-LINUX');
+    expect(() =>
+      controller.gerarTrilha({
+        objetivoId: objetivoMock.id,
+        programaCodigo: 'KALI-LINUX',
+        certificacaoCodigo: 'AZ-900',
+      }),
+    ).toThrow(/apenas um código/);
+  });
+
+  it('aceita AZ-900 e rejeita códigos fora do catálogo na entrada HTTP', () => {
+    const base = { objetivoId: objetivoMock.id };
+    expect(validateSync(plainToInstance(GerarTrilhaDto, base))).toHaveLength(0);
+    expect(
+      validateSync(plainToInstance(GerarTrilhaDto, { ...base, certificacaoCodigo: 'AZ-900' })),
+    ).toHaveLength(0);
+    expect(
+      validateSync(plainToInstance(GerarTrilhaDto, { ...base, certificacaoCodigo: 'AZ-999' })),
+    ).not.toHaveLength(0);
+    expect(
+      validateSync(plainToInstance(GerarTrilhaDto, { ...base, programaCodigo: 'KALI-LINUX' })),
+    ).toHaveLength(0);
+    expect(
+      validateSync(plainToInstance(GerarTrilhaDto, { ...base, programaCodigo: 'DESCONHECIDO' })),
+    ).not.toHaveLength(0);
   });
 
   it('deve remover o objetivo pelo id', async () => {

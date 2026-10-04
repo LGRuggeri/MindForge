@@ -11,15 +11,27 @@ import {
   NovoObjetivoEstudo,
   objetivosEstudo,
   trilhasEstudo,
+  perfilAprendizagem,
+  fontesPesquisa,
+  NovaFontePesquisa,
 } from '../../database/schema';
 
 @Injectable()
 export class PlannerRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
-  async criarObjetivo(dados: NovoObjetivoEstudo) {
-    const [objetivo] = await this.db.insert(objetivosEstudo).values(dados).returning();
+  async criarObjetivo(dados: NovoObjetivoEstudo, tx?: DrizzleDb) {
+    const [objetivo] = await this.getClient(tx).insert(objetivosEstudo).values(dados).returning();
     return objetivo;
+  }
+
+  async buscarPerfilPorId(id: string) {
+    return this.db.query.perfilAprendizagem.findFirst({ where: eq(perfilAprendizagem.id, id) });
+  }
+
+  async criarFontesPrograma(dados: NovaFontePesquisa[], tx: DrizzleDb) {
+    if (!dados.length) return [];
+    return tx.insert(fontesPesquisa).values(dados).returning();
   }
 
   async buscarObjetivoPorId(id: string) {

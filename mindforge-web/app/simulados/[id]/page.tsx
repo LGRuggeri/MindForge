@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Send } from "lucide-react";
 import { ResultadoSimulado } from "@/components/resultado-simulado";
 import { ExecutorCodigo } from "@/components/executor-codigo";
+import { AlternativasQuestao } from "@/components/alternativas-questao";
+import { extrairAlternativas } from "@/lib/alternativas-questao";
 
 export default function SimuladoPage() {
   const params = useParams();
@@ -109,8 +111,22 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
   const itens = [...(avaliacao.exercicios ?? [])].sort(
     (a, b) => a.ordem - b.ordem,
   );
+  const parcial = avaliacao.tipo === "formativa";
+  const alternativasPorExercicio = new Map(
+    itens.map((item) => [
+      item.exercicio.id,
+      item.exercicio.tipo === "questao_objetiva"
+        ? extrairAlternativas(item.exercicio.enunciado)
+        : null,
+    ]),
+  );
   const todosRespondidos =
-    itens.length > 0 && itens.every((item) => tentativas[item.exercicio.id]);
+    itens.length > 0 &&
+    itens.every((item) =>
+      alternativasPorExercicio.get(item.exercicio.id)
+        ? respostas[item.exercicio.id]?.trim()
+        : tentativas[item.exercicio.id],
+    );
 
   const handleResponder = async (exercicioId: string) => {
     if (resultado || submetendo || submeterTentativa.isPending) return;
@@ -145,15 +161,34 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
 
     setSubmetendo(true);
     try {
+      const tentativasParaEnviar = { ...tentativas };
+      // As seleções só são enviadas quando o estudante finaliza. Em nova
+      // tentativa de envio, reutiliza respostas já confirmadas pela API.
+      for (const item of itens) {
+        const exercicioId = item.exercicio.id;
+        if (
+          alternativasPorExercicio.get(exercicioId) &&
+          !tentativasParaEnviar[exercicioId]
+        ) {
+          const tentativa = await submeterTentativa.mutateAsync({
+            exercicioId,
+            respostaUsuario: respostas[exercicioId],
+            perfilId,
+            avaliacaoId: id,
+          });
+          tentativasParaEnviar[exercicioId] = tentativa.id;
+          setTentativas((prev) => ({ ...prev, [exercicioId]: tentativa.id }));
+        }
+      }
       await submeterAvaliacao.mutateAsync({
         avaliacaoId: id,
         perfilId,
         respostas: itens.map((item) => ({
           exercicioId: item.exercicio.id,
-          tentativaId: tentativas[item.exercicio.id],
+          tentativaId: tentativasParaEnviar[item.exercicio.id],
         })),
       });
-      toast.success("Simulado finalizado!");
+      toast.success(parcial ? "Avaliação finalizada!" : "Simulado finalizado!");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Erro ao finalizar simulado",
@@ -178,14 +213,29 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
           <p className="text-muted-foreground text-sm">
             {itens.length} questões ·{" "}
             {resultado
-              ? "Simulado finalizado"
+              ? parcial
+                ? "Avaliação finalizada"
+                : "Simulado finalizado"
               : "Responda todas antes de finalizar"}
           </p>
+          {!resultado &&
+            itens.length > 0 &&
+            itens.every((item) =>
+              alternativasPorExercicio.get(item.exercicio.id),
+            ) && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Selecione uma alternativa por questão. A correção aparece após
+                finalizar a avaliação.
+              </p>
+            )}
         </div>
       </div>
 
       {resultado ? (
-        <ResultadoSimulado resultado={resultado} />
+        <ResultadoSimulado
+          resultado={resultado}
+          titulo={parcial ? "Resultado da avaliação" : "Resultado do simulado"}
+        />
       ) : (
         <>
           {itens.length === 0 && (
@@ -197,6 +247,7 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
           {itens.map((item, index) => {
             const exercicioId = item.exercicio.id;
             const respondido = Boolean(tentativas[exercicioId]);
+            const alternativas = alternativasPorExercicio.get(exercicioId);
 
             return (
               <Card key={exercicioId}>
@@ -205,8 +256,8 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium">
                       {index + 1}
                     </span>
-                    <span className="leading-relaxed">
-                      {item.exercicio.enunciado}
+                    <span className="leading-relaxed whitespace-pre-line">
+                      {alternativas?.pergunta ?? item.exercicio.enunciado}
                     </span>
                     {respondido && (
                       <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
@@ -220,19 +271,35 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
                       {item.exercicio.dificuldade}
                     </Badge>
                   </div>
-                  <Textarea
-                    aria-label={`Resposta da questão ${index + 1}`}
-                    placeholder="Digite sua resposta..."
-                    value={respostas[exercicioId] ?? ""}
-                    onChange={(e) =>
-                      setRespostas((prev) => ({
-                        ...prev,
-                        [exercicioId]: e.target.value,
-                      }))
-                    }
-                    disabled={respondido || submetendo}
-                    className={`min-h-[120px] ${item.exercicio.tipo === "codigo" ? "font-mono" : ""}`}
-                  />
+                  {alternativas ? (
+                    <AlternativasQuestao
+                      questaoId={exercicioId}
+                      numero={index + 1}
+                      alternativas={alternativas.alternativas}
+                      selecionada={respostas[exercicioId]}
+                      desabilitado={respondido || submetendo}
+                      onSelecionar={(letra) =>
+                        setRespostas((prev) => ({
+                          ...prev,
+                          [exercicioId]: letra,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <Textarea
+                      aria-label={`Resposta da questão ${index + 1}`}
+                      placeholder="Digite sua resposta..."
+                      value={respostas[exercicioId] ?? ""}
+                      onChange={(e) =>
+                        setRespostas((prev) => ({
+                          ...prev,
+                          [exercicioId]: e.target.value,
+                        }))
+                      }
+                      disabled={respondido || submetendo}
+                      className={`min-h-[120px] ${item.exercicio.tipo === "codigo" ? "font-mono" : ""}`}
+                    />
+                  )}
                   {item.exercicio.tipo === "codigo" && (
                     <ExecutorCodigo
                       exercicioId={exercicioId}
@@ -243,16 +310,18 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
                       }
                     />
                   )}
-                  <Button
-                    onClick={() => handleResponder(exercicioId)}
-                    disabled={
-                      respondido || submetendo || submeterTentativa.isPending
-                    }
-                    size="sm"
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    {respondido ? "Respondido" : "Submeter resposta"}
-                  </Button>
+                  {!alternativas && (
+                    <Button
+                      onClick={() => handleResponder(exercicioId)}
+                      disabled={
+                        respondido || submetendo || submeterTentativa.isPending
+                      }
+                      size="sm"
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      {respondido ? "Respondido" : "Submeter resposta"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -272,7 +341,11 @@ function SessaoSimulado({ id, perfilId }: { id: string; perfilId: string }) {
               disabled={!todosRespondidos || submetendo}
               size="lg"
             >
-              {submetendo ? "Finalizando..." : "Finalizar simulado"}
+              {submetendo
+                ? "Finalizando..."
+                : parcial
+                  ? "Finalizar avaliação"
+                  : "Finalizar simulado"}
             </Button>
           </div>
         </>

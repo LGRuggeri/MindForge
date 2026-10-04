@@ -1,0 +1,1 @@
+ALTER TABLE "conteudos" ADD COLUMN "atualizacao_fontes" jsonb;
