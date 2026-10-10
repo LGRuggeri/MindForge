@@ -35,7 +35,7 @@
     "@nestjs/platform-express": "^12.1.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.3",
     "openai": "^6.48.0",
     "pg": "^8.23.1",
