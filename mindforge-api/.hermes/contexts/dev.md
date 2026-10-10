@@ -56,9 +56,9 @@ npm run start:dev
 
 ## Project Paths
 
-- API root: `mindforge-api`
+- API root: `mindforge-api/` (a partir da raiz do repositório)
 - Modules: `src/modules/<dominio>/`
 - Schema: `src/database/schema/`
 - Migrations: `src/database/migrations/`
 - Config: `src/config/`
-- Docs: `docs/`
+- Docs: `docs/` (a partir da raiz do repositório)
