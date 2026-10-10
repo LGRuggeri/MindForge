@@ -18,7 +18,9 @@ async function executarCi() {
     NODE_ENV: 'test',
   };
   const jest = resolve(cwd, 'node_modules/jest/bin/jest.js');
-  const descoberta = spawnSync(process.execPath, [jest, '--listTests', '--json', '--runInBand'], {
+  // O NestJS 12 é ESM puro: o Jest precisa do suporte a módulos ESM da VM.
+  const NODE_ESM = ['--experimental-vm-modules'];
+  const descoberta = spawnSync(process.execPath, [...NODE_ESM, jest, '--listTests', '--json', '--runInBand'], {
     cwd,
     env,
     encoding: 'utf8',
@@ -37,6 +39,7 @@ async function executarCi() {
   const testes = spawnSync(
     process.execPath,
     [
+      ...NODE_ESM,
       jest,
       '--ci',
       '--runInBand',
