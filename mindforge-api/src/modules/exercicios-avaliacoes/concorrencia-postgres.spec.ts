@@ -98,11 +98,12 @@ comSql('Avaliações — concorrência e rollback em conexões distintas', () =>
     ]);
     expect(processarA.mock.calls.length + processarB.mock.calls.length).toBe(1);
     expect(await banco.bancos[0].select().from(schema.resultadosAvaliacao)).toHaveLength(1);
+    // Quem ganha o lock é decidido pelo Postgres: a agenda reflete a nota vencedora (10 acerta, 0 erra).
     expect(await banco.bancos[0].select().from(schema.revisaoEspacada)).toEqual([
       expect.objectContaining({
         itemId: exercicioId,
         perfilId: ciclo.perfil.id,
-        repeticoes: 0,
+        repeticoes: Number(primeiro.pontuacaoTotal) === 10 ? 1 : 0,
         intervaloDias: 1,
       }),
     ]);
