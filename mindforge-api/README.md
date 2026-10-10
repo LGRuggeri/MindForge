@@ -15,7 +15,7 @@ real → projeto compilado sem erros → API subida e testada via HTTP real
 
 ## Pré-requisitos
 
-- Node.js 24.9 ou superior (versão do CI)
+- Node.js 24.15 ou superior (versão do CI)
 - PostgreSQL local com a extensão `pgvector` instalada (ver
   `docs/04-modelagem-dados.md` §2 no repositório de documentação)
 

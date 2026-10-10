@@ -43,7 +43,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 24.15
           cache: npm
           cache-dependency-path: mindforge-api/package-lock.json
       - name: Instalar dependências fixadas
