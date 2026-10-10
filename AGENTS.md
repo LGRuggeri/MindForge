@@ -71,13 +71,13 @@ MindForge/
 
 **Front-end (`mindforge-web/`)**:
 
-- **Runtime**: Node.js **>= 20.19** (Vite 7, jsdom 28 e @vitejs/plugin-react 5 exigem ^20.19; declarado em `engines` do `package.json`)
+- **Runtime**: Node.js **^22.22.2 || ^24.15.0 || >=26** (jsdom 30, Vitest 5 e jest-dom 7 exigem essas faixas; declarado em `engines` do `package.json`)
 - **Framework**: Next.js 16 (App Router) + React 19
 - **Estilo**: Tailwind CSS v4 + shadcn/ui + tw-animate-css
 - **Dados**: TanStack Query (hooks em `lib/hooks/`) + Axios (`lib/api.ts`, base URL em `NEXT_PUBLIC_API_URL`, default `http://localhost:3000`)
 - **Estado**: Zustand (perfil ativo)
 - **Visualização**: React Flow (`@xyflow/react`) para o knowledge graph
-- **Testes**: Vitest 4 + jsdom + Testing Library (`npm test`, config em `vitest.config.ts`, setup em `test/`)
+- **Testes**: Vitest 5 + jsdom + Testing Library (`npm test`, config em `vitest.config.ts`, setup em `test/`)
 
 ## 4. Convenções de organização do código
 
@@ -160,7 +160,7 @@ npm run db:studio     # abre Drizzle Studio para inspeção
 
 ## 7. Build e execução local
 
-Pré-requisito: Docker e Node.js 24.15+ na API (o front-end exige >= 20.19, veja §3).
+Pré-requisito: Docker e Node.js 24.15+ na API (o front-end também aceita Node 22.22.2+, veja §3).
 
 ```bash
 cd mindforge-api

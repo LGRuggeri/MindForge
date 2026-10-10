@@ -87,7 +87,7 @@ Cada etapa é um agente de IA com contrato próprio (Planner, Researcher, Synthe
 
 ## Requisitos
 
-- **Node.js 24.15 ou superior** (versão usada no CI; a API, o NestJS 12 e os testes com Jest dependem de módulos ESM) e npm. O front-end exige no mínimo 20.19.
+- **Node.js 24.15 ou superior** (versão usada no CI; a API, o NestJS 12 e os testes com Jest dependem de módulos ESM) e npm. O front-end também aceita Node 22.22.2 ou superior da linha 22.
 - **Docker** com suporte a containers Linux, para o Postgres de desenvolvimento e, se quiser, o sandbox.
 - Um **provedor de chat compatível com a API da OpenAI** e sua chave (por exemplo Google Gemini, OpenCode ou um Ollama local).
 - Um **provedor de embeddings de 768 dimensões**. O caminho mais simples é o [Ollama](https://ollama.com/) local com `nomic-embed-text`.
