@@ -57,8 +57,8 @@ MindForge/
 
 **Backend (`mindforge-api/`)**:
 
-- **Runtime**: Node.js 20+
-- **Framework**: NestJS 11 (REST; GraphQL planejado na documentação)
+- **Runtime**: Node.js 24.15+ (NestJS 12 é ESM puro; o Jest roda com `--experimental-vm-modules`, já embutido nos scripts `npm test`)
+- **Framework**: NestJS 12 (REST; GraphQL planejado na documentação)
 - **Linguagem**: TypeScript 6.x (strict, decorators, reflect-metadata)
 - **ORM**: Drizzle ORM 0.45.x
 - **Banco**: PostgreSQL 17 com extensão `pgvector`
@@ -160,7 +160,7 @@ npm run db:studio     # abre Drizzle Studio para inspeção
 
 ## 7. Build e execução local
 
-Pré-requisito: Docker e Node.js 20+ (o front-end exige >= 20.19 — veja §3).
+Pré-requisito: Docker e Node.js 24.15+ na API (o front-end exige >= 20.19, veja §3).
 
 ```bash
 cd mindforge-api
