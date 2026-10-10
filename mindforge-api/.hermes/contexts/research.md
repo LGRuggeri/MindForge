@@ -20,7 +20,7 @@ When starting research on MindForge:
 4. `src/main.ts`
 5. `src/config/env.validation.ts`
 6. `src/database/schema/index.ts`
-7. Docs folder: `docs/`
+7. Docs folder: `docs/` (a partir da raiz do repositório)
 
 ## Key Questions to Answer
 

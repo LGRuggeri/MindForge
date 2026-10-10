@@ -241,7 +241,7 @@ Siga esses arquivos ao implementar novos módulos. Eles refletem as mesmas conve
 Sempre que uma sessão produzir informações relevantes para manter entre execuções (correções de bug, decisões arquiteturais, pendências, comandos de setup, etc.), grave no `agent_kb` do projeto `mindforge`:
 
 ```bash
-py -3.11 "/opt/agent-kb/agent_kb.py"
+python3 "$AGENT_KB_SCRIPT_PATH"   # caminho local do agent_kb.py, definido no .env
 ```
 
 **Regra de ouro:** antes de retomar uma sessão, consulte o `agent_kb` com `search`/`query` para recuperar o contexto acumulado. Ao final da sessão, ou ao atingir um marco importante, use `memory add` para persistir decisões, correções, pendências e comandos de setup. Isso reduz a dependência do contexto da conversa e mantém o histórico do projeto disponível para futuros agentes.

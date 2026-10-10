@@ -1,5 +1,7 @@
 # MindForge — API
 
+> Visão geral, instalação completa e configuração estão no [README da raiz](../README.md).
+
 Backend do MindForge: NestJS + Drizzle ORM + PostgreSQL/pgvector.
 
 Plataforma pessoal de estudo guiada por IA: você solicita o conteúdo, e a IA
@@ -13,7 +15,7 @@ real → projeto compilado sem erros → API subida e testada via HTTP real
 
 ## Pré-requisitos
 
-- Node.js 20+
+- Node.js 24 (versão do CI)
 - PostgreSQL local com a extensão `pgvector` instalada (ver
   `docs/04-modelagem-dados.md` §2 no repositório de documentação)
 
@@ -43,17 +45,11 @@ src/
 │   └── migrations/            # geradas via `npm run db:generate`
 ├── common/filters/            # ProblemDetailsFilter (RFC 7807)
 ├── jobs/                      # fila de jobs assíncronos (pg-boss)
-└── modules/
-    ├── perfil/                 # ✅ implementado — referência de módulo CRUD padrão
-    ├── biblioteca-viva/        # ✅ implementado — referência de busca vetorial (RAG)
-    ├── planner/                 # ✅ implementado — cria objetivo e gera trilha via LLM
-    ├── agentes/                  # ✅ implementado — cliente LLM + logging
-    ├── research/                 # esqueleto — TODO
-    ├── synthesizer/               # esqueleto — TODO
-    ├── tutor/                      # esqueleto — TODO
-    ├── exercicios-avaliacoes/       # esqueleto — TODO
-    ├── diario/                       # esqueleto — TODO
-    └── knowledge-graph/               # esqueleto — TODO
+└── modules/                   # um diretório por domínio (todos implementados):
+    ├── perfil/  planner/  research/  synthesizer/  biblioteca-viva/
+    ├── tutor/  agent-kb/  exercicios-avaliacoes/  atividades-conteudo/
+    ├── projetos/  diario/  knowledge-graph/  agentes/
+    └── midia/  sandbox/  estudo-piloto/
 ```
 
 ## Padrão de módulo

@@ -6,7 +6,7 @@ Data da análise: 03/10/2026. Este documento preserva o diagnóstico e o desenho
 
 O MindForge deve transformar o programa da prova em aulas que ensinem cada assunto, atividades que exijam aplicação e avaliações que indiquem o que revisar. A abrangência deve ser conferida por item do programa. O tamanho do texto, isoladamente, não demonstra qualidade.
 
-O primeiro caso de uso é Professor Intérprete de Libras, processo seletivo da Educação de Balneário Piçarras/SC, edital 02/2026, IBAM. O arquivo informado foi encontrado em `an3.psedu26.pdf`. Foram extraídas e inspecionadas visualmente as páginas 1, 5 e 6: núcleo comum e programa específico de Libras. O anexo lista assuntos e referências; não contém as aulas necessárias para aprendê-los.
+O primeiro caso de uso é Professor Intérprete de Libras, processo seletivo da Educação de Balneário Piçarras/SC, edital 02/2026, IBAM. O anexo do edital (`an3.psedu26.pdf`) foi consultado localmente. Foram extraídas e inspecionadas visualmente as páginas 1, 5 e 6: núcleo comum e programa específico de Libras. O anexo lista assuntos e referências; não contém as aulas necessárias para aprendê-los.
 
 O anexo local foi confrontado com o [Anexo III publicado pelo IBAM](https://www.ibam-concursos.org.br/documento/an3.psedu26.pdf). O [Anexo II](https://www.ibam-concursos.org.br/documento/an2.psedu26.pdf) estabelece:
 

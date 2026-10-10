@@ -28,3 +28,23 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Segredos e configuração local (os modelos .env.example/env.example continuam versionados)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Dependências e builds
+node_modules/
+coverage/
+dist/
+.next/
+
+# Dumps de banco e dados locais
+*.dump
+*.sql.gz
+*.sqlite
+*.db

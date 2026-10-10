@@ -1,6 +1,6 @@
 # Mapeamento .claude → Hermes — MindForge
 
-Este documento mapeia as configurações usadas no `~/.claude` para a estrutura do Hermes no projeto MindForge.
+Este documento mapeia as configurações usadas no diretório `.claude` do usuário para a estrutura do Hermes no projeto MindForge.
 
 ## Resumo da adaptação
 
