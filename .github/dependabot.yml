@@ -1,0 +1,42 @@
+# Atualizações automáticas de dependências.
+# Alertas e PRs de segurança são configurados em Settings → Advanced Security;
+# este arquivo cuida das atualizações periódicas de versão.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /mindforge-api
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # Minors e patches viram um PR só; majors continuam em PRs separados.
+      minor-e-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /mindforge-web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-e-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns: ["*"]
