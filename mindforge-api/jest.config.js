@@ -14,5 +14,7 @@ module.exports = {
       ? { global: { lines: 80, statements: 80, functions: 80, branches: 80 } }
       : undefined,
   testEnvironment: 'node',
-  transformIgnorePatterns: ['node_modules/(?!(pg-boss|serialize-error|non-error)/)'],
+  // O NestJS 12 e o pg-boss são ESM puro: o Jest os carrega como módulos nativos
+  // (npm test usa --experimental-vm-modules), sem passar pelo ts-jest.
+  transformIgnorePatterns: ['/node_modules/'],
 };

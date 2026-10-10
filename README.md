@@ -3,7 +3,7 @@
 > Plataforma pessoal de estudo guiada por IA. Você diz o que quer aprender; o MindForge monta a trilha, pesquisa fontes, gera as aulas, tira dúvidas, cria exercícios e simulados e acompanha sua evolução com revisão espaçada e um grafo de competências.
 
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=node.js&logoColor=white)
-![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-12-E0234E?logo=nestjs&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17%20%2B%20pgvector-4169E1?logo=postgresql&logoColor=white)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
@@ -63,7 +63,7 @@ Cada etapa é um agente de IA com contrato próprio (Planner, Researcher, Synthe
 
 | Ferramenta | Uso |
 |---|---|
-| [NestJS 11](https://nestjs.com/) + TypeScript (strict) | API REST, módulos de domínio |
+| [NestJS 12](https://nestjs.com/) + TypeScript (strict) | API REST, módulos de domínio |
 | [Drizzle ORM](https://orm.drizzle.team/) + Drizzle Kit | Schema declarativo e migrations |
 | [PostgreSQL 17](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector) | Dados, busca vetorial (HNSW, 768 dimensões) |
 | [pg-boss](https://github.com/timgit/pg-boss) | Fila de jobs assíncronos no próprio Postgres |
@@ -87,7 +87,7 @@ Cada etapa é um agente de IA com contrato próprio (Planner, Researcher, Synthe
 
 ## Requisitos
 
-- **Node.js 24** (versão usada no CI; o front-end exige no mínimo 20.19) e npm.
+- **Node.js 24.9 ou superior** (versão usada no CI; a API, o NestJS 12 e os testes com Jest dependem de módulos ESM) e npm. O front-end exige no mínimo 20.19.
 - **Docker** com suporte a containers Linux, para o Postgres de desenvolvimento e, se quiser, o sandbox.
 - Um **provedor de chat compatível com a API da OpenAI** e sua chave (por exemplo Google Gemini, OpenCode ou um Ollama local).
 - Um **provedor de embeddings de 768 dimensões**. O caminho mais simples é o [Ollama](https://ollama.com/) local com `nomic-embed-text`.
