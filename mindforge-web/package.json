@@ -55,7 +55,7 @@
     "shadcn": "^4.21.4",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.3"
   },
   "overrides": {
     "@tailwindcss/typography": {
