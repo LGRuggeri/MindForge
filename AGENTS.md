@@ -77,7 +77,7 @@ MindForge/
 - **Dados**: TanStack Query (hooks em `lib/hooks/`) + Axios (`lib/api.ts`, base URL em `NEXT_PUBLIC_API_URL`, default `http://localhost:3000`)
 - **Estado**: Zustand (perfil ativo)
 - **Visualização**: React Flow (`@xyflow/react`) para o knowledge graph
-- **Testes**: Vitest 3 + jsdom + Testing Library (`npm test`, config em `vitest.config.ts`, setup em `test/`)
+- **Testes**: Vitest 4 + jsdom + Testing Library (`npm test`, config em `vitest.config.ts`, setup em `test/`)
 
 ## 4. Convenções de organização do código
 
